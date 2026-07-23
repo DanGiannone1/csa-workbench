@@ -1,0 +1,7 @@
+.azure/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+research_subagent.logazd-ai-agents-*.log
