@@ -151,6 +151,105 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 - Product-runtime token and cost capture are not implemented; only the Waza check reports those
   values.
 
+## Current MVP eval flow
+
+Use the current flow in this order. The early steps are deterministic and cheap; the later steps run
+the live assistant and merge reviewed evidence.
+
+```mermaid
+flowchart TD
+    A[Author or edit eval JSON files] --> B[Run eval:harness:check]
+    B --> C{Suite metadata valid?}
+    C -->|No| D[Fix cases, workflows, manifest, or rubrics]
+    C -->|Yes| E[Run eval:mvp against isolated loopback app]
+    E --> F[Review product results and scorecard]
+    F --> G[Run or import Waza skill evidence]
+    G --> H[Add human grounding review when needed]
+    H --> I[Merge scorecard]
+```
+
+### 1. Check the authored eval suite
+
+Run this before any live model/API eval:
+
+```bash
+npm run eval:harness:check
+```
+
+The checker reads the MVP case suite, workflow suite, advisory judge rubrics, and canonical manifest:
+
+- [`tests/evals/mvp-cases.json`](../../tests/evals/mvp-cases.json)
+- [`tests/evals/mvp-workflows.json`](../../tests/evals/mvp-workflows.json)
+- [`tests/evals/judge-rubrics.json`](../../tests/evals/judge-rubrics.json)
+- [`scripts/mvp_eval_manifest.mjs`](../../scripts/mvp_eval_manifest.mjs)
+
+It validates authoring drift, not model behavior. It checks canonical IDs, duplicate IDs, fixture
+version alignment, basic expectation shape, and whether every atomic case has an advisory rubric. A
+healthy result looks like this:
+
+```json
+{
+  "pass": true,
+  "errors": [],
+  "warnings": [],
+  "summary": {
+    "fixtureVersion": "mvp-demo-v2",
+    "atomicCases": 9,
+    "workflows": 1,
+    "rubricCases": 9
+  }
+}
+```
+
+If this step fails, fix the suite metadata first. Do not interpret a later live eval result until the
+suite definition itself is clean.
+
+### 2. Run the live product eval
+
+After the isolated demo app is running, run the product-runtime eval:
+
+```bash
+npm run eval:mvp
+```
+
+The live runner calls the configured Deep Agents backend through the local API, resets the demo
+fixture when `MVP_RESET_BEFORE_RUN=1`, sends each prompt, records SSE events and raw SDK trace
+records, compares before/after app state, and writes product evidence plus a scorecard under the MVP
+evidence directory. `MVP_EVAL_SCOPE` can be `all`, `atomic`, or `workflow`; the default is `all`.
+
+The product hard gate is deterministic. It checks structured tool results, target IDs, expected
+arguments, forbidden tools, navigation events, state changes, and model-visible product-tool output.
+Assistant prose cannot make a case pass unless the structured evidence also passes.
+
+### 3. Add advisory review evidence
+
+Judge rubrics are checked in, but the automated judge is not a release gate yet. Use the rubric
+questions to guide human or experimental judge review of the saved run bundle. The judge must grade
+only the assistant response against the recorded facts; it must not override deterministic code
+checks.
+
+For the `engagement-meeting-prep` skill laboratory lane, run or import Waza evidence separately:
+
+```bash
+npm run eval:waza:gate
+```
+
+Waza evidence covers skill routing and read-only constraints in the Copilot laboratory environment.
+It does not replace the live product-runtime eval.
+
+### 4. Merge the final scorecard
+
+Merge product evidence, Waza evidence, and optional grounding review evidence with:
+
+```bash
+npm run eval:mvp:scorecard -- <product-results.json> <waza-results.json> <output-prefix> [grounding-review.json]
+```
+
+The merged scorecard can reach `READY_FOR_BASELINE` only when product hard gates pass, Waza gate
+evidence is present and bound to the same source/skill identity, and grounding review records are
+approved where required. Until then the scorecard is still useful evidence, but it is not an accepted
+baseline.
+
 ## Roadmap
 
 | Phase | Delivers | Depends on |

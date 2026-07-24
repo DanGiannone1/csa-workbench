@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { validateEvalHarness } from "../scripts/eval_harness_check.mjs";
 import { evidencePath, evaluateCase, onlyExpectedEngagementUpdate, onlyNamedEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
 
 const start = { type: "RUN_STARTED", run_id: "run-1", thread_id: "thread-1" };
@@ -88,6 +89,29 @@ test("MVP eval scope defaults to all and selects only the requested versioned su
     () => selectMvpEvalScope("all", atomicSuite, { ...workflowSuite, fixtureVersion: "fixture-v2" }),
     /atomic and workflow fixture versions must match/,
   );
+});
+
+test("offline eval harness metadata stays aligned with canonical suites and rubrics", () => {
+  const casesSuite = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url), "utf8"));
+  const workflowSuite = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url), "utf8"));
+  const rubricSuite = JSON.parse(readFileSync(new URL("./evals/judge-rubrics.json", import.meta.url), "utf8"));
+
+  const verdict = validateEvalHarness({ casesSuite, workflowSuite, rubricSuite });
+  assert.equal(verdict.pass, true);
+  assert.deepEqual(verdict.errors, []);
+  assert.deepEqual(verdict.warnings, []);
+  assert.deepEqual(verdict.summary, {
+    fixtureVersion: "mvp-demo-v2",
+    atomicCases: 9,
+    workflows: 1,
+    rubricCases: 9,
+  });
+
+  const duplicateCase = structuredClone(casesSuite);
+  duplicateCase.cases[1].id = duplicateCase.cases[0].id;
+  const duplicateVerdict = validateEvalHarness({ casesSuite: duplicateCase, workflowSuite, rubricSuite });
+  assert.equal(duplicateVerdict.pass, false);
+  assert.match(duplicateVerdict.errors.join("\n"), /duplicate atomic case id/);
 });
 
 test("the evaluation oracle requires structured evidence, one terminal, and state effect", () => {

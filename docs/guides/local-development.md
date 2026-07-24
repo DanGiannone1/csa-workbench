@@ -70,6 +70,20 @@ This command checks dependency locks, focused Python tests, assistant contracts,
 lint, frontend build, shell syntax, Bicep compilation, and whitespace. CI uses `npm run verify:ci`,
 which skips the local Bicep compilation step.
 
+## Check the eval harness
+
+Run the offline harness check before changing or running the live MVP eval suite:
+
+```bash
+npm run eval:harness:check
+```
+
+This does not call the model or reset demo data. It validates the MVP case files, workflow files,
+canonical manifest, and advisory rubrics so live eval results are based on a clean suite definition.
+
+See the [agent evaluation reference architecture](../reference-architectures/agent-evaluation.md#current-mvp-eval-flow)
+for the full preflight, live run, review, and scorecard merge flow.
+
 ## Run the assistant evaluation
 
 This command calls the configured model and requires a running isolated application and the user's
