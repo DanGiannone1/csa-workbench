@@ -221,14 +221,16 @@ async def lifespan(app: FastAPI):
 
     logger.info("Application started")
 
-    yield
-
-    if _reminder_dispatch_task is not None:
-        _reminder_dispatch_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await _reminder_dispatch_task
-    await session_manager.stop()
-    logger.info("Application shut down")
+    try:
+        yield
+    finally:
+        if _reminder_dispatch_task is not None:
+            _reminder_dispatch_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await _reminder_dispatch_task
+        await session_manager.stop()
+        await api_authenticator.close()
+        logger.info("Application shut down")
 
 
 app = FastAPI(title="CSA Workbench", lifespan=lifespan)

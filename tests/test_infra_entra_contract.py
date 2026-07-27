@@ -278,19 +278,37 @@ def test_entra_shape_redirect_and_runtime_assignment_contracts_are_idempotent_an
         entra.ensure_entra(graph, 'mvp1', 'tenant', 'https://new.example', 'api-principal')
 
 
-def test_runtime_audience_contract_requests_the_identifier_uri_and_verifies_the_v2_client_id() -> None:
+def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_claims() -> None:
     apps = (ROOT / 'infra' / 'apps.bicep').read_text()
     entra_source = (ROOT / 'infra' / 'entra.py').read_text()
     workload_auth = (ROOT / 'session-container' / 'workload_auth.py').read_text()
     session_manager = (ROOT / 'session_manager.py').read_text()
+    deploy = (ROOT / 'infra' / 'deploy.sh').read_text()
 
     requested_resource = "api://${runtimeClientId}"
     assert f"{{ name: 'POOL_AUTH_AUDIENCE', value: '{requested_resource}' }}" in apps
     assert "{ name: 'WORKLOAD_ENTRA_AUDIENCE', value: runtimeClientId }" in apps
     assert 'expected = [f"api://{application[\'appId\']}"]' in entra_source
-    assert 'audience=self.config.audience' in workload_auth
+    assert 'claims["aud"] != self.config.audience' in workload_auth
+    assert "name: 'mise-auth'" in apps
+    assert "{ name: 'AzureAd__Audience', value: runtimeClientId }" in apps
+    assert 'mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:' in deploy
+    assert 'miseSidecarImage="$MISE_SIDECAR_IMAGE"' in deploy
     assert 'os.getenv("POOL_AUTH_AUDIENCE", "").strip().rstrip("/")' in session_manager
     assert 'return f"{audience}/.default"' in session_manager
+
+
+def test_python_authentication_has_no_direct_jwt_or_jwks_validation_path() -> None:
+    sources = [
+        (ROOT / 'api_auth.py').read_text(),
+        (ROOT / 'session-container' / 'workload_auth.py').read_text(),
+        (ROOT / 'pyproject.toml').read_text(),
+        (ROOT / 'session-container' / 'pyproject.toml').read_text(),
+    ]
+    combined = '\n'.join(sources).lower()
+    assert 'pyjwkclient' not in combined
+    assert 'pyjwt' not in combined
+    assert 'jwt.decode' not in combined
 
 
 def test_deployment_what_if_replaces_only_the_operation_token_and_preserves_create_model_values(tmp_path: Path) -> None:
@@ -432,8 +450,10 @@ def test_static_portable_contract_has_no_legacy_names_or_model_defaults() -> Non
     assert "gpt-4.1" not in source and "gpt-5.6-terra" not in source
     assert "param azureopenaimodelname string" in files['platform.bicep'].lower()
     assert "param azureopenaimodelcapacity int" in files['platform.bicep'].lower()
+    assert "enableAutomaticFailover: true" in files['platform.bicep']
     assert "param databaseName string" in files['apps.bicep']
     assert "param frontendIdentityId string" in files['apps.bicep']
+    assert "param miseSidecarImage string" in files['apps.bicep']
     assert "azureOpenAiDeploymentName: azureOpenAiDeploymentName" in files['foundation.bicep']
     assert "{ name: 'AZURE_DEPLOYMENT', value: azureOpenAiDeployment }" in files['apps.bicep']
     assert "--instance-slug" in files['entra.py'] and "apply=true" not in files['deploy.sh'].lower()
@@ -454,7 +474,7 @@ def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
     env = {
         **os.environ,
         'APPS': json.dumps(apps), 'DEPLOYMENTS': json.dumps([{'name': 'deployment', 'properties': {'provisioningState': 'Succeeded', 'model': {'format': 'OpenAI', 'name': 'model', 'version': 'version'}} , 'sku': {'name': 'GlobalStandard', 'capacity': 30}}]),
-        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]',
+        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]',
         'FRONTEND_APP_NAME': f'csa-wb-{slug}-frontend', 'API_APP_NAME': f'csa-wb-{slug}-api', 'RUNTIME_APP_NAME': f'csa-wb-{slug}-runtime', 'FRONTEND_IDENTITY_NAME': f'csa-wb-{slug}-frontend-identity', 'API_IDENTITY_NAME': f'csa-wb-{slug}-api-identity', 'RUNTIME_IDENTITY_NAME': f'csa-wb-{slug}-runtime-identity', 'MODEL_DEPLOYMENT_NAME': 'deployment', 'MODEL_NAME': 'model', 'MODEL_VERSION': 'version', 'MODEL_SKU_NAME': 'GlobalStandard', 'MODEL_CAPACITY': '30', 'SHA': sha, 'RESOURCE_GROUP': f'csa-wb-{slug}-rg', 'SUBSCRIPTION_ID': 'sub', 'ENVIRONMENT_NAME': f'csa-wb-{slug}-env', 'DATABASE_NAME': f'csa-wb-{slug}-entra', 'VNET_NAME': f'csa-wb-{slug}-vnet', 'COSMOS_ACCOUNT_NAME': 'cosmos', 'STORAGE_ACCOUNT_NAME': 'storage', 'ACR_NAME': 'acr', 'AOAI_NAME': 'ai', 'COSMOS_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-cosmos-pe', 'STORAGE_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-storage-pe', 'COSMOS_PRIVATE_DNS_ZONE': 'privatelink.documents.azure.com', 'STORAGE_PRIVATE_DNS_ZONE': 'privatelink.blob.core.windows.net', 'PRIVATE_DNS_VNET_LINK_NAME': f'csa-wb-{slug}-vnet-link', 'FRONTEND_PRINCIPAL': 'frontend', 'API_PRINCIPAL': 'api', 'RUNTIME_PRINCIPAL': 'runtime', 'LOCATION': 'eastus2',
     }
     result = subprocess.run([sys.executable, '-c', verifier], env=env, text=True, capture_output=True)
@@ -469,10 +489,35 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
     root = f'/subscriptions/{sub}/resourceGroups/{rg}/providers'; ids = {k: f'{root}/Microsoft.ManagedIdentity/userAssignedIdentities/{base}-{k}-identity' for k in ('frontend','api','runtime')}
     principal = {'frontend':'frontend','api':'api','runtime':'runtime'}
     apps = []
+    tenant_id, api_client_id, runtime_client_id = 'tenant', 'api-client-id', 'runtime-client-id'
+    mise_image = 'mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871adfacf41a46b3ad9e8cf619e59d58b39bf5b00dfe9ff13c1de140dd6'
     for kind, external, port, repo in [('frontend',True,3000,'csa-workbench-frontend'),('api',True,8000,'csa-workbench-api'),('runtime',False,8080,'csa-workbench-runtime')]:
-        container = {'image': f'acr.azurecr.io/{repo}:{sha}'}
-        if kind == 'runtime': container['env'] = [{'name':'AZURE_DEPLOYMENT','value':'deployment'},{'name':'AZURE_ENDPOINT','value':'https://ai/openai/v1/'}]
-        apps.append({'name':f'{base}-{kind}','identity':{'userAssignedIdentities':{ids[kind]:{}}},'properties':{'provisioningState':'Succeeded','workloadProfileName':'Consumption','managedEnvironmentId':f'{root}/Microsoft.App/managedEnvironments/{base}-env','configuration':{'ingress':{'external':external,'targetPort':port,'transport':'auto'},'registries':[{'server':'acr.azurecr.io','identity':ids[kind]}]},'template':{'scale':{'minReplicas':0,'maxReplicas':1},'containers':[container]}}})
+        container = {'name': kind, 'image': f'acr.azurecr.io/{repo}:{sha}'}
+        if kind == 'api': container['env'] = [
+            {'name':'IDENTITY_MODE','value':'entra'}, {'name':'ENTRA_TENANT_ID','value':tenant_id},
+            {'name':'ENTRA_API_CLIENT_ID','value':api_client_id}, {'name':'ENTRA_ALLOWED_AUDIENCES','value':f'api://{api_client_id}'},
+            {'name':'POOL_AUTH_AUDIENCE','value':f'api://{runtime_client_id}'},
+            {'name':'MISE_VALIDATION_ENDPOINT','value':'http://127.0.0.1:8081/Validate'},
+        ]
+        if kind == 'runtime': container['env'] = [
+            {'name':'AZURE_DEPLOYMENT','value':'deployment'}, {'name':'AZURE_ENDPOINT','value':'https://ai/openai/v1/'},
+            {'name':'WORKLOAD_AUTH_MODE','value':'entra'}, {'name':'WORKLOAD_ENTRA_TENANT_ID','value':tenant_id},
+            {'name':'WORKLOAD_ENTRA_AUDIENCE','value':runtime_client_id}, {'name':'WORKLOAD_ENTRA_CALLER_OBJECT_ID','value':'api'},
+            {'name':'WORKLOAD_ENTRA_REQUIRED_ROLE','value':'invoke'},
+            {'name':'MISE_VALIDATION_ENDPOINT','value':'http://127.0.0.1:8081/Validate'},
+        ]
+        containers = [container]
+        if kind in {'api', 'runtime'}:
+            client_id = api_client_id if kind == 'api' else runtime_client_id
+            authorization = {'AzureAd__Scopes':'access_as_user'} if kind == 'api' else {'AzureAd__Roles':'invoke'}
+            sidecar_env = {
+                'Kestrel__Endpoints__Http__Url':'http://127.0.0.1:8081', 'ASPNETCORE_ENVIRONMENT':'Production',
+                'AzureAd__Instance':'https://login.microsoftonline.com/', 'AzureAd__TenantId':tenant_id,
+                'AzureAd__ClientId':client_id, 'AzureAd__Audience':client_id,
+                'Logging__LogLevel__Default':'Warning', 'Logging__LogLevel__Microsoft.Identity.Web':'Information', **authorization,
+            }
+            containers.append({'name':'mise-auth','image':mise_image,'resources':{'cpu':0.25,'memory':'0.5Gi','ephemeralStorage':'1Gi'},'env':[{'name':name,'value':value} for name,value in sidecar_env.items()]})
+        apps.append({'name':f'{base}-{kind}','identity':{'userAssignedIdentities':{ids[kind]:{}}},'properties':{'provisioningState':'Succeeded','workloadProfileName':'Consumption','managedEnvironmentId':f'{root}/Microsoft.App/managedEnvironments/{base}-env','configuration':{'ingress':{'external':external,'targetPort':port,'transport':'auto'},'registries':[{'server':'acr.azurecr.io','identity':ids[kind]}]},'template':{'scale':{'minReplicas':0,'maxReplicas':1},'containers':containers}}})
     zones = ['privatelink.documents.azure.com','privatelink.blob.core.windows.net']; endpoints = []
     for name, target, group, nic in [(f'{base}-cosmos-pe',f'{root}/Microsoft.DocumentDB/databaseAccounts/{cosmos}','Sql','nic1'),(f'{base}-storage-pe',f'{root}/Microsoft.Storage/storageAccounts/{storage}','blob','nic2')]:
         endpoints.append({'name':name,'provisioningState':'Succeeded','subnet':{'id':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/private-endpoints'},'networkInterfaces':[{'id':f'{root}/Microsoft.Network/networkInterfaces/{nic}'}],'privateLinkServiceConnections':[{'privateLinkServiceId':target,'groupIds':[group],'privateLinkServiceConnectionState':{'status':'Approved'}}]})
@@ -486,7 +531,7 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
     for p in ('frontend','api','runtime'): roles.append({'scope':f'{scope}providers/Microsoft.ContainerRegistry/registries/{acr}','roleDefinitionName':'AcrPull','principalId':principal[p]})
     roles += [{'scope':f'{scope}providers/Microsoft.Storage/storageAccounts/{storage}','roleDefinitionName':'Storage Blob Data Contributor','principalId':'api'},{'scope':f'{scope}providers/Microsoft.CognitiveServices/accounts/{ai}','roleDefinitionName':'Cognitive Services OpenAI User','principalId':'runtime'}]
     cscope=f'{scope}providers/Microsoft.DocumentDB/databaseAccounts/{cosmos}'; croles=[{'roleDefinitionId':f'{cscope}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002','scope':cscope,'principalId':p} for p in ('api','runtime')]
-    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'OpenAI','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'endpoint':'https://ai/'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled'}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2'}
+    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'SYSTEM_TOPICS':'[]','SYSTEM_TOPIC_SUBSCRIPTIONS':'[]','ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'OpenAI','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'endpoint':'https://ai/'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled','enableAutomaticFailover':True}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2','IDENTITY_MODE':'entra','TENANT_ID':tenant_id,'API_CLIENT_ID':api_client_id,'RUNTIME_CLIENT_ID':runtime_client_id,'MISE_SIDECAR_IMAGE':mise_image}
     return code, env
 
 
@@ -496,6 +541,191 @@ def test_portable_verifier_accepts_complete_fixture_and_rejects_wiring_roles_and
     cases = [('APPS', lambda value: value.replace('acr.azurecr.io/csa-workbench-frontend:', 'wrong/')), ('COSMOS_DNS_RECORDS', lambda value: value.replace('10.42.0.40','10.42.0.99')), ('COSMOS_DNS_GROUPS', lambda value: value.replace('["10.42.0.40"]', '[{"ipAddress":"10.42.0.40"}]')), ('RESOURCES', lambda value: value[:-1]+',{"type":"Microsoft.Search/searchServices","name":"extra"}]'), ('ASSIGNMENTS', lambda value: value[:-2]+',{"scope":"/subscriptions/sub/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Storage/storageAccounts/storage","roleDefinitionName":"Reader","principalId":"api"}]]'), ('COSMOS_SQL_ASSIGNMENTS', lambda value: value[:-1]+',{"roleDefinitionId":"x","scope":"x","principalId":"api"}]')]
     for key, mutate in cases:
         changed={**env,key:mutate(env[key])}; assert subprocess.run([sys.executable,'-c',code],env=changed,text=True,capture_output=True).returncode != 0
+
+
+def test_portable_verifier_rejects_malformed_or_duplicate_container_profiles() -> None:
+    code, env = _verifier_fixture()
+
+    malformed = json.loads(env['APPS'])
+    next(app for app in malformed if app['name'].endswith('-runtime'))['properties']['template']['containers'].append('not-a-container')
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(malformed)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'Container App identity, registry, or profile drifted' in result.stderr
+
+    duplicate_env = json.loads(env['APPS'])
+    sidecar = next(app for app in duplicate_env if app['name'].endswith('-runtime'))['properties']['template']['containers'][1]
+    sidecar['env'].append(dict(sidecar['env'][0]))
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(duplicate_env)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'Microsoft identity sidecar environment profile drifted' in result.stderr
+
+    duplicate_container = json.loads(env['APPS'])
+    containers = next(app for app in duplicate_container if app['name'].endswith('-runtime'))['properties']['template']['containers']
+    containers.append(deepcopy(containers[1]))
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(duplicate_container)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'Container App identity, registry, or profile drifted' in result.stderr
+
+
+def test_portable_verifier_accepts_azure_sidecar_resource_projection_and_rejects_drift() -> None:
+    code, env = _verifier_fixture()
+    assert subprocess.run([sys.executable, '-c', code], env=env, text=True, capture_output=True).returncode == 0
+
+    apps = json.loads(env['APPS'])
+    sidecar = next(app for app in apps if app['name'].endswith('-runtime'))['properties']['template']['containers'][1]
+    sidecar['resources']['ephemeralStorage'] = '2Gi'
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(apps)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'Microsoft identity sidecar profile drifted' in result.stderr
+
+
+@pytest.mark.parametrize("app_suffix,variable,bad_value,error", [
+    ('-api', 'IDENTITY_MODE', 'demo', 'API identity binding drifted'),
+    ('-api', 'ENTRA_TENANT_ID', 'wrong-tenant', 'API identity binding drifted'),
+    ('-api', 'ENTRA_API_CLIENT_ID', 'wrong-api', 'API identity binding drifted'),
+    ('-runtime', 'WORKLOAD_ENTRA_TENANT_ID', 'wrong-tenant', 'runtime workload identity binding drifted'),
+    ('-runtime', 'WORKLOAD_ENTRA_AUDIENCE', 'wrong-runtime', 'runtime workload identity binding drifted'),
+    ('-runtime', 'WORKLOAD_ENTRA_CALLER_OBJECT_ID', 'wrong-caller', 'runtime workload identity binding drifted'),
+    ('-runtime', 'WORKLOAD_ENTRA_REQUIRED_ROLE', 'wrong-role', 'runtime workload identity binding drifted'),
+])
+def test_portable_verifier_rejects_main_authentication_binding_drift(
+    app_suffix: str, variable: str, bad_value: str, error: str,
+) -> None:
+    code, env = _verifier_fixture()
+    apps = json.loads(env['APPS'])
+    app = next(item for item in apps if item['name'].endswith(app_suffix))
+    main = app['properties']['template']['containers'][0]
+    next(item for item in main['env'] if item['name'] == variable)['value'] = bad_value
+
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(apps)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and error in result.stderr
+
+
+def test_portable_verifier_accepts_only_demo_api_without_a_sidecar_and_with_secret_binding() -> None:
+    code, env = _verifier_fixture()
+    apps = json.loads(env['APPS'])
+    api = next(app for app in apps if app['name'].endswith('-api'))
+    containers = api['properties']['template']['containers']
+    containers[:] = [container for container in containers if container['name'] == 'api']
+    api_env = containers[0]['env']
+    api_env[:] = [entry for entry in api_env if entry['name'] != 'MISE_VALIDATION_ENDPOINT']
+    next(entry for entry in api_env if entry['name'] == 'IDENTITY_MODE')['value'] = 'demo'
+    api_env.append({'name': 'DEMO_PASSWORD', 'secretRef': 'demo-password'})
+    demo_env = {**env, 'IDENTITY_MODE': 'demo', 'APPS': json.dumps(apps)}
+    assert subprocess.run([sys.executable, '-c', code], env=demo_env, text=True, capture_output=True).returncode == 0
+
+    api_env.pop()
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**demo_env, 'APPS': json.dumps(apps)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'demo API identity binding drifted' in result.stderr
+
+def test_portable_verifier_requires_cosmos_automatic_failover() -> None:
+    code, env = _verifier_fixture()
+    cosmos = json.loads(env['COSMOS'])
+    cosmos['enableAutomaticFailover'] = False
+
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        env={**env, 'COSMOS': json.dumps(cosmos)},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert 'Cosmos authentication/network/failover profile drifted' in result.stderr
+
+
+def test_portable_verifier_accepts_only_the_defender_storage_antimalware_system_topic() -> None:
+    code, env = _verifier_fixture()
+    topic_name = 'storage-47dbe5dc-3d2f-4736-ad2c-acfe9ba9fd18'
+    source = '/subscriptions/sub/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Storage/storageAccounts/storage'
+    topic = {
+        'name': topic_name,
+        'provisioningState': 'Succeeded',
+        'source': source,
+        'topicType': 'Microsoft.Storage.StorageAccounts',
+    }
+    subscription = {
+        'name': 'StorageAntimalwareSubscription',
+        'provisioningState': 'Succeeded',
+        'destination': {
+            'endpointType': 'WebHook',
+            'endpointBaseUrl': 'https://eastus2.a3.storageav.azure.com:5142/EventCapture/sub/storage',
+            'aadApplication': 'f1f8da5f-609a-401d-85b2-d498116b7265',
+            'aadTenant': '33e01921-4d64-4f8c-a055-5bdaffd5e33d',
+            'maxEventsPerBatch': 1,
+            'preferredBatchSizeInKilobytes': 64,
+            'deliveryAttributeMappings': None,
+        },
+        'eventDeliverySchema': 'EventGridSchema',
+        'filter': {
+            'advancedFilters': [{'key': 'data.blobType', 'operatorType': 'StringContains', 'values': ['BlockBlob']}],
+            'enableAdvancedFilteringOnArrays': None,
+            'includedEventTypes': ['Microsoft.Storage.BlobCreated', 'Microsoft.Storage.BlobRenamed'],
+            'isSubjectCaseSensitive': None,
+            'subjectBeginsWith': '',
+            'subjectEndsWith': '',
+        },
+        'retryPolicy': {'eventTimeToLiveInMinutes': 1440, 'maxDeliveryAttempts': 30},
+        'deadLetterDestination': None,
+        'deadLetterWithResourceIdentity': None,
+        'deliveryWithResourceIdentity': None,
+        'expirationTimeUtc': None,
+        'labels': None,
+    }
+    resources = json.loads(env['RESOURCES']) + [
+        {'type': 'Microsoft.EventGrid/systemTopics', 'name': topic_name},
+    ]
+    governed = {
+        **env,
+        'SYSTEM_TOPICS': json.dumps([topic]),
+        'SYSTEM_TOPIC_SUBSCRIPTIONS': json.dumps([subscription]),
+        'RESOURCES': json.dumps(resources),
+    }
+
+    assert subprocess.run([sys.executable, '-c', code], env=governed, text=True, capture_output=True).returncode == 0
+
+    invalid_cases: list[dict[str, str]] = [
+        {**governed, 'SYSTEM_TOPICS': json.dumps([{**topic, 'source': source.replace('/storage', '/other')}])},
+        {**governed, 'SYSTEM_TOPICS': json.dumps([{**topic, 'name': 'storage-not-a-uuid'}])},
+        {**governed, 'SYSTEM_TOPICS': json.dumps([{**topic, 'topicType': 'Microsoft.Storage.Other'}])},
+        {**governed, 'SYSTEM_TOPICS': json.dumps([{**topic, 'provisioningState': 'Failed'}])},
+        {**governed, 'SYSTEM_TOPICS': json.dumps([topic, topic])},
+        {**governed, 'RESOURCES': env['RESOURCES']},
+        {**governed, 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]'},
+        {**governed, 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]'},
+        {**governed, 'SYSTEM_TOPIC_SUBSCRIPTIONS': json.dumps([subscription, subscription])},
+    ]
+    subscription_mutations = [
+        lambda value: value.__setitem__('name', 'OtherSubscription'),
+        lambda value: value.__setitem__('provisioningState', 'Failed'),
+        lambda value: value['destination'].__setitem__('endpointType', 'Queue'),
+        lambda value: value['destination'].__setitem__('endpointBaseUrl', 'https://attacker.invalid/capture'),
+        lambda value: value['destination'].__setitem__('aadApplication', 'wrong-app'),
+        lambda value: value['destination'].__setitem__('aadTenant', 'wrong-tenant'),
+        lambda value: value.__setitem__('eventDeliverySchema', 'CloudEventSchemaV1_0'),
+        lambda value: value['filter'].__setitem__('includedEventTypes', ['Microsoft.Storage.BlobDeleted']),
+        lambda value: value['retryPolicy'].__setitem__('maxDeliveryAttempts', 1),
+    ]
+    for mutate in subscription_mutations:
+        changed_subscription = deepcopy(subscription)
+        mutate(changed_subscription)
+        invalid_cases.append({**governed, 'SYSTEM_TOPIC_SUBSCRIPTIONS': json.dumps([changed_subscription])})
+    for changed in invalid_cases:
+        assert subprocess.run([sys.executable, '-c', code], env=changed, text=True, capture_output=True).returncode != 0
 
 
 def test_portable_verifier_normalizes_only_known_azure_container_app_defaults() -> None:

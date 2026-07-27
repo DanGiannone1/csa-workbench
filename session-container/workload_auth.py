@@ -7,17 +7,15 @@ workload identity; local development explicitly uses the default ``off`` mode.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-import jwt
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from jwt import InvalidTokenError, PyJWKClient
-from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError
+
+from mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +35,7 @@ class WorkloadAuthConfig:
     audience: str | None
     caller_object_id: str | None
     required_role: str
+    validation_endpoint: str | None = None
 
     @classmethod
     def from_env(cls) -> "WorkloadAuthConfig":
@@ -46,6 +45,7 @@ class WorkloadAuthConfig:
             audience=_env_value("WORKLOAD_ENTRA_AUDIENCE"),
             caller_object_id=_env_value("WORKLOAD_ENTRA_CALLER_OBJECT_ID"),
             required_role=(os.getenv("WORKLOAD_ENTRA_REQUIRED_ROLE") or "invoke").strip(),
+            validation_endpoint=_env_value("MISE_VALIDATION_ENDPOINT"),
         )
 
     @property
@@ -63,6 +63,7 @@ class WorkloadAuthConfig:
                 ("WORKLOAD_ENTRA_AUDIENCE", self.audience),
                 ("WORKLOAD_ENTRA_CALLER_OBJECT_ID", self.caller_object_id),
                 ("WORKLOAD_ENTRA_REQUIRED_ROLE", self.required_role),
+                ("MISE_VALIDATION_ENDPOINT", self.validation_endpoint),
             )
             if not value
         ]
@@ -71,35 +72,16 @@ class WorkloadAuthConfig:
 
 
 class EntraTokenVerifier:
-    """Validate an Entra access token using the tenant JWKS endpoint."""
+    """Apply runtime authorization to claims validated by Microsoft Identity Web."""
 
-    def __init__(self, config: WorkloadAuthConfig, jwks_client: Any | None = None):
+    def __init__(self, config: WorkloadAuthConfig, validator: TokenVerifier | None = None):
         self.config = config
-        self._jwks_client = jwks_client or PyJWKClient(
-            f"https://login.microsoftonline.com/{config.tenant_id}/discovery/v2.0/keys"
+        self._validator = validator or MiseTokenValidator(
+            MiseValidationConfig(config.validation_endpoint or "")
         )
 
     async def verify(self, token: str) -> dict[str, Any]:
-        try:
-            header = jwt.get_unverified_header(token)
-        except InvalidTokenError:
-            raise
-        if header.get("alg") != "RS256" or not isinstance(header.get("kid"), str) or not header["kid"]:
-            raise InvalidTokenError("Unsupported token signing header")
-
-        try:
-            signing_key = await asyncio.to_thread(self._jwks_client.get_signing_key_from_jwt, token)
-        except PyJWKClientConnectionError:
-            raise
-        except PyJWKClientError as exc:
-            raise InvalidTokenError("Unknown token signing key") from exc
-        claims = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience=self.config.audience,
-            options={"require": ["exp", "iss", "aud", "tid", "oid", "roles"]},
-        )
+        claims = await self._validator.verify(token)
         self._validate_claims(claims)
         return claims
 
@@ -107,16 +89,18 @@ class EntraTokenVerifier:
         tenant_id = self.config.tenant_id
         caller_object_id = self.config.caller_object_id
         if not isinstance(claims.get("tid"), str) or claims["tid"] != tenant_id:
-            raise InvalidTokenError("Unexpected tenant")
+            raise TokenRejected("Unexpected tenant")
+        if not isinstance(claims.get("aud"), str) or claims["aud"] != self.config.audience:
+            raise TokenRejected("Unexpected audience")
         if not isinstance(claims.get("oid"), str) or claims["oid"] != caller_object_id:
-            raise InvalidTokenError("Unexpected caller")
+            raise TokenRejected("Unexpected caller")
         if not isinstance(claims.get("iss"), str) or claims["iss"] not in self._allowed_issuers():
-            raise InvalidTokenError("Unexpected issuer")
+            raise TokenRejected("Unexpected issuer")
         roles = claims.get("roles")
         if not isinstance(roles, list) or not all(isinstance(role, str) for role in roles):
-            raise InvalidTokenError("Invalid roles")
+            raise TokenRejected("Invalid roles")
         if self.config.required_role not in roles:
-            raise InvalidTokenError("Missing required application role")
+            raise TokenRejected("Missing required application role")
 
     def _allowed_issuers(self) -> set[str]:
         tenant_id = self.config.tenant_id
@@ -128,6 +112,11 @@ class EntraTokenVerifier:
             f"https://login.microsoftonline.com/{tenant_id}/v2.0/",
             f"https://sts.windows.net/{tenant_id}/",
         }
+
+    async def close(self) -> None:
+        close = getattr(self._validator, "close", None)
+        if close is not None:
+            await close()
 
 
 class WorkloadAuthenticator:
@@ -152,7 +141,7 @@ class WorkloadAuthenticator:
         assert self._verifier is not None
         try:
             claims = await self._verifier.verify(token.strip())
-        except InvalidTokenError as exc:
+        except TokenRejected as exc:
             logger.info("Runtime workload token rejected: %s", exc)
             return self._unauthorized()
         except Exception:
@@ -162,6 +151,11 @@ class WorkloadAuthenticator:
         request.state.workload_authenticated = True
         request.state.workload_claims = claims
         return None
+
+    async def close(self) -> None:
+        close = getattr(self._verifier, "close", None)
+        if close is not None:
+            await close()
 
     @staticmethod
     def _unauthorized() -> JSONResponse:

@@ -71,6 +71,7 @@ ACA_INFRASTRUCTURE_SUBNET_NAME='aca-infrastructure'
 PRIVATE_ENDPOINT_SUBNET_NAME='private-endpoints'
 COSMOS_PRIVATE_DNS_ZONE='privatelink.documents.azure.com'
 STORAGE_PRIVATE_DNS_ZONE='privatelink.blob.core.windows.net'
+MISE_SIDECAR_IMAGE='mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871adfacf41a46b3ad9e8cf619e59d58b39bf5b00dfe9ff13c1de140dd6'
 
 require az
 require git
@@ -173,13 +174,14 @@ make_plan() {
   validate_account_and_revision
   governance_preflight
   recovery_preflight
-  PLAN_PAYLOAD="$(SCHEMA='csa-workbench-portable-plan-v1' TENANT_ID="$TENANT_ID" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" INSTANCE_SLUG="$INSTANCE_SLUG" RESOURCE_GROUP="$RESOURCE_GROUP" LOCATION="$LOCATION" ACR_LOCATION="$ACR_LOCATION" IDENTITY_MODE="$IDENTITY_MODE" DEMO_PASSWORD_SHA256="$(printf %s "$DEMO_PASSWORD" | sha256sum | awk '{print $1}')" SHA="$SHA" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" RECOVERY_STATE="$RECOVERY_STATE" RECOVERY_DELETION_TARGETS="$RECOVERY_DELETION_TARGETS" python3 - <<'PY'
+  PLAN_PAYLOAD="$(SCHEMA='csa-workbench-portable-plan-v2' TENANT_ID="$TENANT_ID" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" INSTANCE_SLUG="$INSTANCE_SLUG" RESOURCE_GROUP="$RESOURCE_GROUP" LOCATION="$LOCATION" ACR_LOCATION="$ACR_LOCATION" IDENTITY_MODE="$IDENTITY_MODE" DEMO_PASSWORD_SHA256="$(printf %s "$DEMO_PASSWORD" | sha256sum | awk '{print $1}')" SHA="$SHA" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" RECOVERY_STATE="$RECOVERY_STATE" RECOVERY_DELETION_TARGETS="$RECOVERY_DELETION_TARGETS" python3 - <<'PY'
 import json, os
 slug = os.environ['INSTANCE_SLUG']
 payload = {
   'schema': os.environ['SCHEMA'], 'tenant_id': os.environ['TENANT_ID'], 'subscription_id': os.environ['SUBSCRIPTION_ID'],
   'instance_slug': slug, 'resource_group': os.environ['RESOURCE_GROUP'], 'location': os.environ['LOCATION'], 'git_sha': os.environ['SHA'],
   'acr_location': os.environ['ACR_LOCATION'], 'identity_mode': os.environ['IDENTITY_MODE'], 'demo_password_sha256': os.environ['DEMO_PASSWORD_SHA256'],
+  'mise_sidecar_image': os.environ['MISE_SIDECAR_IMAGE'],
   'model_deployment_name': os.environ['MODEL_DEPLOYMENT_NAME'], 'model_name': os.environ['MODEL_NAME'], 'model_version': os.environ['MODEL_VERSION'],
   'model_sku_name': os.environ['MODEL_SKU_NAME'], 'model_capacity': int(os.environ['MODEL_CAPACITY']),
   'entra_display_names': [f'CSA Workbench [{slug}] Web', f'CSA Workbench [{slug}] API', f'CSA Workbench [{slug}] Runtime'],
@@ -253,11 +255,25 @@ foundation_output() {
 }
 
 verify_inventory() {
-  local apps deployments identities resources acr azure_open_ai cosmos storage vnet private_endpoints private_dns_zones managed_environment network_security_groups cosmos_dns_links storage_dns_links cosmos_dns_groups storage_dns_groups cosmos_dns_records storage_dns_records frontend_principal api_principal runtime_principal assignments cosmos_sql_assignments
+  local apps deployments identities resources system_topics system_topic_name system_topic_subscriptions acr azure_open_ai cosmos storage vnet private_endpoints private_dns_zones managed_environment network_security_groups cosmos_dns_links storage_dns_links cosmos_dns_groups storage_dns_groups cosmos_dns_records storage_dns_records frontend_principal api_principal runtime_principal assignments cosmos_sql_assignments
   apps="$(az containerapp list -g "$RESOURCE_GROUP" -o json)"
   deployments="$(az cognitiveservices account deployment list -g "$RESOURCE_GROUP" -n "$AOAI_NAME" -o json)"
   identities="$(az identity list -g "$RESOURCE_GROUP" -o json)"
   resources="$(az resource list -g "$RESOURCE_GROUP" -o json)"
+  system_topics="$(az eventgrid system-topic list -g "$RESOURCE_GROUP" --query "[].{name:name,provisioningState:provisioningState,source:source,topicType:topicType}" -o json)"
+  system_topic_name="$(SYSTEM_TOPICS="$system_topics" python3 - <<'PY'
+import json, os
+topics = json.loads(os.environ['SYSTEM_TOPICS'])
+if not isinstance(topics, list) or len(topics) > 1 or any(not isinstance(topic, dict) for topic in topics):
+    raise SystemExit('tenant-managed Event Grid system topic inventory drifted')
+print('' if not topics else topics[0].get('name', ''))
+PY
+)" || fail 'tenant-managed Event Grid system topic inventory validation failed'
+  if [[ -n "$system_topic_name" ]]; then
+    system_topic_subscriptions="$(az eventgrid system-topic event-subscription list -g "$RESOURCE_GROUP" --system-topic-name "$system_topic_name" --query "[].{name:name,provisioningState:provisioningState,destination:{endpointType:destination.endpointType,endpointBaseUrl:destination.endpointBaseUrl,aadApplication:destination.azureActiveDirectoryApplicationIdOrUri,aadTenant:destination.azureActiveDirectoryTenantId,maxEventsPerBatch:destination.maxEventsPerBatch,preferredBatchSizeInKilobytes:destination.preferredBatchSizeInKilobytes,deliveryAttributeMappings:destination.deliveryAttributeMappings},eventDeliverySchema:eventDeliverySchema,filter:filter,retryPolicy:retryPolicy,deadLetterDestination:deadLetterDestination,deadLetterWithResourceIdentity:deadLetterWithResourceIdentity,deliveryWithResourceIdentity:deliveryWithResourceIdentity,expirationTimeUtc:expirationTimeUtc,labels:labels}" -o json)"
+  else
+    system_topic_subscriptions='[]'
+  fi
   acr="$(az acr show -g "$RESOURCE_GROUP" -n "$ACR_NAME" -o json)"
   azure_open_ai="$(az cognitiveservices account show -g "$RESOURCE_GROUP" -n "$AOAI_NAME" -o json)"
   cosmos="$(az cosmosdb show -g "$RESOURCE_GROUP" -n "$COSMOS_ACCOUNT_NAME" -o json)"
@@ -278,10 +294,12 @@ verify_inventory() {
   runtime_principal="$(az identity show -g "$RESOURCE_GROUP" -n "$RUNTIME_IDENTITY_NAME" --query principalId -o tsv)"
   assignments="[$(az role assignment list --assignee "$frontend_principal" --all -o json),$(az role assignment list --assignee "$api_principal" --all -o json),$(az role assignment list --assignee "$runtime_principal" --all -o json)]"
   cosmos_sql_assignments="$(az cosmosdb sql role assignment list -g "$RESOURCE_GROUP" -a "$COSMOS_ACCOUNT_NAME" -o json)"
-  APPS="$apps" DEPLOYMENTS="$deployments" IDENTITIES="$identities" RESOURCES="$resources" ACR="$acr" AZURE_OPEN_AI="$azure_open_ai" COSMOS="$cosmos" STORAGE="$storage" VNET="$vnet" PRIVATE_ENDPOINTS="$private_endpoints" PRIVATE_DNS_ZONES="$private_dns_zones" MANAGED_ENVIRONMENT="$managed_environment" NETWORK_SECURITY_GROUPS="$network_security_groups" COSMOS_DNS_LINKS="$cosmos_dns_links" STORAGE_DNS_LINKS="$storage_dns_links" COSMOS_DNS_GROUPS="$cosmos_dns_groups" STORAGE_DNS_GROUPS="$storage_dns_groups" COSMOS_DNS_RECORDS="$cosmos_dns_records" STORAGE_DNS_RECORDS="$storage_dns_records" ASSIGNMENTS="$assignments" COSMOS_SQL_ASSIGNMENTS="$cosmos_sql_assignments" FRONTEND_APP_NAME="$FRONTEND_APP_NAME" API_APP_NAME="$API_APP_NAME" RUNTIME_APP_NAME="$RUNTIME_APP_NAME" FRONTEND_IDENTITY_NAME="$FRONTEND_IDENTITY_NAME" API_IDENTITY_NAME="$API_IDENTITY_NAME" RUNTIME_IDENTITY_NAME="$RUNTIME_IDENTITY_NAME" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" SHA="$SHA" RESOURCE_GROUP="$RESOURCE_GROUP" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" ENVIRONMENT_NAME="$ENVIRONMENT_NAME" DATABASE_NAME="$DATABASE_NAME" VNET_NAME="$VNET_NAME" COSMOS_ACCOUNT_NAME="$COSMOS_ACCOUNT_NAME" STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT_NAME" ACR_NAME="$ACR_NAME" AOAI_NAME="$AOAI_NAME" COSMOS_PRIVATE_ENDPOINT_NAME="$COSMOS_PRIVATE_ENDPOINT_NAME" STORAGE_PRIVATE_ENDPOINT_NAME="$STORAGE_PRIVATE_ENDPOINT_NAME" COSMOS_PRIVATE_DNS_ZONE="$COSMOS_PRIVATE_DNS_ZONE" STORAGE_PRIVATE_DNS_ZONE="$STORAGE_PRIVATE_DNS_ZONE" PRIVATE_DNS_VNET_LINK_NAME="$PRIVATE_DNS_VNET_LINK_NAME" FRONTEND_PRINCIPAL="$frontend_principal" API_PRINCIPAL="$api_principal" RUNTIME_PRINCIPAL="$runtime_principal" LOCATION="$LOCATION" python3 - <<'PY'
+  APPS="$apps" DEPLOYMENTS="$deployments" IDENTITIES="$identities" RESOURCES="$resources" SYSTEM_TOPICS="$system_topics" SYSTEM_TOPIC_SUBSCRIPTIONS="$system_topic_subscriptions" ACR="$acr" AZURE_OPEN_AI="$azure_open_ai" COSMOS="$cosmos" STORAGE="$storage" VNET="$vnet" PRIVATE_ENDPOINTS="$private_endpoints" PRIVATE_DNS_ZONES="$private_dns_zones" MANAGED_ENVIRONMENT="$managed_environment" NETWORK_SECURITY_GROUPS="$network_security_groups" COSMOS_DNS_LINKS="$cosmos_dns_links" STORAGE_DNS_LINKS="$storage_dns_links" COSMOS_DNS_GROUPS="$cosmos_dns_groups" STORAGE_DNS_GROUPS="$storage_dns_groups" COSMOS_DNS_RECORDS="$cosmos_dns_records" STORAGE_DNS_RECORDS="$storage_dns_records" ASSIGNMENTS="$assignments" COSMOS_SQL_ASSIGNMENTS="$cosmos_sql_assignments" FRONTEND_APP_NAME="$FRONTEND_APP_NAME" API_APP_NAME="$API_APP_NAME" RUNTIME_APP_NAME="$RUNTIME_APP_NAME" FRONTEND_IDENTITY_NAME="$FRONTEND_IDENTITY_NAME" API_IDENTITY_NAME="$API_IDENTITY_NAME" RUNTIME_IDENTITY_NAME="$RUNTIME_IDENTITY_NAME" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" SHA="$SHA" RESOURCE_GROUP="$RESOURCE_GROUP" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" ENVIRONMENT_NAME="$ENVIRONMENT_NAME" DATABASE_NAME="$DATABASE_NAME" VNET_NAME="$VNET_NAME" COSMOS_ACCOUNT_NAME="$COSMOS_ACCOUNT_NAME" STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT_NAME" ACR_NAME="$ACR_NAME" AOAI_NAME="$AOAI_NAME" COSMOS_PRIVATE_ENDPOINT_NAME="$COSMOS_PRIVATE_ENDPOINT_NAME" STORAGE_PRIVATE_ENDPOINT_NAME="$STORAGE_PRIVATE_ENDPOINT_NAME" COSMOS_PRIVATE_DNS_ZONE="$COSMOS_PRIVATE_DNS_ZONE" STORAGE_PRIVATE_DNS_ZONE="$STORAGE_PRIVATE_DNS_ZONE" PRIVATE_DNS_VNET_LINK_NAME="$PRIVATE_DNS_VNET_LINK_NAME" FRONTEND_PRINCIPAL="$frontend_principal" API_PRINCIPAL="$api_principal" RUNTIME_PRINCIPAL="$runtime_principal" LOCATION="$LOCATION" IDENTITY_MODE="$IDENTITY_MODE" TENANT_ID="$TENANT_ID" API_CLIENT_ID="$API_CLIENT_ID" RUNTIME_CLIENT_ID="$RUNTIME_CLIENT_ID" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" python3 - <<'PY'
 import json, os
 apps = json.loads(os.environ['APPS']); deployments = json.loads(os.environ['DEPLOYMENTS']); identities = json.loads(os.environ['IDENTITIES'])
+import uuid
 resources = json.loads(os.environ['RESOURCES']); acr = json.loads(os.environ['ACR']); aoai = json.loads(os.environ['AZURE_OPEN_AI'])
+system_topics = json.loads(os.environ['SYSTEM_TOPICS']); system_topic_subscriptions = json.loads(os.environ['SYSTEM_TOPIC_SUBSCRIPTIONS'])
 cosmos = json.loads(os.environ['COSMOS']); storage = json.loads(os.environ['STORAGE']); vnet = json.loads(os.environ['VNET'])
 private_endpoints = json.loads(os.environ['PRIVATE_ENDPOINTS']); zones = json.loads(os.environ['PRIVATE_DNS_ZONES']); environment = json.loads(os.environ['MANAGED_ENVIRONMENT'])
 network_security_groups = json.loads(os.environ['NETWORK_SECURITY_GROUPS'])
@@ -291,8 +309,19 @@ cosmos_records = json.loads(os.environ['COSMOS_DNS_RECORDS']); storage_records =
 assignments = [item for group in json.loads(os.environ['ASSIGNMENTS']) for item in group]
 cosmos_assignments = json.loads(os.environ['COSMOS_SQL_ASSIGNMENTS'])
 expected_apps = {os.environ['FRONTEND_APP_NAME']: (True, 3000, 'csa-workbench-frontend'), os.environ['API_APP_NAME']: (True, 8000, 'csa-workbench-api'), os.environ['RUNTIME_APP_NAME']: (False, 8080, 'csa-workbench-runtime')}
-if not isinstance(apps, list) or {a.get('name') for a in apps} != set(expected_apps): raise SystemExit('Container App inventory drifted')
-if not isinstance(identities, list) or {i.get('name') for i in identities} != {os.environ['FRONTEND_IDENTITY_NAME'], os.environ['API_IDENTITY_NAME'], os.environ['RUNTIME_IDENTITY_NAME']}: raise SystemExit('managed identity inventory drifted')
+app_names = [app.get('name') for app in apps] if isinstance(apps, list) and all(isinstance(app, dict) for app in apps) else []
+if len(app_names) != len(expected_apps) or len(app_names) != len(set(app_names)) or set(app_names) != set(expected_apps): raise SystemExit('Container App inventory drifted')
+expected_identities = {os.environ['FRONTEND_IDENTITY_NAME'], os.environ['API_IDENTITY_NAME'], os.environ['RUNTIME_IDENTITY_NAME']}
+identity_names = [identity.get('name') for identity in identities] if isinstance(identities, list) and all(isinstance(identity, dict) for identity in identities) else []
+if len(identity_names) != len(expected_identities) or len(identity_names) != len(set(identity_names)) or set(identity_names) != expected_identities: raise SystemExit('managed identity inventory drifted')
+def strict_env(container, profile):
+    entries = container.get('env', [])
+    if not isinstance(entries, list) or any(not isinstance(entry, dict) for entry in entries):
+        raise SystemExit(f'{profile} environment profile drifted')
+    names = [entry.get('name') for entry in entries]
+    if any(not isinstance(name, str) or not name for name in names) or len(names) != len(set(names)):
+        raise SystemExit(f'{profile} environment profile drifted')
+    return {entry['name']: entry.get('value') for entry in entries}
 for app in apps:
     external, port, repository = expected_apps[app['name']]; p = app.get('properties', {}); template = p.get('template', {}); containers = template.get('containers', [])
     ingress = p.get('configuration', {}).get('ingress', {})
@@ -321,18 +350,68 @@ for app in apps:
         )
     identity_assignments = app.get('identity', {}).get('userAssignedIdentities')
     assigned_identities = {identity_id.lower() for identity_id in identity_assignments} if isinstance(identity_assignments, dict) and all(isinstance(identity_id, str) for identity_id in identity_assignments) else set()
-    if p.get('provisioningState') != 'Succeeded' or p.get('workloadProfileName') != 'Consumption' or ingress.get('external') is not external or ingress.get('targetPort') != port or ingress.get('transport', '').lower() != 'auto' or not scale_valid or len(containers) != 1 or containers[0].get('image', '').split('/')[-1] != f'{repository}:{os.environ["SHA"]}' or not isinstance(identity_assignments, dict) or assigned_identities != {expected_identity_id.lower()} or not registry_valid: raise SystemExit('Container App identity, registry, or profile drifted')
+    expected_main_name = {'csa-workbench-frontend': 'frontend', 'csa-workbench-api': 'api', 'csa-workbench-runtime': 'runtime'}[repository]
+    expected_container_names = {expected_main_name}
+    if repository == 'csa-workbench-runtime' or (repository == 'csa-workbench-api' and os.environ['IDENTITY_MODE'] == 'entra'):
+        expected_container_names.add('mise-auth')
+    if not isinstance(containers, list) or any(not isinstance(container, dict) for container in containers):
+        raise SystemExit('Container App identity, registry, or profile drifted')
+    container_names = [container.get('name') for container in containers]
+    if any(not isinstance(name, str) or not name for name in container_names) or len(container_names) != len(set(container_names)) or set(container_names) != expected_container_names:
+        raise SystemExit('Container App identity, registry, or profile drifted')
+    containers_by_name = {container['name']: container for container in containers}
+    main = containers_by_name.get(expected_main_name, {})
+    if p.get('provisioningState') != 'Succeeded' or p.get('workloadProfileName') != 'Consumption' or ingress.get('external') is not external or ingress.get('targetPort') != port or ingress.get('transport', '').lower() != 'auto' or not scale_valid or set(containers_by_name) != expected_container_names or main.get('image', '').split('/')[-1] != f'{repository}:{os.environ["SHA"]}' or not isinstance(identity_assignments, dict) or assigned_identities != {expected_identity_id.lower()} or not registry_valid: raise SystemExit('Container App identity, registry, or profile drifted')
+    main_env = strict_env(main, f'{expected_main_name} container')
+    main_env_entries = {entry['name']: entry for entry in main.get('env', [])}
+    if repository == 'csa-workbench-api':
+        expected_api_auth = {
+            'IDENTITY_MODE': os.environ['IDENTITY_MODE'], 'ENTRA_TENANT_ID': os.environ['TENANT_ID'],
+            'ENTRA_API_CLIENT_ID': os.environ['API_CLIENT_ID'], 'ENTRA_ALLOWED_AUDIENCES': f'api://{os.environ["API_CLIENT_ID"]}',
+            'POOL_AUTH_AUDIENCE': f'api://{os.environ["RUNTIME_CLIENT_ID"]}',
+        }
+        if any(main_env.get(name) != value for name, value in expected_api_auth.items()):
+            raise SystemExit('API identity binding drifted')
+        demo_password = main_env_entries.get('DEMO_PASSWORD', {})
+        if os.environ['IDENTITY_MODE'] == 'demo':
+            if main_env.get('MISE_VALIDATION_ENDPOINT') is not None or demo_password.get('secretRef') != 'demo-password' or demo_password.get('value') not in (None, ''):
+                raise SystemExit('demo API identity binding drifted')
+        elif 'DEMO_PASSWORD' in main_env_entries:
+            raise SystemExit('Entra API identity binding drifted')
+    if repository == 'csa-workbench-runtime':
+        expected_runtime_auth = {
+            'WORKLOAD_AUTH_MODE': 'entra', 'WORKLOAD_ENTRA_TENANT_ID': os.environ['TENANT_ID'],
+            'WORKLOAD_ENTRA_AUDIENCE': os.environ['RUNTIME_CLIENT_ID'],
+            'WORKLOAD_ENTRA_CALLER_OBJECT_ID': os.environ['API_PRINCIPAL'],
+            'WORKLOAD_ENTRA_REQUIRED_ROLE': 'invoke',
+        }
+        if any(main_env.get(name) != value for name, value in expected_runtime_auth.items()):
+            raise SystemExit('runtime workload identity binding drifted')
+    if 'mise-auth' in expected_container_names:
+        sidecar = containers_by_name['mise-auth']
+        sidecar_env = strict_env(sidecar, 'Microsoft identity sidecar')
+        sidecar_client_id = os.environ['API_CLIENT_ID'] if repository == 'csa-workbench-api' else os.environ['RUNTIME_CLIENT_ID']
+        expected_sidecar_env = {
+            'Kestrel__Endpoints__Http__Url': 'http://127.0.0.1:8081', 'ASPNETCORE_ENVIRONMENT': 'Production',
+            'AzureAd__Instance': 'https://login.microsoftonline.com/', 'AzureAd__TenantId': os.environ['TENANT_ID'],
+            'AzureAd__ClientId': sidecar_client_id, 'AzureAd__Audience': sidecar_client_id,
+            'Logging__LogLevel__Default': 'Warning', 'Logging__LogLevel__Microsoft.Identity.Web': 'Information',
+        }
+        expected_sidecar_env['AzureAd__Scopes' if repository == 'csa-workbench-api' else 'AzureAd__Roles'] = 'access_as_user' if repository == 'csa-workbench-api' else 'invoke'
+        expected_sidecar_resources = {'cpu': 0.25, 'memory': '0.5Gi', 'ephemeralStorage': '1Gi'}
+        if sidecar.get('image') != os.environ['MISE_SIDECAR_IMAGE'] or sidecar.get('resources') != expected_sidecar_resources or sidecar_env != expected_sidecar_env or main_env.get('MISE_VALIDATION_ENDPOINT') != 'http://127.0.0.1:8081/Validate': raise SystemExit('Microsoft identity sidecar profile drifted')
+    elif 'MISE_VALIDATION_ENDPOINT' in main_env:
+        raise SystemExit('demo API unexpectedly enables Microsoft identity validation')
     if app['name'] == os.environ['RUNTIME_APP_NAME']:
-        runtime_env = {item.get('name'): item.get('value') for item in containers[0].get('env', []) if isinstance(item, dict)}
         endpoint = aoai.get('properties', {}).get('endpoint')
-        if runtime_env.get('AZURE_DEPLOYMENT') != os.environ['MODEL_DEPLOYMENT_NAME'] or runtime_env.get('AZURE_ENDPOINT') != f'{endpoint.rstrip("/")}/openai/v1/': raise SystemExit('runtime Azure OpenAI binding drifted')
+        if main_env.get('AZURE_DEPLOYMENT') != os.environ['MODEL_DEPLOYMENT_NAME'] or main_env.get('AZURE_ENDPOINT') != f'{endpoint.rstrip("/")}/openai/v1/': raise SystemExit('runtime Azure OpenAI binding drifted')
 if not isinstance(deployments, list) or len(deployments) != 1: raise SystemExit('Azure OpenAI deployment inventory drifted')
 d = deployments[0]
 model = d.get('properties', {}).get('model', {})
 if d.get('name') != os.environ['MODEL_DEPLOYMENT_NAME'] or d.get('properties', {}).get('provisioningState') != 'Succeeded' or model.get('format') != 'OpenAI' or d.get('sku', {}).get('name') != os.environ['MODEL_SKU_NAME'] or d.get('sku', {}).get('capacity') != int(os.environ['MODEL_CAPACITY']) or model.get('name') != os.environ['MODEL_NAME'] or model.get('version') != os.environ['MODEL_VERSION']: raise SystemExit('Azure OpenAI model profile drifted')
 if acr.get('name') != os.environ['ACR_NAME'] or acr.get('sku', {}).get('name') != 'Basic' or acr.get('adminUserEnabled') is not False: raise SystemExit('Container Registry profile drifted')
 if aoai.get('name') != os.environ['AOAI_NAME'] or aoai.get('kind') != 'OpenAI' or aoai.get('sku', {}).get('name') != 'S0' or aoai.get('properties', {}).get('disableLocalAuth') is not True: raise SystemExit('Azure OpenAI account profile drifted')
-if cosmos.get('disableLocalAuth') is not True or cosmos.get('publicNetworkAccess') != 'Disabled': raise SystemExit('Cosmos authentication/network profile drifted')
+if cosmos.get('disableLocalAuth') is not True or cosmos.get('publicNetworkAccess') != 'Disabled' or cosmos.get('enableAutomaticFailover') is not True: raise SystemExit('Cosmos authentication/network/failover profile drifted')
 if storage.get('publicNetworkAccess') != 'Disabled' or storage.get('allowSharedKeyAccess') is not False or storage.get('allowBlobPublicAccess') is not False: raise SystemExit('Storage authentication/public-blob profile drifted')
 subnets = {subnet.get('name'): subnet for subnet in vnet.get('subnets', [])}
 if vnet.get('name') != os.environ['VNET_NAME'] or vnet.get('addressSpace', {}).get('addressPrefixes') != ['10.42.0.0/24'] or set(subnets) != {'aca-infrastructure', 'private-endpoints'} or subnets['aca-infrastructure'].get('addressPrefix') != '10.42.0.0/27' or subnets['private-endpoints'].get('addressPrefix') != '10.42.0.32/27' or subnets['private-endpoints'].get('privateEndpointNetworkPolicies') != 'Disabled': raise SystemExit('virtual network profile drifted')
@@ -382,6 +461,57 @@ expected_resources = {
   ('microsoft.managedidentity/userassignedidentities', os.environ['FRONTEND_IDENTITY_NAME'].lower()), ('microsoft.managedidentity/userassignedidentities', os.environ['API_IDENTITY_NAME'].lower()), ('microsoft.managedidentity/userassignedidentities', os.environ['RUNTIME_IDENTITY_NAME'].lower()),
   ('microsoft.containerregistry/registries', os.environ['ACR_NAME'].lower()), ('microsoft.cognitiveservices/accounts', os.environ['AOAI_NAME'].lower()), ('microsoft.documentdb/databaseaccounts', os.environ['COSMOS_ACCOUNT_NAME'].lower()), ('microsoft.storage/storageaccounts', os.environ['STORAGE_ACCOUNT_NAME'].lower()), ('microsoft.network/virtualnetworks', os.environ['VNET_NAME'].lower()), ('microsoft.network/privateendpoints', os.environ['COSMOS_PRIVATE_ENDPOINT_NAME'].lower()), ('microsoft.network/privateendpoints', os.environ['STORAGE_PRIVATE_ENDPOINT_NAME'].lower()), ('microsoft.network/privatednszones', os.environ['COSMOS_PRIVATE_DNS_ZONE'].lower()), ('microsoft.network/privatednszones', os.environ['STORAGE_PRIVATE_DNS_ZONE'].lower()),
 }
+if not isinstance(system_topics, list) or not isinstance(system_topic_subscriptions, list) or len(system_topics) > 1:
+    raise SystemExit('tenant-managed Event Grid system topic inventory drifted')
+expected_system_topic_resources = set()
+if system_topics:
+    topic = system_topics[0]
+    topic_name = topic.get('name') if isinstance(topic, dict) else None
+    expected_topic_prefix = f'{os.environ["STORAGE_ACCOUNT_NAME"]}-'
+    try:
+        valid_topic_name = isinstance(topic_name, str) and topic_name.startswith(expected_topic_prefix) and str(uuid.UUID(topic_name[len(expected_topic_prefix):])) == topic_name[len(expected_topic_prefix):]
+    except (ValueError, AttributeError):
+        valid_topic_name = False
+    expected_source = f'/subscriptions/{os.environ["SUBSCRIPTION_ID"]}/resourceGroups/{os.environ["RESOURCE_GROUP"]}/providers/Microsoft.Storage/storageAccounts/{os.environ["STORAGE_ACCOUNT_NAME"]}'.lower()
+    if not valid_topic_name or topic.get('provisioningState') != 'Succeeded' or topic.get('source', '').lower() != expected_source or topic.get('topicType', '').lower() != 'microsoft.storage.storageaccounts':
+        raise SystemExit('tenant-managed Event Grid system topic inventory drifted')
+    if len(system_topic_subscriptions) != 1:
+        raise SystemExit('Defender Storage Antimalware subscription inventory drifted')
+    subscription = system_topic_subscriptions[0]
+    expected_subscription = {
+        'name': 'StorageAntimalwareSubscription',
+        'provisioningState': 'Succeeded',
+        'destination': {
+            'endpointType': 'WebHook',
+            'endpointBaseUrl': f'https://{os.environ["LOCATION"]}.a3.storageav.azure.com:5142/EventCapture/{os.environ["SUBSCRIPTION_ID"]}/{os.environ["STORAGE_ACCOUNT_NAME"]}',
+            'aadApplication': 'f1f8da5f-609a-401d-85b2-d498116b7265',
+            'aadTenant': '33e01921-4d64-4f8c-a055-5bdaffd5e33d',
+            'maxEventsPerBatch': 1,
+            'preferredBatchSizeInKilobytes': 64,
+            'deliveryAttributeMappings': None,
+        },
+        'eventDeliverySchema': 'EventGridSchema',
+        'filter': {
+            'advancedFilters': [{'key': 'data.blobType', 'operatorType': 'StringContains', 'values': ['BlockBlob']}],
+            'enableAdvancedFilteringOnArrays': None,
+            'includedEventTypes': ['Microsoft.Storage.BlobCreated', 'Microsoft.Storage.BlobRenamed'],
+            'isSubjectCaseSensitive': None,
+            'subjectBeginsWith': '',
+            'subjectEndsWith': '',
+        },
+        'retryPolicy': {'eventTimeToLiveInMinutes': 1440, 'maxDeliveryAttempts': 30},
+        'deadLetterDestination': None,
+        'deadLetterWithResourceIdentity': None,
+        'deliveryWithResourceIdentity': None,
+        'expirationTimeUtc': None,
+        'labels': None,
+    }
+    if subscription != expected_subscription:
+        raise SystemExit('Defender Storage Antimalware subscription inventory drifted')
+    expected_system_topic_resources.add(('microsoft.eventgrid/systemtopics', topic_name.lower()))
+elif system_topic_subscriptions:
+    raise SystemExit('Defender Storage Antimalware subscription inventory drifted')
+expected_resources |= expected_system_topic_resources
 expected_resources |= {('microsoft.network/networkinterfaces', name) for name in nic_names}
 if network_security_groups:
     expected_resources |= {('microsoft.network/networksecuritygroups', name) for name in expected_nsgs}
@@ -450,7 +580,7 @@ az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-runtime:$SHA"
 az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-frontend:$SHA" -f frontend/Dockerfile frontend --build-arg "NEXT_PUBLIC_API_URL=$API_URL" --build-arg "NEXT_PUBLIC_IDENTITY_MODE=$IDENTITY_MODE" --build-arg "NEXT_PUBLIC_ENTRA_TENANT_ID=$TENANT_ID" --build-arg "NEXT_PUBLIC_ENTRA_CLIENT_ID=$WEB_CLIENT_ID" --build-arg "NEXT_PUBLIC_ENTRA_API_CLIENT_ID=$API_CLIENT_ID" --build-arg "NEXT_PUBLIC_ENTRA_API_SCOPES=api://$API_CLIENT_ID/access_as_user" --build-arg "NEXT_PUBLIC_ENTRA_REDIRECT_URI=$FRONTEND_URL" --only-show-errors
 APPS=(az deployment group create -g "$RESOURCE_GROUP" --name "${BASE_NAME}-apps-${SHA:0:12}" --template-file infra/apps.bicep
   --parameters environmentName="$ENVIRONMENT_NAME" acrServer="$ACR_SERVER" imageTag="$SHA" frontendAppName="$FRONTEND_APP_NAME" apiAppName="$API_APP_NAME" runtimeAppName="$RUNTIME_APP_NAME"
-  frontendIdentityId="$FRONTEND_IDENTITY_ID" apiIdentityId="$API_IDENTITY_ID" runtimeIdentityId="$RUNTIME_IDENTITY_ID" tenantId="$TENANT_ID" apiClientId="$API_CLIENT_ID" runtimeClientId="$RUNTIME_CLIENT_ID" frontendUrl="$FRONTEND_URL" runtimeFqdn="$RUNTIME_FQDN" cosmosAccountName="$COSMOS_ACCOUNT_NAME" storageAccountName="$STORAGE_ACCOUNT_NAME" databaseName="$DATABASE_NAME" azureOpenAiEndpoint="${AOAI_ENDPOINT%/}/openai/v1/" azureOpenAiDeployment="$MODEL_DEPLOYMENT_NAME" identityMode="$IDENTITY_MODE" demoPassword="$DEMO_PASSWORD")
+  frontendIdentityId="$FRONTEND_IDENTITY_ID" apiIdentityId="$API_IDENTITY_ID" runtimeIdentityId="$RUNTIME_IDENTITY_ID" tenantId="$TENANT_ID" apiClientId="$API_CLIENT_ID" runtimeClientId="$RUNTIME_CLIENT_ID" miseSidecarImage="$MISE_SIDECAR_IMAGE" frontendUrl="$FRONTEND_URL" runtimeFqdn="$RUNTIME_FQDN" cosmosAccountName="$COSMOS_ACCOUNT_NAME" storageAccountName="$STORAGE_ACCOUNT_NAME" databaseName="$DATABASE_NAME" azureOpenAiEndpoint="${AOAI_ENDPOINT%/}/openai/v1/" azureOpenAiDeployment="$MODEL_DEPLOYMENT_NAME" identityMode="$IDENTITY_MODE" demoPassword="$DEMO_PASSWORD")
 deployment_what_if "${APPS[@]}"
 "${APPS[@]}" --only-show-errors >/dev/null
 verify_inventory

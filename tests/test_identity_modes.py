@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "session-container"))
 import api_auth
 import auth_users
 from identity_config import IdentityConfig
+from mise_validation import TokenRejected, ValidationUnavailable
 
 
 def request(headers: dict[str, str] | None = None, query: str = "") -> Request:
@@ -22,6 +23,20 @@ def request(headers: dict[str, str] | None = None, query: str = "") -> Request:
         "type": "http", "method": "GET", "path": "/users", "query_string": query.encode(),
         "headers": [(key.lower().encode(), value.encode()) for key, value in (headers or {}).items()],
     })
+
+
+class ClaimsVerifier:
+    def __init__(self, claims: dict | None = None, error: Exception | None = None):
+        self.claims = claims or {
+            "tid": "tenant", "aud": "api",
+            "iss": "https://login.microsoftonline.com/tenant/v2.0", "scp": "access_as_user",
+        }
+        self.error = error
+
+    async def verify(self, _token: str) -> dict:
+        if self.error:
+            raise self.error
+        return self.claims
 
 
 def test_identity_config_fails_closed_but_imports_without_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -52,34 +67,49 @@ def test_api_credential_mode_matrix(mode: str, headers: dict[str, str], expected
         api_client_id="api" if mode == "entra" else None,
         allowed_audiences=("api",) if mode == "entra" else (),
     )
-    auth = api_auth.APIAuthenticator(api_auth.AuthConfig(identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences))
+    auth = api_auth.APIAuthenticator(
+        api_auth.AuthConfig(identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences),
+        ClaimsVerifier(),
+    )
     result = asyncio.run(auth.authenticate(request(headers)))
     assert (result.status_code if result else None) == expected
 
 
-def test_entra_api_token_requires_the_delegated_access_as_user_scope(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_demo_api_does_not_require_sidecar_when_entra_metadata_is_present() -> None:
     identity = IdentityConfig(
-        mode="entra", demo_password=None, tenant_id="tenant", api_client_id="api",
-        allowed_audiences=("api",),
+        mode="demo", demo_password="test-secret", tenant_id="tenant", api_client_id="api",
+        allowed_audiences=("api", "api://api"),
     )
     auth = api_auth.APIAuthenticator(api_auth.AuthConfig(
         identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences,
     ))
+    assert auth.config.bearer_enabled is False
+    assert asyncio.run(auth.authenticate(request())) is None
 
-    class SigningKey:
-        key = object()
 
-    class Keys:
-        def get_signing_key_from_jwt(self, _token: str) -> SigningKey:
-            return SigningKey()
+def test_entra_api_fails_startup_without_loopback_sidecar_endpoint() -> None:
+    identity = IdentityConfig(
+        mode="entra", demo_password=None, tenant_id="tenant", api_client_id="api",
+        allowed_audiences=("api",),
+    )
+    with pytest.raises(ValueError, match="MISE_VALIDATION_ENDPOINT"):
+        api_auth.APIAuthenticator(api_auth.AuthConfig(
+            identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences,
+        ))
 
-    auth._jwks_client = Keys()
+
+def test_entra_api_token_requires_the_delegated_access_as_user_scope() -> None:
+    identity = IdentityConfig(
+        mode="entra", demo_password=None, tenant_id="tenant", api_client_id="api",
+        allowed_audiences=("api",),
+    )
     base_claims = {
-        "tid": "tenant", "iss": "https://login.microsoftonline.com/tenant/v2.0",
+        "tid": "tenant", "aud": "api", "iss": "https://login.microsoftonline.com/tenant/v2.0",
     }
-    monkeypatch.setattr(api_auth.jwt, "decode", lambda *_args, **_kwargs: {
-        **base_claims, "scp": "openid profile access_as_user",
-    })
+    verifier = ClaimsVerifier({**base_claims, "scp": "openid profile access_as_user"})
+    auth = api_auth.APIAuthenticator(api_auth.AuthConfig(
+        identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences,
+    ), verifier)
     assert asyncio.run(auth._validate_token("token"))["scp"] == "openid profile access_as_user"
 
     for claims in (
@@ -88,12 +118,42 @@ def test_entra_api_token_requires_the_delegated_access_as_user_scope(monkeypatch
         {**base_claims, "roles": ["access_as_user"]},
         {**base_claims, "scp": ["access_as_user"]},
     ):
-        monkeypatch.setattr(api_auth.jwt, "decode", lambda *_args, claims=claims, **_kwargs: claims)
-        with pytest.raises(api_auth.InvalidTokenError):
+        verifier.claims = claims
+        with pytest.raises(TokenRejected):
             asyncio.run(auth._validate_token("token"))
         rejected = asyncio.run(auth.authenticate(request({"Authorization": "Bearer token"})))
         assert rejected is not None
         assert (rejected.status_code, rejected.body) == (401, b'{"detail":"Unauthorized"}')
+
+    verifier.error = ValidationUnavailable("sidecar unavailable")
+    unavailable = asyncio.run(auth.authenticate(request({"Authorization": "Bearer token"})))
+    assert unavailable is not None and unavailable.status_code == 503
+
+
+@pytest.mark.parametrize("overrides", [
+    {"tid": "other-tenant"}, {"tid": 42},
+    {"aud": "other-api"}, {"aud": ["api"]},
+    {"iss": "https://login.microsoftonline.com/other-tenant/v2.0"}, {"iss": []},
+])
+def test_entra_api_rejects_wrong_or_malformed_trusted_identity_claims(
+    overrides: dict[str, object],
+) -> None:
+    identity = IdentityConfig(
+        mode="entra", demo_password=None, tenant_id="tenant", api_client_id="api",
+        allowed_audiences=("api", "api://api"),
+    )
+    claims: dict[str, object] = {
+        "tid": "tenant", "aud": "api",
+        "iss": "https://login.microsoftonline.com/tenant/v2.0", "scp": "access_as_user",
+        **overrides,
+    }
+    auth = api_auth.APIAuthenticator(api_auth.AuthConfig(
+        identity, identity.tenant_id, identity.api_client_id, identity.allowed_audiences,
+    ), ClaimsVerifier(claims))
+
+    rejected = asyncio.run(auth.authenticate(request({"Authorization": "Bearer token"})))
+    assert rejected is not None
+    assert (rejected.status_code, rejected.body) == (401, b'{"detail":"Unauthorized"}')
 
 
 def test_demo_and_entra_actor_resolution_rejects_dual_and_requires_tid_oid(monkeypatch: pytest.MonkeyPatch) -> None:

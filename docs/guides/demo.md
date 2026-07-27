@@ -42,3 +42,7 @@ This demo shows the main shared-work and assistant workflow.
 
 The versioned automated cases are stored in `tests/evals/mvp-cases.json` and
 `tests/evals/mvp-workflows.json`.
+
+For a presenter-ready explanation of the Waza skill laboratory, Deep Agents product eval, gold
+contracts, observed evidence, metrics, and live commands, use the
+[agent evaluation showcase](eval-showcase.md).

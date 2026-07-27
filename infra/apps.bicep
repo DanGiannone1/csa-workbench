@@ -14,6 +14,7 @@ param runtimeIdentityId string
 param tenantId string
 param apiClientId string
 param runtimeClientId string
+param miseSidecarImage string
 param frontendUrl string
 param runtimeFqdn string
 param cosmosAccountName string
@@ -76,7 +77,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
     }
     template: {
       scale: { minReplicas: 0, maxReplicas: 1 }
-      containers: [{
+      containers: concat([{
         name: 'api'
         image: '${acrServer}/csa-workbench-api:${imageTag}'
         resources: { cpu: json('0.5'), memory: '1Gi' }
@@ -95,8 +96,25 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'COSMOS_CONTAINER', value: containerName }
           { name: 'ARTIFACTS_ACCOUNT', value: storageAccountName }
           { name: 'ARTIFACTS_CONTAINER', value: artifactContainer }
-        ], identityMode == 'demo' ? [{ name: 'DEMO_PASSWORD', secretRef: 'demo-password' }] : [])
-      }]
+        ], identityMode == 'demo'
+          ? [{ name: 'DEMO_PASSWORD', secretRef: 'demo-password' }]
+          : [{ name: 'MISE_VALIDATION_ENDPOINT', value: 'http://127.0.0.1:8081/Validate' }])
+      }], identityMode == 'entra' ? [{
+        name: 'mise-auth'
+        image: miseSidecarImage
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: [
+          { name: 'Kestrel__Endpoints__Http__Url', value: 'http://127.0.0.1:8081' }
+          { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
+          { name: 'AzureAd__Instance', value: az.environment().authentication.loginEndpoint }
+          { name: 'AzureAd__TenantId', value: tenantId }
+          { name: 'AzureAd__ClientId', value: apiClientId }
+          { name: 'AzureAd__Audience', value: apiClientId }
+          { name: 'AzureAd__Scopes', value: 'access_as_user' }
+          { name: 'Logging__LogLevel__Default', value: 'Warning' }
+          { name: 'Logging__LogLevel__Microsoft.Identity.Web', value: 'Information' }
+        ]
+      }] : [])
     }
   }
 }
@@ -122,11 +140,27 @@ resource runtime 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'WORKLOAD_ENTRA_AUDIENCE', value: runtimeClientId }
           { name: 'WORKLOAD_ENTRA_CALLER_OBJECT_ID', value: reference(apiIdentityId, '2023-01-31').principalId }
           { name: 'WORKLOAD_ENTRA_REQUIRED_ROLE', value: 'invoke' }
+          { name: 'MISE_VALIDATION_ENDPOINT', value: 'http://127.0.0.1:8081/Validate' }
           { name: 'AZURE_ENDPOINT', value: azureOpenAiEndpoint }
           { name: 'AZURE_DEPLOYMENT', value: azureOpenAiDeployment }
           { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
           { name: 'COSMOS_DATABASE', value: databaseName }
           { name: 'COSMOS_CONTAINER', value: containerName }
+        ]
+      }, {
+        name: 'mise-auth'
+        image: miseSidecarImage
+        resources: { cpu: json('0.25'), memory: '0.5Gi' }
+        env: [
+          { name: 'Kestrel__Endpoints__Http__Url', value: 'http://127.0.0.1:8081' }
+          { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
+          { name: 'AzureAd__Instance', value: az.environment().authentication.loginEndpoint }
+          { name: 'AzureAd__TenantId', value: tenantId }
+          { name: 'AzureAd__ClientId', value: runtimeClientId }
+          { name: 'AzureAd__Audience', value: runtimeClientId }
+          { name: 'AzureAd__Roles', value: 'invoke' }
+          { name: 'Logging__LogLevel__Default', value: 'Warning' }
+          { name: 'Logging__LogLevel__Microsoft.Identity.Web', value: 'Information' }
         ]
       }]
     }

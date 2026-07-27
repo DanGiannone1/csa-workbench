@@ -3,19 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import json
 import sys
 import time
 from pathlib import Path
 
 import httpx
-import jwt
 import pytest
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError
 from starlette.requests import Request
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +20,7 @@ import artifact_store
 import app as orchestrator
 import session_manager
 from session_manager import SessionManager, _RuntimeServiceAuth
+from mise_validation import TokenRejected, ValidationUnavailable
 from workload_auth import EntraTokenVerifier, WorkloadAuthConfig, WorkloadAuthenticator
 from workbench_core.request_limits import (
     MAX_EDIT_CONTENT_BYTES,
@@ -46,25 +41,12 @@ def _config() -> WorkloadAuthConfig:
     return WorkloadAuthConfig(
         mode="entra", tenant_id="tenant-id", audience="runtime-client-id",
         caller_object_id="orchestrator-object-id", required_role="invoke",
+        validation_endpoint="http://127.0.0.1:8081/Validate",
     )
 
 
-class _SigningKey:
-    def __init__(self, key: object):
-        self.key = key
-
-
-class _Jwks:
-    def __init__(self, key: object):
-        self.key = key
-
-    def get_signing_key_from_jwt(self, token: str) -> _SigningKey:
-        return _SigningKey(self.key)
-
-
-def _token(private_key: object, **overrides: object) -> str:
-    claims = {
-        "exp": int(time.time()) + 300,
+def _claims(**overrides: object) -> dict[str, object]:
+    return {
         "iss": "https://login.microsoftonline.com/tenant-id/v2.0",
         "aud": "runtime-client-id",
         "tid": "tenant-id",
@@ -72,27 +54,29 @@ def _token(private_key: object, **overrides: object) -> str:
         "roles": ["invoke"],
         **overrides,
     }
-    if not isinstance(claims["iss"], str):
-        def encode_segment(value: object) -> bytes:
-            return base64.urlsafe_b64encode(json.dumps(value, separators=(",", ":")).encode()).rstrip(b"=")
 
-        signing_input = b".".join((
-            encode_segment({"alg": "RS256", "kid": "test-key", "typ": "JWT"}),
-            encode_segment(claims),
-        ))
-        signature = private_key.sign(signing_input, padding.PKCS1v15(), hashes.SHA256())
-        return f"{signing_input.decode()}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode()}"
-    return jwt.encode(claims, private_key, algorithm="RS256", headers={"kid": "test-key"})
+
+class _ClaimsValidator:
+    def __init__(self, claims: dict[str, object] | None = None, error: Exception | None = None):
+        self.claims = claims or _claims()
+        self.error = error
+
+    async def verify(self, _token: str) -> dict[str, object]:
+        if self.error:
+            raise self.error
+        return self.claims
 
 
 @pytest.mark.parametrize("name", [
     "WORKLOAD_ENTRA_TENANT_ID", "WORKLOAD_ENTRA_AUDIENCE", "WORKLOAD_ENTRA_CALLER_OBJECT_ID",
+    "MISE_VALIDATION_ENDPOINT",
 ])
 def test_entra_workload_config_requires_all_identity_values(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     monkeypatch.setenv("WORKLOAD_AUTH_MODE", "entra")
     monkeypatch.setenv("WORKLOAD_ENTRA_TENANT_ID", "tenant")
     monkeypatch.setenv("WORKLOAD_ENTRA_AUDIENCE", "runtime-client-id")
     monkeypatch.setenv("WORKLOAD_ENTRA_CALLER_OBJECT_ID", "orchestrator")
+    monkeypatch.setenv("MISE_VALIDATION_ENDPOINT", "http://127.0.0.1:8081/Validate")
     monkeypatch.delenv(name)
     with pytest.raises(ValueError, match=name):
         WorkloadAuthConfig.from_env().validate()
@@ -115,55 +99,46 @@ def test_workload_config_defaults_off_and_rejects_unknown_mode(monkeypatch: pyte
     {"iss": "https://login.microsoftonline.com/another-tenant/v2.0"},
     {"iss": []},
     {"iss": 42},
-    {"exp": int(time.time()) - 1},
 ])
 def test_workload_token_rejects_wrong_tenant_audience_caller_or_role(overrides: dict[str, object]) -> None:
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    verifier = EntraTokenVerifier(_config(), _Jwks(private_key.public_key()))
+    verifier = EntraTokenVerifier(_config(), _ClaimsValidator(_claims(**overrides)))
     authenticator = WorkloadAuthenticator(_config(), verifier)
     response = asyncio.run(authenticator.authenticate(
-        _request({"Authorization": f"Bearer {_token(private_key, **overrides)}"})
+        _request({"Authorization": "Bearer token"})
     ))
     assert response is not None
     assert response.status_code == 401
     assert response.body == b'{"detail":"Unauthorized"}'
 
 
-def test_workload_token_requires_bearer_and_accepts_valid_signed_token() -> None:
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    verifier = EntraTokenVerifier(_config(), _Jwks(private_key.public_key()))
+def test_workload_token_requires_bearer_and_accepts_mise_validated_claims() -> None:
+    verifier = EntraTokenVerifier(_config(), _ClaimsValidator())
     authenticator = WorkloadAuthenticator(_config(), verifier)
 
     missing = asyncio.run(authenticator.authenticate(_request({"X-User-Id": "dan"})))
     assert missing is not None and missing.status_code == 401
-    valid_request = _request({"Authorization": f"Bearer {_token(private_key)}", "X-User-Id": "dan"})
+    valid_request = _request({"Authorization": "Bearer token", "X-User-Id": "dan"})
     assert asyncio.run(authenticator.authenticate(valid_request)) is None
     assert valid_request.state.workload_authenticated is True
 
 
-def test_workload_auth_only_exempts_health_and_reports_jwks_connection_outage() -> None:
-    class UnavailableJwks:
-        def get_signing_key_from_jwt(self, token: str) -> _SigningKey:
-            raise PyJWKClientConnectionError("JWKS unavailable")
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    authenticator = WorkloadAuthenticator(_config(), EntraTokenVerifier(_config(), UnavailableJwks()))
+def test_workload_auth_only_exempts_health_and_reports_sidecar_outage() -> None:
+    authenticator = WorkloadAuthenticator(
+        _config(), EntraTokenVerifier(_config(), _ClaimsValidator(error=ValidationUnavailable("offline"))),
+    )
     assert asyncio.run(authenticator.authenticate(_request(path="/health"))) is None
     unavailable = asyncio.run(authenticator.authenticate(
-        _request({"Authorization": f"Bearer {_token(private_key)}"})
+        _request({"Authorization": "Bearer token"})
     ))
     assert unavailable is not None and unavailable.status_code == 503
 
 
-def test_unknown_runtime_jwks_key_is_an_unauthorized_token() -> None:
-    class MissingKeyJwks:
-        def get_signing_key_from_jwt(self, token: str) -> _SigningKey:
-            raise PyJWKClientError("Unable to find a signing key")
-
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    authenticator = WorkloadAuthenticator(_config(), EntraTokenVerifier(_config(), MissingKeyJwks()))
+def test_sidecar_token_rejection_is_unauthorized() -> None:
+    authenticator = WorkloadAuthenticator(
+        _config(), EntraTokenVerifier(_config(), _ClaimsValidator(error=TokenRejected("invalid"))),
+    )
     response = asyncio.run(authenticator.authenticate(
-        _request({"Authorization": f"Bearer {_token(private_key)}"})
+        _request({"Authorization": "Bearer token"})
     ))
     assert response is not None and response.status_code == 401
 
@@ -172,17 +147,16 @@ def test_runtime_does_not_trust_user_header_before_entra_workload_auth(monkeypat
     from fastapi.testclient import TestClient
     import server
 
-    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     monkeypatch.setattr(
         server, "workload_authenticator",
-        WorkloadAuthenticator(_config(), EntraTokenVerifier(_config(), _Jwks(private_key.public_key()))),
+        WorkloadAuthenticator(_config(), EntraTokenVerifier(_config(), _ClaimsValidator())),
     )
     with TestClient(server.app) as client:
         assert client.get("/health").status_code == 200
         assert client.get("/session?identifier=0123456789abcdef", headers={"X-User-Id": "dan"}).status_code == 401
         assert client.get(
             "/session?identifier=0123456789abcdef",
-            headers={"Authorization": f"Bearer {_token(private_key)}", "X-User-Id": "dan"},
+            headers={"Authorization": "Bearer token", "X-User-Id": "dan"},
         ).status_code == 404
 
 
