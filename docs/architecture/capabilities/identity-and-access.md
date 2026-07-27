@@ -6,7 +6,8 @@ Each running environment selects one identity mode.
 | Environment | Mode | Sign-in |
 |---|---|---|
 | Local development and automated checks | `demo` | `dan`, `ava`, or `sam` with the configured demo password |
-| Shared Azure deployment | `entra` | A user from one configured Microsoft Entra tenant |
+| Azure Entra deployment | `entra` | A user from one configured Microsoft Entra tenant |
+| Dedicated Azure demo deployment | `demo` | Demo actors with the configured demo password |
 
 An environment accepts only its configured credential type.
 
@@ -21,8 +22,16 @@ They do not replace the stable ID.
 
 ## Authentication
 
-Demo mode validates the configured password and issues a server-side token. Entra mode validates the
-token signature, issuer, audience, expiry, tenant, user identifiers, and delegated application scope.
+Demo mode validates the configured password and issues a server-side token. In Entra mode, the
+official Microsoft Entra authentication sidecar performs signature, signing-key discovery, issuer,
+audience, and lifetime validation. CSA Workbench accepts only the trusted claims returned over the
+container-local loopback interface, then independently requires the configured tenant, audience,
+user identifiers, and delegated `access_as_user` scope.
+
+The API-to-runtime path uses the same Microsoft validator. The runtime additionally requires the
+API managed identity's exact object ID and the `invoke` application role. Sidecar outages and
+malformed validation responses fail closed with `503`; rejected credentials receive the same `401`
+response. Tokens and complete claim sets are never written to application logs.
 
 Missing, malformed, mixed, or wrong-mode credentials receive the same `401 Unauthorized` response.
 

@@ -84,6 +84,7 @@ Before deployment, review:
 
 - tenant, subscription, instance name, and resource group;
 - identity mode and model values;
+- the pinned Microsoft Entra auth-sidecar image digest;
 - public frontend and API access;
 - managed identities and their roles;
 - resources that can incur cost; and
@@ -108,9 +109,12 @@ The script creates Entra registrations, builds Git-SHA-tagged images, deploys th
 and inspects the resulting resource group, network, identities, and application settings.
 
 The final inspection requires exactly the three expected Container Apps with the configured access,
-ports, replica limits, and Git-SHA image tag. It also checks the private network, Cosmos and Blob
-settings, managed-identity roles, and expected resource list. An unexpected application-owned
-resource causes the deployment check to fail.
+ports, replica limits, and Git-SHA image tag. It requires the runtime auth sidecar and, in Entra
+mode, the API auth sidecar, both pinned to
+`mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871adfacf41a46b3ad9e8cf619e59d58b39bf5b00dfe9ff13c1de140dd6`.
+It also checks their loopback endpoint, tenant, audience, scope or role, resources, the private
+network, Cosmos and Blob settings, managed-identity roles, and expected resource list. An unexpected
+application-owned resource causes the deployment check to fail. Sidecar drift also fails the check.
 
 A first deployment can take tens of minutes. Container Apps environment creation or recovery and
 private-endpoint provisioning are long-running Azure control-plane operations; lack of terminal
@@ -165,6 +169,12 @@ The session round trip proves the API can call the private runtime with its mana
 CLI check validates the API's delegated Entra path; it does not replace an interactive browser
 redirect/MFA check when that experience is release-critical.
 
+The successful API and session requests also exercise Microsoft Identity Web key discovery in the
+API and runtime sidecars. Preserve the deployment inventory output and sanitized `mise-auth`
+container logs as validation evidence. Do not capture access tokens or full claim payloads. S360
+telemetry processing is external and can lag the deployment, so retain the exact Git SHA, sidecar
+digest, UTC validation time, and affected App IDs when replying to the compliance owner.
+
 For Entra v2 workload tokens, request the runtime scope as
 `api://<runtime-client-id>/.default`, but validate the token `aud` claim as the bare runtime client
 ID. Treat the scope URI and emitted audience as distinct values.
@@ -176,6 +186,7 @@ A deployment is complete only after all of the following pass:
 - the post-deployment inventory and private-network checks in `infra/deploy.sh`;
 - public frontend and API health checks, with the runtime remaining private;
 - immutable image tags matching the deployed Git SHA;
+- immutable Microsoft auth-sidecar digests and a successful sidecar-backed validation request;
 - an authenticated API-to-runtime session round trip;
 - the remote browser suite for a dedicated demo instance; and
 - for Entra, delegated API authentication plus an interactive browser sign-in when required for the

@@ -8,8 +8,8 @@ Each deployment uses an explicit instance name and creates one resource group na
 ```text
 Internet
   |-- public frontend Container App
-  `-- public API Container App
-        `-- private assistant runtime Container App
+  `-- public API Container App + Microsoft Entra auth sidecar
+        `-- private assistant runtime Container App + Microsoft Entra auth sidecar
               `-- Azure OpenAI
 
 Private network
@@ -41,13 +41,19 @@ Each application component has its own user-assigned managed identity.
 
 The deployment creates separate Entra registrations for the web application, API, and runtime. The
 browser calls the API with delegated user access. The API calls the runtime through an application
-role assigned to the API identity.
+role assigned to the API identity. Entra token validation runs in Microsoft's
+`mcr.microsoft.com/entra-sdk/auth-sidecar` image, pinned by OCI digest. Kestrel binds the sidecar
+listener only to loopback inside each Container App, and Microsoft's production middleware rejects
+non-loopback callers as defense in depth. The sidecar supplies Microsoft Identity Web signing-key discovery
+and compliance telemetry. A demo-mode API omits the unused sidecar; the runtime always includes it.
 
 ## Deployment process
 
 `infra/deploy.sh` coordinates configuration checks, Azure planning, Entra setup, image builds,
 deployment, and post-deployment inspection. It requires a clean worktree and explicit model values.
-Images use the full Git commit SHA rather than `latest`.
+Application images use the full Git commit SHA rather than `latest`. The Microsoft authentication
+sidecar is pinned to an immutable OCI digest, and the post-deployment inventory rejects sidecar
+image or configuration drift.
 
 Planning is the default and does not change Azure. Applying requires the exact confirmation printed
 by the current plan. The script recomputes the plan before making changes and rejects stale or
@@ -58,8 +64,9 @@ See the [deployment guide](../../guides/deployment.md) for the complete procedur
 ## Cost and omitted services
 
 Scale-to-zero removes an always-running compute minimum but does not make the deployment free. Costs
-can come from active Container Apps, Cosmos requests and storage, Blob operations, private endpoints,
-the registry, image builds, and model use.
+can come from active Container Apps, including the authentication sidecars, Cosmos requests and
+storage, Blob operations, private endpoints, the registry, image builds, and model use. Sidecars
+scale to zero with their parent app.
 
 The MVP does not provision Application Insights, a Log Analytics workspace, NAT Gateway, Azure
 Firewall, Front Door, API Management, VPN, Azure AI Search, or a warm assistant pool.

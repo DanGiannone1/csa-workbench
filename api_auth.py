@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
+import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
-import jwt
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from jwt import InvalidTokenError, PyJWKClient
 
 from identity_config import IdentityConfig
+from mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
 
 logger = logging.getLogger(__name__)
 
@@ -23,30 +22,41 @@ class AuthConfig:
     tenant_id: str | None
     api_client_id: str | None
     allowed_audiences: tuple[str, ...]
+    validation_endpoint: str | None = None
 
     @classmethod
     def from_env(cls) -> "AuthConfig":
         identity = IdentityConfig.from_env()
-        return cls(identity=identity, tenant_id=identity.tenant_id,
-                   api_client_id=identity.api_client_id, allowed_audiences=identity.allowed_audiences)
+        return cls(
+            identity=identity,
+            tenant_id=identity.tenant_id,
+            api_client_id=identity.api_client_id,
+            allowed_audiences=identity.allowed_audiences,
+            validation_endpoint=(os.getenv("MISE_VALIDATION_ENDPOINT") or "").strip() or None,
+        )
 
     @property
     def bearer_enabled(self) -> bool:
-        return bool(self.tenant_id and self.allowed_audiences)
+        return self.identity.is_entra and bool(self.tenant_id and self.allowed_audiences)
 
     @property
     def enabled(self) -> bool:
         return True
 
 
+class TokenVerifier(Protocol):
+    async def verify(self, token: str) -> dict[str, Any]: ...
+
+
 class APIAuthenticator:
-    def __init__(self, config: AuthConfig):
+    def __init__(self, config: AuthConfig, verifier: TokenVerifier | None = None):
         self.config = config
-        self._jwks_client = (
-            PyJWKClient(f"https://login.microsoftonline.com/{config.tenant_id}/discovery/v2.0/keys")
-            if config.bearer_enabled
-            else None
-        )
+        if verifier is not None:
+            self._verifier = verifier
+        elif config.bearer_enabled:
+            self._verifier = MiseTokenValidator(MiseValidationConfig(config.validation_endpoint or ""))
+        else:
+            self._verifier = None
 
     async def authenticate(self, request: Request) -> JSONResponse | None:
         if request.method == "OPTIONS" or request.url.path == "/health":
@@ -62,14 +72,14 @@ class APIAuthenticator:
         if demo_token or request.headers.get("x-api-key"):
             return self._unauthorized()
         if auth_header.lower().startswith("bearer "):
-            if not self._jwks_client:
+            if not self._verifier:
                 return self._unauthorized()
             token = auth_header.split(" ", 1)[1].strip()
             if not token:
                 return self._unauthorized()
             try:
                 claims = await self._validate_token(token)
-            except InvalidTokenError as exc:
+            except TokenRejected as exc:
                 logger.info("Bearer token rejected: %s", exc)
                 return self._unauthorized()
             except Exception:
@@ -85,32 +95,34 @@ class APIAuthenticator:
         return self._unauthorized()
 
     async def _validate_token(self, token: str) -> dict[str, Any]:
-        assert self._jwks_client is not None
-        signing_key = await asyncio.to_thread(self._jwks_client.get_signing_key_from_jwt, token)
-        claims = jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            audience=self.config.allowed_audiences,
-            options={"require": ["exp", "iss", "aud"]},
-        )
+        assert self._verifier is not None
+        claims = await self._verifier.verify(token)
 
         tenant_id = self.config.tenant_id
         if tenant_id and claims.get("tid") != tenant_id:
-            raise InvalidTokenError("Unexpected tenant")
+            raise TokenRejected("Unexpected tenant")
+
+        audience = claims.get("aud")
+        if not isinstance(audience, str) or audience not in self.config.allowed_audiences:
+            raise TokenRejected("Unexpected audience")
 
         issuer = claims.get("iss")
-        if issuer not in self._allowed_issuers():
-            raise InvalidTokenError("Unexpected issuer")
+        if not isinstance(issuer, str) or issuer not in self._allowed_issuers():
+            raise TokenRejected("Unexpected issuer")
 
         # This public API accepts only delegated user access.  Application tokens
         # carry roles rather than the delegated `scp` claim and must not be usable
         # as a browser credential.
         scopes = claims.get("scp")
         if not isinstance(scopes, str) or "access_as_user" not in scopes.split():
-            raise InvalidTokenError("Missing delegated scope")
+            raise TokenRejected("Missing delegated scope")
 
         return claims
+
+    async def close(self) -> None:
+        close = getattr(self._verifier, "close", None)
+        if close is not None:
+            await close()
 
     def _allowed_issuers(self) -> set[str]:
         tenant_id = self.config.tenant_id

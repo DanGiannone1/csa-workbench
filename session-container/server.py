@@ -73,7 +73,10 @@ workload_authenticator = WorkloadAuthenticator.from_env()
 async def runtime_lifespan(app: FastAPI):
     """Fail before serving an Entra runtime with incomplete trust configuration."""
     workload_authenticator.config.validate()
-    yield
+    try:
+        yield
+    finally:
+        await workload_authenticator.close()
 
 
 app = FastAPI(title="CSA Workbench Session", lifespan=runtime_lifespan)
