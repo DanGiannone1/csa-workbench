@@ -516,7 +516,7 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
                 'AzureAd__ClientId':client_id, 'AzureAd__Audience':client_id,
                 'Logging__LogLevel__Default':'Warning', 'Logging__LogLevel__Microsoft.Identity.Web':'Information', **authorization,
             }
-            containers.append({'name':'mise-auth','image':mise_image,'resources':{'cpu':0.25,'memory':'0.5Gi'},'env':[{'name':name,'value':value} for name,value in sidecar_env.items()]})
+            containers.append({'name':'mise-auth','image':mise_image,'resources':{'cpu':0.25,'memory':'0.5Gi','ephemeralStorage':'1Gi'},'env':[{'name':name,'value':value} for name,value in sidecar_env.items()]})
         apps.append({'name':f'{base}-{kind}','identity':{'userAssignedIdentities':{ids[kind]:{}}},'properties':{'provisioningState':'Succeeded','workloadProfileName':'Consumption','managedEnvironmentId':f'{root}/Microsoft.App/managedEnvironments/{base}-env','configuration':{'ingress':{'external':external,'targetPort':port,'transport':'auto'},'registries':[{'server':'acr.azurecr.io','identity':ids[kind]}]},'template':{'scale':{'minReplicas':0,'maxReplicas':1},'containers':containers}}})
     zones = ['privatelink.documents.azure.com','privatelink.blob.core.windows.net']; endpoints = []
     for name, target, group, nic in [(f'{base}-cosmos-pe',f'{root}/Microsoft.DocumentDB/databaseAccounts/{cosmos}','Sql','nic1'),(f'{base}-storage-pe',f'{root}/Microsoft.Storage/storageAccounts/{storage}','blob','nic2')]:
@@ -571,6 +571,20 @@ def test_portable_verifier_rejects_malformed_or_duplicate_container_profiles() -
         text=True, capture_output=True,
     )
     assert result.returncode != 0 and 'Container App identity, registry, or profile drifted' in result.stderr
+
+
+def test_portable_verifier_accepts_azure_sidecar_resource_projection_and_rejects_drift() -> None:
+    code, env = _verifier_fixture()
+    assert subprocess.run([sys.executable, '-c', code], env=env, text=True, capture_output=True).returncode == 0
+
+    apps = json.loads(env['APPS'])
+    sidecar = next(app for app in apps if app['name'].endswith('-runtime'))['properties']['template']['containers'][1]
+    sidecar['resources']['ephemeralStorage'] = '2Gi'
+    result = subprocess.run(
+        [sys.executable, '-c', code], env={**env, 'APPS': json.dumps(apps)},
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0 and 'Microsoft identity sidecar profile drifted' in result.stderr
 
 
 @pytest.mark.parametrize("app_suffix,variable,bad_value,error", [

@@ -398,7 +398,8 @@ for app in apps:
             'Logging__LogLevel__Default': 'Warning', 'Logging__LogLevel__Microsoft.Identity.Web': 'Information',
         }
         expected_sidecar_env['AzureAd__Scopes' if repository == 'csa-workbench-api' else 'AzureAd__Roles'] = 'access_as_user' if repository == 'csa-workbench-api' else 'invoke'
-        if sidecar.get('image') != os.environ['MISE_SIDECAR_IMAGE'] or sidecar.get('resources') != {'cpu': 0.25, 'memory': '0.5Gi'} or sidecar_env != expected_sidecar_env or main_env.get('MISE_VALIDATION_ENDPOINT') != 'http://127.0.0.1:8081/Validate': raise SystemExit('Microsoft identity sidecar profile drifted')
+        expected_sidecar_resources = {'cpu': 0.25, 'memory': '0.5Gi', 'ephemeralStorage': '1Gi'}
+        if sidecar.get('image') != os.environ['MISE_SIDECAR_IMAGE'] or sidecar.get('resources') != expected_sidecar_resources or sidecar_env != expected_sidecar_env or main_env.get('MISE_VALIDATION_ENDPOINT') != 'http://127.0.0.1:8081/Validate': raise SystemExit('Microsoft identity sidecar profile drifted')
     elif 'MISE_VALIDATION_ENDPOINT' in main_env:
         raise SystemExit('demo API unexpectedly enables Microsoft identity validation')
     if app['name'] == os.environ['RUNTIME_APP_NAME']:
