@@ -47,5 +47,12 @@
       { "dimension": "leakage", "question": "Does the reply avoid exposing personal-page details absent from the recorded navigation evidence?" },
       { "dimension": "tone", "question": "Is any navigation message clear and appropriately concise?" }
     ]}
+  ],
+  "workflows": [
+    { "workflowId": "MVP-W1-engagement-meeting-to-action", "questions": [
+      { "dimension": "accuracy", "question": "Does the conversation accurately describe the recorded meeting brief and update outcome?" },
+      { "dimension": "leakage", "question": "Does the conversation avoid disclosing facts absent from the recorded authorized results?" },
+      { "dimension": "tone", "question": "Is the conversation clear and useful for the meeting-preparation workflow?" }
+    ]}
   ]
 }

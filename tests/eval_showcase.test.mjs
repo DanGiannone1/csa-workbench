@@ -19,6 +19,19 @@ import {
 } from "../scripts/eval_showcase.mjs";
 import { createShowcaseServer, parseShowcaseArgs } from "../scripts/eval_showcase_server.mjs";
 
+function symlinkOrSkip(context, target, path) {
+  try {
+    symlinkSync(target, path);
+    return true;
+  } catch (error) {
+    if (["EPERM", "EACCES"].includes(error?.code)) {
+      context.skip(`symlink creation is not permitted in this environment: ${error.code}`);
+      return false;
+    }
+    throw error;
+  }
+}
+
 test("Waza task parsing exposes prompt, routing, and tool constraints without transcript content", () => {
   const source = `id: WAZA-1\nname: Direct trigger\ndescription: Route correctly.\ntags: [gate, routing]\ninputs:\n  prompt: Prep me for Product Launch.\ngraders:\n  - type: skill_invocation\n    config:\n      required_skills: [engagement-meeting-prep]\n  - type: tool_constraint\n    config:\n      expect_tools:\n        - { tool: ".*list_engagements$" }\n      reject_tools:\n        - { tool: ".*update_engagement$" }\n`;
   assert.deepEqual(parseWazaTask(source), {
@@ -51,7 +64,7 @@ test("latest evidence discovery chooses the newest matching artifact and ignores
   }
 });
 
-test("automatic discovery rejects product and Waza evidence symlinks that escape their roots", () => {
+test("automatic discovery rejects product and Waza evidence symlinks that escape their roots", (context) => {
   const root = mkdtempSync(join(tmpdir(), "csa-showcase-symlink-discovery-"));
   try {
     for (const [evidenceRoot, filename] of [["product", "results.json"], ["waza", "waza.json"]]) {
@@ -62,7 +75,7 @@ test("automatic discovery rejects product and Waza evidence symlinks that escape
       mkdirSync(outside, { recursive: true });
       const target = join(outside, filename);
       writeFileSync(target, "{}\n");
-      symlinkSync(target, join(run, filename));
+      if (!symlinkOrSkip(context, target, join(run, filename))) return;
       assert.deepEqual(findEvidenceCandidates(root, evidenceRoot, filename), []);
     }
   } finally {
@@ -234,12 +247,12 @@ test("showcase rejects pinned evidence outside its evidence roots", () => {
   );
 });
 
-test("showcase rejects a pinned evidence symlink that resolves outside its evidence root", () => {
+test("showcase rejects a pinned evidence symlink that resolves outside its evidence root", (context) => {
   const name = `zz-showcase-symlink-${process.pid}`;
   const testRoot = join(REPOSITORY_ROOT, "evidence", "mvp", "local-synthetic", "agent-evals", name);
   try {
     mkdirSync(testRoot, { recursive: true });
-    symlinkSync(join(REPOSITORY_ROOT, "package.json"), join(testRoot, "results.json"));
+    if (!symlinkOrSkip(context, join(REPOSITORY_ROOT, "package.json"), join(testRoot, "results.json"))) return;
     assert.throws(
       () => buildShowcaseModel({ productPath: `evidence/mvp/local-synthetic/agent-evals/${name}/results.json` }),
       /Evidence must be a results\.json file under evidence\/mvp\/local-synthetic\/agent-evals/,

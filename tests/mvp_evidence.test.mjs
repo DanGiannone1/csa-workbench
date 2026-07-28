@@ -43,9 +43,10 @@ test("parses only one JSON event per SSE frame", () => {
 
 test("browser evidence fails fast for one completed terminal RUN_ERROR without exposing stream details", () => {
   const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
-  const helper = source.match(/function throwOnCompletedRunError\(sseBodies\) \{[\s\S]*?\n\}\n\nmkdirSync/);
+  const helper = source.match(/function throwOnCompletedRunError\(sseBodies\) \{[\s\S]*?\r?\n\}\r?\n\r?\nmkdirSync/);
   assert.ok(helper, "browser evidence must inspect completed SSE bodies before turn-meta succeeds");
-  const throwOnCompletedRunError = new Function("parseSse", "terminalEvents", "validEventSequence", `${helper[0].slice(0, -"\n\nmkdirSync".length)}\nreturn throwOnCompletedRunError;`)(parseSse, (events) => events.filter((event) => event.type === "RUN_FINISHED" || event.type === "RUN_ERROR"), validEventSequence);
+  const helperSource = helper[0].replace(/\r?\n\r?\nmkdirSync$/, "");
+  const throwOnCompletedRunError = new Function("parseSse", "terminalEvents", "validEventSequence", `${helperSource}\nreturn throwOnCompletedRunError;`)(parseSse, (events) => events.filter((event) => event.type === "RUN_FINISHED" || event.type === "RUN_ERROR"), validEventSequence);
   const errorBody = 'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_ERROR","message":"authorization=test-secret"}\n\n';
 
   assert.throws(() => throwOnCompletedRunError([errorBody]), (error) => {

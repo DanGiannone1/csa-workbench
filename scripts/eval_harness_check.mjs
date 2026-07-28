@@ -161,6 +161,34 @@ function validateRubrics(errors, warnings, suite, atomicIds) {
   for (const id of atomicIds) {
     if (!rubricSet.has(id)) warnings.push(`no advisory rubric for atomic case ${id}`);
   }
+  if (!Array.isArray(suite.workflows)) {
+    errors.push("judge-rubrics.workflows must be an array");
+    return;
+  }
+  const workflowIds = suite.workflows.map((item) => item?.workflowId);
+  for (const duplicate of duplicateValues(workflowIds)) errors.push(`duplicate rubric workflowId: ${duplicate}`);
+  if (!sameOrderedIds(workflowIds, MVP_EVAL_MANIFEST.workflowIds)) {
+    errors.push(`workflow rubric IDs must exactly match manifest order: ${MVP_EVAL_MANIFEST.workflowIds.join(", ")}`);
+  }
+  for (const [index, rubric] of suite.workflows.entries()) {
+    const path = `judge-rubrics.workflows[${index}]`;
+    if (!requireObject(errors, rubric, path)) continue;
+    requireString(errors, rubric.workflowId, `${path}.workflowId`);
+    validateRubricQuestions(errors, rubric.questions, path);
+  }
+}
+
+function validateRubricQuestions(errors, questions, path) {
+  if (!Array.isArray(questions) || questions.length === 0) {
+    errors.push(`${path}.questions must be a non-empty array`);
+    return;
+  }
+  for (const [questionIndex, question] of questions.entries()) {
+    const questionPath = `${path}.questions[${questionIndex}]`;
+    if (!requireObject(errors, question, questionPath)) continue;
+    requireString(errors, question.dimension, `${questionPath}.dimension`);
+    requireString(errors, question.question, `${questionPath}.question`);
+  }
 }
 
 export function validateEvalHarness({ casesSuite, workflowSuite, rubricSuite }) {
