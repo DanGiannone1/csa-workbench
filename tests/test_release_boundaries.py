@@ -349,6 +349,15 @@ def test_api_image_installs_the_tracing_extra_and_wires_setup() -> None:
     assert "setup_tracing(app)" in (ROOT / "app.py").read_text()
 
 
+def test_tracing_shims_disable_log_and_metric_exporters() -> None:
+    # configure_azure_monitor overwrites its disable_logging/disable_metrics
+    # kwargs from these environment variables, so both shims must set them.
+    for path in (ROOT / "workbench_core" / "otel_tracing.py", ROOT / "session-container" / "tracing.py"):
+        source = path.read_text()
+        assert 'os.environ.setdefault("OTEL_LOGS_EXPORTER", "none")' in source
+        assert 'os.environ.setdefault("OTEL_METRICS_EXPORTER", "none")' in source
+
+
 def test_api_tracing_stays_disabled_without_a_connection_string(monkeypatch) -> None:
     from fastapi import FastAPI
 

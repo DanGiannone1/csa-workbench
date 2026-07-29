@@ -69,12 +69,14 @@ See the [deployment guide](../../guides/deployment.md) for the complete procedur
 
 Scale-to-zero removes an always-running compute minimum but does not make the deployment free. Costs
 can come from active Container Apps, including the authentication sidecars, Cosmos requests and
-storage, Blob operations, private endpoints, the registry, image builds, and model use. Sidecars
-scale to zero with their parent app.
+storage, Blob operations, private endpoints, the registry, image builds, model use, and Log
+Analytics trace ingestion with its 30-day retention. Sidecars scale to zero with their parent app.
 
 The MVP does not provision a NAT Gateway, Azure Firewall, Front Door, API Management, VPN, Azure AI
-Search, or a warm assistant pool. Application Insights receives traces only; container console logs,
-data-plane diagnostic settings, and alert rules remain unprovisioned.
+Search, or a warm assistant pool. Application Insights receives traces only: both applications turn
+the OpenTelemetry log and metric exporters off, and container console logs and data-plane diagnostic
+settings remain unprovisioned. Azure automatically creates a Failure Anomalies smart-detector alert
+rule for the component, which the deployment inspection tolerates.
 
 ## Local differences
 

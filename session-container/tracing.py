@@ -82,6 +82,12 @@ def setup_tracing(app: Optional[FastAPI] = None) -> None:
         logger.debug("Tracing: No connection string found, tracing disabled.")
         return
 
+    # azure-monitor-opentelemetry overwrites its disable_logging/disable_metrics
+    # kwargs from these environment variables, so traces-only export must be
+    # enforced here rather than through the configure_azure_monitor arguments.
+    os.environ.setdefault("OTEL_LOGS_EXPORTER", "none")
+    os.environ.setdefault("OTEL_METRICS_EXPORTER", "none")
+
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
         from opentelemetry import trace

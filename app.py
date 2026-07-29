@@ -235,8 +235,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CSA Workbench", lifespan=lifespan)
-setup_tracing(app)
 app.add_middleware(JsonRequestBodyLimitMiddleware)
+# Instrument after the body-limit middleware so the tracing middleware wraps it
+# and rejected oversize requests still produce spans.
+setup_tracing(app)
 
 
 def _cors_origins(frontend_url: str | None) -> list[str]:

@@ -22,6 +22,7 @@ param storageAccountName string
 param azureOpenAiEndpoint string
 param azureOpenAiDeployment string
 param databaseName string
+@secure()
 param appInsightsConnectionString string
 @allowed([
   'entra'
