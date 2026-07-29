@@ -1,9 +1,8 @@
 # Agent evaluation reference architecture
 
 > **Status: parked design reference.** How testing actually works today — including the four-layer
-> testing model — lives in [Agent evaluation: how it runs](../guides/agent-evals.md). This document
-> holds the target program design; learnings from the real implementation are folded back here
-> periodically.
+> testing model — lives in [`testing/`](../../testing/README.md). This document holds the target
+> program design; learnings from the real implementation are folded back here periodically.
 
 ## What we evaluate (target program)
 
