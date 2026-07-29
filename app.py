@@ -47,6 +47,7 @@ from api_auth import APIAuthenticator, AuthConfig
 from auth_users import current_user
 from identity_config import IdentityConfig
 from session_manager import SessionManager
+from workbench_core.otel_tracing import setup_tracing
 from workbench_core.trace_logging import setup_trace_logging, trace_event
 
 logger = logging.getLogger(__name__)
@@ -234,6 +235,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CSA Workbench", lifespan=lifespan)
+setup_tracing(app)
 app.add_middleware(JsonRequestBodyLimitMiddleware)
 
 

@@ -343,6 +343,22 @@ def test_runtime_image_packages_the_product_skill_runtime() -> None:
     assert not (ROOT / "session-container" / "skills").exists()
 
 
+def test_api_image_installs_the_tracing_extra_and_wires_setup() -> None:
+    assert "--extra tracing" in (ROOT / "Dockerfile").read_text()
+    assert "azure-monitor-opentelemetry" in (ROOT / "pyproject.toml").read_text()
+    assert "setup_tracing(app)" in (ROOT / "app.py").read_text()
+
+
+def test_api_tracing_stays_disabled_without_a_connection_string(monkeypatch) -> None:
+    from fastapi import FastAPI
+
+    from workbench_core import otel_tracing
+
+    monkeypatch.delenv("APPLICATIONINSIGHTS_CONNECTION_STRING", raising=False)
+    otel_tracing.setup_tracing(FastAPI())
+    assert not otel_tracing.is_enabled()
+
+
 def test_session_upload_profile_excludes_conversion_dependencies_and_sources() -> None:
     source = (ROOT / "session_manager.py").read_text()
     dependencies = (ROOT / "pyproject.toml").read_text()

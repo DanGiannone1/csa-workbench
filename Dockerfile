@@ -7,9 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 
 WORKDIR /app
 
-# Install dependencies first (layer caching)
+# Install dependencies first (layer caching). The tracing extra is required in
+# the production image so Azure Monitor/App Insights export can be enabled via
+# environment variables without rebuilding the container.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra tracing --no-install-project
 
 # Copy application code
 COPY *.py ./

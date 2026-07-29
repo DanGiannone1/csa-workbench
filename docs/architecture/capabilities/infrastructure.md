@@ -18,8 +18,12 @@ Private network
 ```
 
 The resource group also contains a Basic Azure Container Registry, Azure OpenAI account and model
-deployment, virtual network, private DNS zones, Cosmos DB account, and Storage account. Each
-Container App scales from zero to one replica.
+deployment, virtual network, private DNS zones, Cosmos DB account, Storage account, Log Analytics
+workspace, and Application Insights. Each Container App scales from zero to one replica.
+
+The API and runtime send OpenTelemetry traces to the instance Application Insights through the
+`APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable. Tracing activates only when that
+variable is present, so local development is unaffected.
 
 ## Data services
 
@@ -68,8 +72,9 @@ can come from active Container Apps, including the authentication sidecars, Cosm
 storage, Blob operations, private endpoints, the registry, image builds, and model use. Sidecars
 scale to zero with their parent app.
 
-The MVP does not provision Application Insights, a Log Analytics workspace, NAT Gateway, Azure
-Firewall, Front Door, API Management, VPN, Azure AI Search, or a warm assistant pool.
+The MVP does not provision a NAT Gateway, Azure Firewall, Front Door, API Management, VPN, Azure AI
+Search, or a warm assistant pool. Application Insights receives traces only; container console logs,
+data-plane diagnostic settings, and alert rules remain unprovisioned.
 
 ## Local differences
 
