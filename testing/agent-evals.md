@@ -105,6 +105,20 @@ Foundry results are **advisory by design**: LLM judges are valuable for language
 task-level second opinions, but they are policy-blind and judge-model-sensitive. Where a judge
 disagrees with a deterministic check, the deterministic check is authoritative.
 
+## The one-command demo
+
+To watch a single prompt travel through both layers — deterministic verdict printed fact by
+fact, then the same transcript judged in Foundry:
+
+```bash
+npm run eval:demo ACME-2-update-status     # any canonical case id; app must be running
+```
+
+It prints the agent's tool calls with arguments, the database before/after from authoritative
+reads, every credited check ✓/✗, then ships the transcript to Foundry and prints the portal
+link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs land in
+`.local-runs/eval-demo/` and are not evidence — the provenance gates of `eval:mvp` are skipped.
+
 ## Running it
 
 ```bash
