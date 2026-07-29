@@ -1,7 +1,7 @@
 # Agent evaluation reference architecture
 
 > **Status: parked design reference.** How testing actually works today — including the four-layer
-> testing model — lives in [`testing/`](../../testing/README.md). This document holds the target
+> testing model — lives in [`testing/`](../../testing/testing-charter.md). This document holds the target
 > program design; learnings from the real implementation are folded back here periodically.
 
 ## What we evaluate (target program)
@@ -197,6 +197,6 @@ artifact. Repository review and version history remain the trust anchor.
 ## Related documents
 
 - [Design](../product/overview.md)
-- [Testing Charter](../governance/testing-charter.md)
+- [Testing Charter](../../testing/testing-charter.md)
 - [Demo guide](../guides/demo.md)
 - [Current assistant architecture](../architecture/capabilities/assistant.md)

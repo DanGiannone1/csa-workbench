@@ -7,7 +7,7 @@ evidence is scored by Azure AI Foundry's evaluators as an advisory second opinio
 The one-line mental model: **write down what good looks like before the run; drive the real
 product; grade the facts with code (gate); grade the language with LLM evaluators (advise).**
 
-This guide covers layers 3 and 4 of the [four-layer testing model](README.md); current status and
+This guide covers layers 3 and 4 of the [four-layer testing model](testing-charter.md); current status and
 known gaps are tracked there too.
 
 ## The pieces

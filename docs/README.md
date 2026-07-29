@@ -20,7 +20,7 @@ Use this page to find the shortest path to what you need.
 
 - [Local development](guides/local-development.md)
 - [Demo guide](guides/demo.md)
-- [Testing: the four layers and how to run them](../testing/README.md)
+- [Testing: the four layers and how to run them](../testing/testing-charter.md)
 - [Agent evaluation showcase](guides/eval-showcase.md)
 - [Azure deployment](guides/deployment.md)
 - [Working with coding agents](guides/coding-agents.md)
