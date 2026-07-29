@@ -7,6 +7,39 @@ evidence is scored by Azure AI Foundry's evaluators as an advisory second opinio
 The one-line mental model: **write down what good looks like before the run; drive the real
 product; grade the facts with code (gate); grade the language with LLM evaluators (advise).**
 
+## The four layers of testing
+
+Every check in this repository sits in one of four layers. The dividing lines are **where the
+model enters** and **where ground truth exits**:
+
+| Layer | What's under test | Graded by | In this repo |
+|---|---|---|---|
+| 1 · Unit | A function's logic (e.g. the status-note validator) | Code | pytest suites in `verify:ci` |
+| 2 · Integration | The plumbing — a tool or endpoint does what it's told when called directly (status update lands; a viewer gets 403) | Code | TestClient suites, `scripts/api_probe.py`, Playwright |
+| 3 · Deterministic agent evals | The **agent's choices** — given a natural-language prompt, did the right actions happen, does app/database state match the gold contract, and did nothing else change | Code | `npm run eval:mvp` over [`tests/evals/`](../../tests/evals/) |
+| 4 · LLM-as-judge | The **answer's quality** — clear, complete, grounded, helpful — where no assertable ground truth exists | A judge model | `npm run eval:foundry` (Azure AI Foundry built-in evaluators) and the local advisory judge rubric |
+
+The model enters at layer 3: layers 1–2 test deterministic systems deterministically, so they gate
+every change. Layer 3 is a deterministic grader pointed at a non-deterministic subject — runs are
+samples, not proofs, so it gates releases and baselines, and the long-run number is a pass rate.
+Layer 4 is non-deterministic grading non-deterministic — judge verdicts have been measured flipping
+between judge models on identical evidence — which is why layer 4 only ever advises and never
+overturns a layer-3 check.
+
+Each layer catches what the one below cannot: layer 2 proves a tool works when called correctly;
+layer 3 proves the agent *chooses* to call it correctly from natural language; layer 4 reports
+whether the words around those actions served the user. This guide covers layers 3 and 4.
+
+## Current status and known gaps
+
+- Layer 3 runs each scenario **once per run** — repeated trials / pass@k are a tracked follow-up
+  (issue #34), as are: restoring a dedicated injection-immunity case, re-theming the Waza lane to
+  the Acme fixture, a Foundry project in the workload resource groups, and binding Foundry verdicts
+  into the scorecard's advisory lane.
+- No accepted comparison baseline exists yet; the scorecard-history CLI is ready for one.
+- A production-traffic lane (sampling real conversations from telemetry into the same reshape →
+  Foundry pipeline) is blocked on Application Insights wiring (issue #32).
+
 ## The pieces
 
 | Piece | Where | What it is |

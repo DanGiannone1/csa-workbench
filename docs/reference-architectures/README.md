@@ -1,5 +1,9 @@
 # Reference architectures
 
+> **Working order:** the real documentation is built from the real repository first — guides and
+> architecture describe what exists and is verified. These design documents are parked references;
+> learnings from implementation are folded back into them periodically, not the other way around.
+
 These documents explore how CSA Workbench could grow beyond the current MVP. They preserve detailed
 design reasoning, data formats, processing steps, failure handling, security rules, and implementation
 guidance. They do not set delivery dates or replace the current product documentation.
