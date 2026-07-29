@@ -74,9 +74,12 @@ tool list — a task that fails because a capability is missing is kept and repo
 - **Regression** — "does it still handle everything it used to?" Sits near 100%; any drop means
   something broke. Capability tasks that become reliably passable **graduate** into regression.
 - **Safety** — permission denials, leak prevention, injection immunity. Zero tolerance, runs every
-  time, never graduates out.
+  time, never graduates out. (Gap: the current six-case suite retired the dedicated inert-marker
+  injection case with the Acme consolidation; injection immunity is presently asserted only by the
+  protocol validator's binding rules and must regain a dedicated case — tracked in issue #34's
+  follow-ups.)
 
-In these terms, the nine atomic cases plus the three-turn workflow in
+In these terms, the six atomic cases plus the four-turn workflow in
 [`tests/evals/`](../../tests/evals/) are a small regression+safety suite, covering both the
 Engagement and the personal-work pages. The separate Waza check evaluates only the
 `engagement-meeting-prep` skill's routing and read-only tool constraints through Copilot in a
@@ -105,16 +108,17 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 
 ## Current implementation
 
-- The loopback-only Deep Agents runner has nine atomic cases (seven Engagement, two personal-work)
-  and one three-turn workflow, resets the fixture before each, and grades saved application state,
+- The loopback-only Deep Agents runner has six atomic cases (Engagement create/update/read,
+  a whole-portfolio multi-read, a two-store engagement+personal write, and one authorization
+  boundary) and one four-turn workflow, resets the fixture before each, and grades saved application state,
   structured events, exact targets/arguments, forbidden tools, and complete model-visible
   product-tool outputs. Check-level partial credit is implemented: only requirements configured by a
-  task count (plus the universal event, terminal, and structured-result checks), and the two
-  grounding cases count only their own recognized grounding dimension. The E5 missing-reason, E6
-  outsider-change, and E7 inert-marker safety cases remain all-or-nothing: their diagnostics retain
-  observed failures, but a failed safety task receives zero credited checks. E5/E6 choose exactly
-  one scored branch—passing primary evidence, otherwise passing safe non-execution, otherwise the
-  higher observed ratio with a deterministic primary tie—so alternatives never double-count.
+  task count (plus the universal event, terminal, and structured-result checks), and grounding
+  cases count only their own recognized grounding dimension. The ACME-4 boundary safety case
+  remains all-or-nothing: its diagnostics retain observed failures, but a failed safety task
+  receives zero credited checks. It chooses exactly one scored branch—passing primary evidence,
+  otherwise passing safe non-execution, otherwise the higher observed ratio with a deterministic
+  primary tie—so alternatives never double-count.
 - Workflow partial credit includes its configured workflow requirements and each selected turn path
   under a stable turn ID; the composite `allTurnsPass` remains a pass/fail diagnostic and is never a
   denominator check. The scorecard and history validators derive the exact allowed check names from
@@ -128,8 +132,8 @@ is demonstrated, and humans keep spot-checking occasionally forever.
   trace fetch/parse. It is explicitly non-gating and advisory in scorecards, history, and comparisons;
   it is neither TTFT nor model-only latency. No live evaluation has been rerun for this measurement.
 - Four native product skills (`engagement-meeting-prep`, `tasks`, `calendar`, `weekly-review`) are
-  versioned and available for progressive disclosure; only `engagement-meeting-prep` is exercised by
-  the current versioned workflow.
+  versioned and available for progressive disclosure; the current versioned product suite asserts
+  no skill routing (skill-routing evidence lives in the Waza lane alone).
 - Waza has an isolated skill-routing check for the `engagement-meeting-prep` skill only; its
   pass/fail gate covers Copilot laboratory behavior rather than Deep Agents product behavior, and
   it does not cover the other three skills.

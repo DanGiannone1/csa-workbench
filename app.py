@@ -139,7 +139,7 @@ _SEED_ARTIFACT_ID = "art-seed0001"
 def _seed_engagement_artifacts() -> int:
     """Give every seeded engagement one openable kickoff-notes.md (idempotent)."""
     seeded = 0
-    for engagement_id in ("eng-website-launch", "eng-product-launch", "eng-q3-budget"):
+    for engagement_id in ("eng-acme-ai-chatbot", "eng-globex-support-copilot", "eng-initech-doc-search"):
         engagement = appdb.load_engagement(engagement_id)
         if engagement is None:
             continue

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { evidencePath, evaluateCase, onlyExpectedEngagementUpdate, onlyNamedEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
+import { evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, onlyExpectedEngagementUpdate, onlyNamedEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
 
 const start = { type: "RUN_STARTED", run_id: "run-1", thread_id: "thread-1" };
 const finish = { type: "RUN_FINISHED", run_id: "run-1", thread_id: "thread-1" };
@@ -432,6 +432,35 @@ test("only the exact status update may touch its target engagement", () => {
     events: [start, ...toolEvents("update", "committed", { kind: "engagement", id: "eng-a" }), finish],
   });
   assert.equal(verdict.pass, false);
+});
+
+test("a joint engagement+personal write may touch exactly its two targets and nothing else", () => {
+  const target = { engagementId: "eng-a", aggregateKey: "personalTasks" };
+  const before = {
+    engagements: [{ id: "eng-a", status: "green", statusNote: "", activity: [] }, { id: "eng-b", status: "green" }],
+    personalTasks: [{ id: "t-1", title: "existing" }],
+    personalReminders: [{ id: "s-1", title: "existing" }],
+    currentRoute: "/engagements",
+  };
+  const good = structuredClone(before);
+  good.engagements[0] = { id: "eng-a", status: "yellow", statusNote: "why", activity: [{ ts: "volatile", userId: "dan", action: "engagement.updated", detail: "status, statusNote" }] };
+  good.personalTasks = [...before.personalTasks, { id: "t-2", title: "follow-up" }];
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, good, target), true);
+  const collateralEngagement = structuredClone(good);
+  collateralEngagement.engagements[1] = { id: "eng-b", status: "red" };
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, collateralEngagement, target), false);
+  const doubleInsert = structuredClone(good);
+  doubleInsert.personalTasks = [...good.personalTasks, { id: "t-3", title: "extra" }];
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, doubleInsert, target), false);
+  const priorMutated = structuredClone(good);
+  priorMutated.personalTasks = [{ id: "t-1", title: "rewritten" }, { id: "t-2", title: "follow-up" }];
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, priorMutated, target), false);
+  const unrelatedAggregate = structuredClone(good);
+  unrelatedAggregate.personalReminders = [...before.personalReminders, { id: "s-2", title: "sneaky" }];
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, unrelatedAggregate, target), false);
+  const missingInsert = structuredClone(before);
+  missingInsert.engagements = good.engagements;
+  assert.equal(onlyEngagementAndPersonalAggregateMayChange(before, missingInsert, target), false);
 });
 
 test("loopback and clean-worktree guards refuse crafted DNS, remote hosts, and source changes", () => {

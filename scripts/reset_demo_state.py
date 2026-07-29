@@ -30,7 +30,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent.parent
-FIXTURE_VERSION = "mvp-demo-v2"
+FIXTURE_VERSION = "acme-ai-v1"
 RESET_OPT_IN = "CONFIRM_DEMO_RESET"
 MVP_ARTIFACT_ROOT = ROOT / ".mvp-artifacts"
 LOCAL_RUNS_ROOT = ROOT / ".local-runs"

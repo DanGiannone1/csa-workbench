@@ -250,6 +250,7 @@ export function applicablePrimaryCheckNames(expectation) {
   add(!!expectation.onlyEngagementMayChange, "onlyNamedEngagementMayChange");
   add(!!expectation.exactEngagementUpdate, "onlyExpectedEngagementUpdate");
   add(!!expectation.onlyPersonalAggregateMayChange, "onlyPersonalAggregateMayChange");
+  add(!!expectation.onlyEngagementAndPersonalAggregateMayChange, "onlyEngagementAndPersonalAggregateMayChange");
   add(!!expectation.resourceKind, "resourceKindMatchesTarget");
   add(!!expectation.resourceId, "resourceMatchesTarget");
   add(!!expectation.resourceId, "noUnexpectedResourceTargets");
@@ -403,6 +404,32 @@ export function onlyPersonalAggregateMayChange(before, after, aggregateKey) {
   const { [aggregateKey]: beforeItems = [], ...beforeElse } = normalizedBefore;
   const { [aggregateKey]: afterItems = [], ...afterElse } = normalizedAfter;
   if (JSON.stringify(beforeElse) !== JSON.stringify(afterElse)) return false;
+  if (!Array.isArray(beforeItems) || !Array.isArray(afterItems) || afterItems.length !== beforeItems.length + 1) return false;
+  const remaining = [...afterItems];
+  for (const entry of beforeItems) {
+    const index = remaining.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(entry));
+    if (index < 0) return false;
+    remaining.splice(index, 1);
+  }
+  return remaining.length === 1;
+}
+
+// A single turn that legitimately writes both an Engagement and one of the actor's
+// personal aggregates (e.g. "set the status AND add me a follow-up task"): the named
+// engagement may change, the named aggregate gains exactly one record with all prior
+// records retained, and everything else — other engagements, other top-level keys —
+// stays byte-identical.
+export function onlyEngagementAndPersonalAggregateMayChange(before, after, { engagementId, aggregateKey }) {
+  const normalizedBefore = normalizedState(before);
+  const normalizedAfter = normalizedState(after);
+  const { engagements: beforeEngagements = [], [aggregateKey]: beforeItems = [], ...beforeElse } = normalizedBefore;
+  const { engagements: afterEngagements = [], [aggregateKey]: afterItems = [], ...afterElse } = normalizedAfter;
+  if (JSON.stringify(beforeElse) !== JSON.stringify(afterElse)) return false;
+  const beforeTarget = beforeEngagements.find((entry) => entry.id === engagementId);
+  const afterTarget = afterEngagements.find((entry) => entry.id === engagementId);
+  if (!beforeTarget || !afterTarget) return false;
+  const others = (entries) => entries.filter((entry) => entry.id !== engagementId);
+  if (JSON.stringify(others(beforeEngagements)) !== JSON.stringify(others(afterEngagements))) return false;
   if (!Array.isArray(beforeItems) || !Array.isArray(afterItems) || afterItems.length !== beforeItems.length + 1) return false;
   const remaining = [...afterItems];
   for (const entry of beforeItems) {
@@ -582,6 +609,8 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
     onlyExpectedEngagementUpdate: !expectation.exactEngagementUpdate || onlyExpectedEngagementUpdate(before, after, expectation.exactEngagementUpdate),
     onlyPersonalAggregateMayChange: !expectation.onlyPersonalAggregateMayChange
       || onlyPersonalAggregateMayChange(before, after, expectation.onlyPersonalAggregateMayChange),
+    onlyEngagementAndPersonalAggregateMayChange: !expectation.onlyEngagementAndPersonalAggregateMayChange
+      || onlyEngagementAndPersonalAggregateMayChange(before, after, expectation.onlyEngagementAndPersonalAggregateMayChange),
     resourceKindMatchesTarget: !expectation.resourceKind || matchedResult?.resource?.kind === expectation.resourceKind,
     resourceMatchesTarget: !expectation.resourceId || (matchedResult?.resource?.kind === "engagement" && matchedResult.resource.id === expectation.resourceId),
     noUnexpectedResourceTargets: !expectation.resourceId || results.every((result) =>

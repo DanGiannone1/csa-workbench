@@ -80,7 +80,7 @@ function recordedJudgeCandidate(record, runId = "judge-only-candidate") {
   candidate.gates.advisoryJudgeStatus = "RECORDED";
   candidate.metrics.advisoryJudge.status = "RECORDED";
   candidate.evidence.advisoryJudgeSha256 = "d".repeat(64);
-  for (const [lane, total, perDimension] of [["atomic", 27, 9], ["workflows", 3, 1]]) {
+  for (const [lane, total, perDimension] of [["atomic", 18, 6], ["workflows", 3, 1]]) {
     const counts = candidate.metrics.advisoryJudge[lane];
     counts.passed = 0;
     counts.failed = 0;
@@ -131,7 +131,7 @@ function inputs(overrides = {}) {
     schemaVersion: 1, kind: "mvp-grounding-review", productRunId: product.runId, sourceRevision: product.sourceRevision,
     fixtureVersion: fixture.fixtureVersion, fixtureHash: fixture.fixtureHash, skillSha256: skillHash,
     reviewer: "A reviewer", reviewedAt: "2026-07-22T12:01:00Z",
-    reviews: [{ workflowId: "MVP-W1-engagement-meeting-to-action", status: "APPROVED", note: "Grounded against the recorded product-tool outputs." }],
+    reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED", note: "Grounded against the recorded product-tool outputs." }],
   };
   Object.assign(product, overrides.product);
   Object.assign(waza, overrides.waza);
@@ -187,8 +187,8 @@ test("record rebuilds source binding, hashes it, and stores only a sanitized pro
   assert.equal(record.gates.scorecardAcceptance, "READY_FOR_BASELINE");
   assert.equal(record.schemaVersion, 3);
   assert.deepEqual(record.metrics.productRuntime.checks, values.product.summary.checks);
-  assert.deepEqual(record.metrics.productRuntime.latency.atomic, { count: 9, totalMs: 936, minMs: 100, maxMs: 108, meanMs: 104 });
-  assert.deepEqual(record.metrics.productRuntime.latency.workflowTurns, { count: 3, totalMs: 903, minMs: 300, maxMs: 302, meanMs: 301 });
+  assert.deepEqual(record.metrics.productRuntime.latency.atomic, { count: 6, totalMs: 615, minMs: 100, maxMs: 105, meanMs: 102 });
+  assert.deepEqual(record.metrics.productRuntime.latency.workflowTurns, { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 });
 });
 
 test("optional advisory judge evidence is bound and hashed rather than trusted from a supplied digest", () => {
@@ -242,29 +242,29 @@ test("strict product validation rejects check-score and summary-credit tampering
   rawDiagnosticTamper.results[0].checks.only = false;
   assert.throws(() => buildScorecardHistoryRecord(values.scorecard, rawDiagnosticTamper, values.waza, values.grounding), /source diagnostics/);
   const impossibleSafePath = structuredClone(values.product);
-  impossibleSafePath.results.find((item) => item.id === "MVP-E7-marker-prose-is-inert").checkScore.path = "safeNonExecution";
+  impossibleSafePath.results.find((item) => item.id === "ACME-1-create-engagement").checkScore.path = "safeNonExecution";
   assert.throws(() => buildScorecardHistoryRecord(values.scorecard, impossibleSafePath, values.waza, values.grounding), /source diagnostics|invalid canonical atomic scoring path/);
 
   const missingApplicable = structuredClone(values.product);
-  const missingE7 = missingApplicable.results.find((item) => item.id === "MVP-E7-marker-prose-is-inert");
-  delete missingE7.checks.noNavigation;
-  delete missingE7.scoredChecks.noNavigation;
-  missingE7.checkScore.observed.passed -= 1;
-  missingE7.checkScore.observed.total -= 1;
-  missingE7.checkScore.credit.passed -= 1;
-  missingE7.checkScore.credit.total -= 1;
+  const missingCase = missingApplicable.results.find((item) => item.id === "ACME-3-meeting-prep");
+  delete missingCase.checks.engagementDetailFactsGrounded;
+  delete missingCase.scoredChecks.engagementDetailFactsGrounded;
+  missingCase.checkScore.observed.passed -= 1;
+  missingCase.checkScore.observed.total -= 1;
+  missingCase.checkScore.credit.passed -= 1;
+  missingCase.checkScore.credit.total -= 1;
   missingApplicable.summary.checks.passed -= 1;
   missingApplicable.summary.checks.total -= 1;
   assert.throws(() => buildScorecardHistoryRecord(buildMvpScorecard(missingApplicable, values.waza, values.grounding), missingApplicable, values.waza, values.grounding), /canonical scored checks/);
 
   const irrelevantApplicable = structuredClone(values.product);
-  const extraE7 = irrelevantApplicable.results.find((item) => item.id === "MVP-E7-marker-prose-is-inert");
-  extraE7.checks.authorizedEngagementIdsGrounded = true;
-  extraE7.scoredChecks.authorizedEngagementIdsGrounded = true;
-  extraE7.checkScore.observed.passed += 1;
-  extraE7.checkScore.observed.total += 1;
-  extraE7.checkScore.credit.passed += 1;
-  extraE7.checkScore.credit.total += 1;
+  const extraCase = irrelevantApplicable.results.find((item) => item.id === "ACME-3-meeting-prep");
+  extraCase.checks.authorizedEngagementIdsGrounded = true;
+  extraCase.scoredChecks.authorizedEngagementIdsGrounded = true;
+  extraCase.checkScore.observed.passed += 1;
+  extraCase.checkScore.observed.total += 1;
+  extraCase.checkScore.credit.passed += 1;
+  extraCase.checkScore.credit.total += 1;
   irrelevantApplicable.summary.checks.passed += 1;
   irrelevantApplicable.summary.checks.total += 1;
   assert.throws(() => buildScorecardHistoryRecord(buildMvpScorecard(irrelevantApplicable, values.waza, values.grounding), irrelevantApplicable, values.waza, values.grounding), /canonical scored checks/);
@@ -314,8 +314,8 @@ test("scorecard and rehashed history reject latency aggregate tampering", () => 
   assert.throws(() => validateScorecardHistoryRecord(historyTamper), /arithmetic/);
   const countTamper = structuredClone(values.record);
   countTamper.metrics.productRuntime.latency.atomic.count -= 1;
-  countTamper.metrics.productRuntime.latency.atomic.totalMs = 832;
-  countTamper.metrics.productRuntime.latency.atomic.meanMs = 104;
+  countTamper.metrics.productRuntime.latency.atomic.totalMs = 510;
+  countTamper.metrics.productRuntime.latency.atomic.meanMs = 102;
   rehash(countTamper, "recordHash");
   assert.throws(() => validateScorecardHistoryRecord(countTamper), /latency count/);
   const extremaTamper = structuredClone(values.record);
@@ -478,9 +478,9 @@ test("comparison reports deterministic product and Waza regressions while keepin
   const latencyOnly = buildScorecardHistoryRecord(latencyOnlyValues.scorecard, latencyOnlyValues.product, latencyOnlyValues.waza, latencyOnlyValues.grounding);
   const latencyComparison = buildScorecardComparison(base.record, acceptance, latencyOnly);
   assert.equal(latencyComparison.deltas.latency.advisory, true);
-  assert.equal(latencyComparison.deltas.latency.atomic.totalMs.delta, 90);
+  assert.equal(latencyComparison.deltas.latency.atomic.totalMs.delta, 60);
   assert.equal(latencyComparison.deltas.latency.atomic.meanMs.delta, 10);
-  assert.equal(latencyComparison.deltas.latency.workflowTurns.totalMs.delta, 30);
+  assert.equal(latencyComparison.deltas.latency.workflowTurns.totalMs.delta, 40);
   assert.equal(latencyComparison.regressions.blockingRegression, false);
 
   const judgeOnly = recordedJudgeCandidate(base.record);

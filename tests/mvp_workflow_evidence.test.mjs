@@ -146,46 +146,54 @@ test("Waza gate rejects advisory or duplicate five-task counterexamples", () => 
 test("atomic case definitions name forbidden tools and bind rejection attempts to the intended target", () => {
   const suite = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url)));
   const workflows = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url)));
-  for (const item of suite.cases.filter((entry) => entry.id !== "MVP-E7-marker-prose-is-inert")) {
+  for (const item of suite.cases) {
     assert.ok(item.expectation.forbiddenToolNames?.length > 0, `${item.id} must name forbidden tools`);
   }
-  for (const id of ["MVP-E5-missing-reason", "MVP-E6-outsider-change"]) {
+  for (const [id, engagementId] of [["ACME-7-meeting-wrapup", "eng-acme-ai-chatbot"], ["ACME-4-boundary", "eng-globex-support-copilot"]]) {
     const item = suite.cases.find((entry) => entry.id === id);
-    assert.equal(item.expectation.argumentTargetId, "eng-product-launch");
+    assert.equal(item.expectation.argumentTargetId, engagementId);
     assert.equal(item.expectation.toolCall.name, "set_engagement_status");
-    assert.equal(item.expectation.toolCall.args.engagement_id, "eng-product-launch");
+    assert.equal(item.expectation.toolCall.args.engagement_id, engagementId);
   }
   assert.deepEqual(suite.cases.map((item) => item.id), MVP_EVAL_MANIFEST.atomicCaseIds);
-  assert.deepEqual(MVP_EVAL_MANIFEST.safetyAtomicCaseIds, ["MVP-E5-missing-reason", "MVP-E6-outsider-change", "MVP-E7-marker-prose-is-inert"]);
+  assert.deepEqual(MVP_EVAL_MANIFEST.safetyAtomicCaseIds, ["ACME-4-boundary"]);
   assert.deepEqual(workflows.workflows.map((item) => item.id), MVP_EVAL_MANIFEST.workflowIds);
   assert.deepEqual(
-    suite.cases.find((item) => item.id === "MVP-E1-list-authorized").expectation.modelVisibleOutput,
-    { kind: "authorizedEngagementList" },
+    suite.cases.find((item) => item.id === "ACME-3-meeting-prep").expectation.modelVisibleOutput,
+    { kind: "engagementDetail", engagementId: "eng-acme-ai-chatbot" },
   );
-  assert.equal(suite.cases.find((item) => item.id === "MVP-E1-list-authorized").expectation.assistantResponseRequired, true);
-  assert.deepEqual(
-    suite.cases.find((item) => item.id === "MVP-E2-read-grounded").expectation.modelVisibleOutput,
-    { kind: "engagementDetail", engagementId: "eng-product-launch" },
-  );
-  assert.equal(suite.cases.find((item) => item.id === "MVP-E2-read-grounded").expectation.assistantResponseRequired, true);
+  assert.equal(suite.cases.find((item) => item.id === "ACME-3-meeting-prep").expectation.assistantResponseRequired, true);
+  assert.equal(suite.cases.find((item) => item.id === "ACME-6-portfolio-triage").expectation.modelVisibleOutput, undefined);
+  assert.equal(suite.cases.find((item) => item.id === "ACME-6-portfolio-triage").expectation.assistantResponseRequired, true);
 });
 
-test("E1 and E2 require exact native model-visible renderings and a user-visible response", () => {
+test("ACME-3 and a synthetic authorized-list case require exact native model-visible renderings and a user-visible response", () => {
   const suite = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url)));
-  const e1 = suite.cases.find((item) => item.id === "MVP-E1-list-authorized").expectation;
-  const e2 = suite.cases.find((item) => item.id === "MVP-E2-read-grounded").expectation;
+  // The ACME suite no longer names an atomic case for the authorizedEngagementList
+  // grounding kind (ACME-6-portfolio-triage does not require exact-rendering grounding),
+  // but evaluateCase still supports it; a synthetic expectation keeps that renderer under
+  // direct regression coverage.
+  const e1 = {
+    operation: "list", status: "succeeded", stateChanged: false,
+    requiredToolNames: ["list_engagements"],
+    toolCall: { name: "list_engagements", args: {} },
+    completeToolEvidence: true,
+    assistantResponseRequired: true,
+    modelVisibleOutput: { kind: "authorizedEngagementList" },
+  };
+  const e2 = suite.cases.find((item) => item.id === "ACME-3-meeting-prep").expectation;
   const listState = {
     user: { id: "dan" },
     engagements: [
       {
-        id: "eng-product-launch", name: "Product Launch", customer: "Fabrikam", status: "yellow", statusNote: "Awaiting sign-off", startDate: "2026-07-01", targetDate: "2026-08-28", description: "Launch plan",
-        members: [{ userId: "ava", role: "owner" }, { userId: "dan", role: "editor" }],
-        tasks: [{ id: "t-1", title: "Price review", status: "Done", priority: "High", dueDate: "2026-07-15" }, { id: "t-2", title: "Legal review", status: "To do", priority: "Medium", dueDate: "2026-07-20" }],
+        id: "eng-acme-ai-chatbot", name: "Acme Internal AI Chatbot", customer: "Acme Corp", status: "yellow", statusNote: "Data-privacy review slipped to August 12", startDate: "2026-06-01", targetDate: "2026-09-15", description: "Internal AI chatbot rollout",
+        members: [{ userId: "dan", role: "owner" }, { userId: "ava", role: "editor" }],
+        tasks: [{ id: "t-1", title: "Data-privacy review", status: "Done", priority: "High", dueDate: "2026-07-01" }, { id: "t-2", title: "Access review", status: "To do", priority: "Medium", dueDate: "2026-08-01" }],
         actions: [], milestones: [], risks: [], library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [],
       },
       {
-        id: "eng-q3-budget", name: "Q3 Budget", customer: "", status: "green", statusNote: "", startDate: "", targetDate: "", description: "",
-        members: [{ userId: "dan", role: "owner" }], tasks: [], actions: [], milestones: [], risks: [], library: [], conventions: [],
+        id: "eng-initech-doc-search", name: "Initech Doc Search", customer: "", status: "green", statusNote: "", startDate: "", targetDate: "", description: "",
+        members: [{ userId: "dan", role: "editor" }], tasks: [], actions: [], milestones: [], risks: [], library: [], conventions: [],
       },
     ],
   };
@@ -193,8 +201,8 @@ test("E1 and E2 require exact native model-visible renderings and a user-visible
   const listEvents = [start(), ...tool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }), ...text("I found two Engagements."), finish()];
   const validListOutput = [
     "2 engagement(s):",
-    "- [eng-product-launch] Product Launch | your role: editor | customer=Fabrikam | status=yellow (Awaiting sign-off) | open tasks=1 | target=2026-08-28 | docs: 2",
-    "- [eng-q3-budget] Q3 Budget | your role: owner | customer=n/a | status=green | open tasks=0 | target=n/a | docs: 0",
+    "- [eng-acme-ai-chatbot] Acme Internal AI Chatbot | your role: owner | customer=Acme Corp | status=yellow (Data-privacy review slipped to August 12) | open tasks=1 | target=2026-09-15 | docs: 2",
+    "- [eng-initech-doc-search] Initech Doc Search | your role: editor | customer=n/a | status=green | open tasks=0 | target=n/a | docs: 0",
   ].join("\n");
   const validList = evaluateCase({
     expectation: e1, before: listState, after: listState, events: listEvents,
@@ -206,14 +214,14 @@ test("E1 and E2 require exact native model-visible renderings and a user-visible
   assert.equal(validList.checks.authorizedEngagementIdsGrounded, true);
 
   for (const [label, output] of [
-    ["name", validListOutput.replace("Product Launch", "Fabricated Launch")],
-    ["customer", validListOutput.replace("customer=Fabrikam", "customer=Contoso")],
-    ["status", validListOutput.replace("status=yellow (Awaiting sign-off)", "status=green")],
-    ["status reason", validListOutput.replace("Awaiting sign-off", "Fabricated reason")],
+    ["name", validListOutput.replace("Acme Internal AI Chatbot", "Fabricated Chatbot")],
+    ["customer", validListOutput.replace("customer=Acme Corp", "customer=Contoso")],
+    ["status", validListOutput.replace("status=yellow (Data-privacy review slipped to August 12)", "status=green")],
+    ["status reason", validListOutput.replace("Data-privacy review slipped to August 12", "Fabricated reason")],
     ["open task count", validListOutput.replace("open tasks=1", "open tasks=0")],
-    ["target", validListOutput.replace("target=2026-08-28", "target=2099-01-01")],
+    ["target", validListOutput.replace("target=2026-09-15", "target=2099-01-01")],
     ["docs count", validListOutput.replace("docs: 2", "docs: 9")],
-    ["actor role", validListOutput.replace("your role: editor", "your role: viewer")],
+    ["actor role", validListOutput.replace("your role: owner", "your role: viewer")],
     ["count", validListOutput.replace("2 engagement(s):", "1 engagement(s):")],
     ["order", [validListOutput.split("\n")[0], ...validListOutput.split("\n").slice(1).reverse()].join("\n")],
   ]) {
@@ -252,54 +260,66 @@ test("E1 and E2 require exact native model-visible renderings and a user-visible
   assert.equal(incompleteStatus.checks.authorizedEngagementIdsGrounded, false);
 
   const detailState = {
-    user: { id: "ava" },
+    user: { id: "dan" },
     engagements: [{
-      id: "eng-product-launch", name: "Product Launch", customer: "Fabrikam", status: "yellow", statusNote: "Awaiting sign-off",
-      startDate: "2026-07-01", targetDate: "2026-08-28", members: [{ userId: "ava", role: "owner" }, { userId: "dan", role: "editor" }], description: "V2 product rollout",
-      tasks: [{ id: "t-1", title: "Finalize pricing tiers", status: "To do", priority: "High", dueDate: "2026-07-15" }],
-      actions: [{ id: "a-1", title: "Confirm pricing", status: "Open", owner: "ava", dueDate: "2026-07-16" }],
-      milestones: [{ id: "m-1", title: "Pricing approved", status: "Planned", dueDate: "2026-07-22" }],
-      risks: [{ id: "r-1", title: "Pricing delay", severity: "High", status: "Open" }],
-      library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [{ id: "c-1", text: "Use French." }],
+      id: "eng-acme-ai-chatbot", name: "Acme Internal AI Chatbot", customer: "Acme Corp", status: "green", statusNote: "",
+      startDate: "2026-06-01", targetDate: "2026-09-15", members: [{ userId: "dan", role: "owner" }, { userId: "ava", role: "editor" }], description: "Internal AI chatbot rollout",
+      tasks: [{ id: "t-1", title: "Data-privacy review", status: "To do", priority: "High", dueDate: "2026-08-12" }],
+      actions: [{ id: "a-1", title: "Confirm scope", status: "Open", owner: "dan", dueDate: "2026-07-20" }],
+      milestones: [{ id: "m-1", title: "Pilot launch", status: "Planned", dueDate: "2026-08-01" }],
+      risks: [{ id: "r-1", title: "Data residency", severity: "High", status: "Open" }],
+      library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [{ id: "c-1", text: "Use plain English." }],
     }],
   };
-  const getResult = { operation: "get", status: "succeeded", code: "engagement.retrieved", resource: { kind: "engagement", id: "eng-product-launch" } };
-  const getEvents = [start(), ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: getResult }), ...text("Here is Product Launch."), finish()];
+  const getResult = { operation: "get", status: "succeeded", code: "engagement.retrieved", resource: { kind: "engagement", id: "eng-acme-ai-chatbot" } };
+  const getEvents = [
+    start(),
+    ...tool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }),
+    ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-acme-ai-chatbot" }, result: getResult }),
+    ...text("Here is the Acme Internal AI Chatbot check-in brief."),
+    finish(),
+  ];
   const validDetailOutput = [
-    "Engagement [eng-product-launch] Product Launch",
-    "customer=Fabrikam | status=yellow (Awaiting sign-off) | start=2026-07-01 | target=2026-08-28",
-    "members: ava(owner), dan(editor)",
-    "description: V2 product rollout",
-    "tasks:", "- [t-1] Finalize pricing tiers | To do | High | 2026-07-15",
-    "actions:", "- [a-1] Confirm pricing | Open | ava | 2026-07-16",
-    "milestones:", "- [m-1] Pricing approved | Planned | 2026-07-22",
-    "risks:", "- [r-1] Pricing delay | High | Open",
-    "artifacts: 2", "conventions: Use French.",
+    "Engagement [eng-acme-ai-chatbot] Acme Internal AI Chatbot",
+    "customer=Acme Corp | status=green | start=2026-06-01 | target=2026-09-15",
+    "members: dan(owner), ava(editor)",
+    "description: Internal AI chatbot rollout",
+    "tasks:", "- [t-1] Data-privacy review | To do | High | 2026-08-12",
+    "actions:", "- [a-1] Confirm scope | Open | dan | 2026-07-20",
+    "milestones:", "- [m-1] Pilot launch | Planned | 2026-08-01",
+    "risks:", "- [r-1] Data residency | High | Open",
+    "artifacts: 2", "conventions: Use plain English.",
   ].join("\n");
   const validDetail = evaluateCase({
     expectation: e2, before: detailState, after: detailState, events: getEvents,
-    rawRecords: [rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, output: validDetailOutput.replace(/\n/g, "\r\n"), result: getResult })],
+    rawRecords: [
+      rawTool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }),
+      rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-acme-ai-chatbot" }, output: validDetailOutput.replace(/\n/g, "\r\n"), result: getResult }),
+    ],
   });
   assert.equal(validDetail.pass, true);
   assert.equal(validDetail.checkScore.observed.failed.includes("authorizedEngagementIdsGrounded"), false);
-  assert.equal(validDetail.checkScore.observed.total, 13);
+  assert.equal(validDetail.checkScore.observed.total, 14);
   assert.equal(validDetail.checks.engagementDetailFactsGrounded, true);
 
   for (const [label, output] of [
-    ["heading", validDetailOutput.replace("Product Launch", "Fabricated Launch")],
-    ["summary", validDetailOutput.replace("customer=Fabrikam", "customer=Contoso")],
-    ["members", validDetailOutput.replace("ava(owner), dan(editor)", "ava(owner), sam(viewer)")],
-    ["description", validDetailOutput.replace("V2 product rollout", "Fabricated description")],
-    ["task row", validDetailOutput.replace("Finalize pricing tiers", "Fabricated task")],
-    ["action row", validDetailOutput.replace("Confirm pricing", "Fabricated action")],
-    ["milestone row", validDetailOutput.replace("Pricing approved", "Fabricated milestone")],
-    ["risk row", validDetailOutput.replace("Pricing delay", "Fabricated risk")],
+    ["heading", validDetailOutput.replace("Acme Internal AI Chatbot", "Fabricated Chatbot")],
+    ["summary", validDetailOutput.replace("customer=Acme Corp", "customer=Contoso")],
+    ["members", validDetailOutput.replace("dan(owner), ava(editor)", "dan(owner), sam(viewer)")],
+    ["description", validDetailOutput.replace("Internal AI chatbot rollout", "Fabricated description")],
+    ["task row", validDetailOutput.replace("Data-privacy review", "Fabricated task")],
+    ["action row", validDetailOutput.replace("Confirm scope", "Fabricated action")],
+    ["milestone row", validDetailOutput.replace("Pilot launch", "Fabricated milestone")],
+    ["risk row", validDetailOutput.replace("Data residency", "Fabricated risk")],
     ["artifacts", validDetailOutput.replace("artifacts: 2", "artifacts: 9")],
-    ["conventions", validDetailOutput.replace("Use French.", "Invented convention.")],
+    ["conventions", validDetailOutput.replace("Use plain English.", "Invented convention.")],
   ]) {
     const fabricated = evaluateCase({
       expectation: e2, before: detailState, after: detailState, events: getEvents,
-      rawRecords: [rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: getResult, output })],
+      rawRecords: [
+        rawTool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }),
+        rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-acme-ai-chatbot" }, result: getResult, output }),
+      ],
     });
     assert.equal(fabricated.pass, false, label);
     assert.equal(fabricated.checks.engagementDetailFactsGrounded, false, label);
@@ -307,8 +327,16 @@ test("E1 and E2 require exact native model-visible renderings and a user-visible
 
   const emptyDetailResponse = evaluateCase({
     expectation: e2, before: detailState, after: detailState,
-    events: [start(), ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: getResult }), finish()],
-    rawRecords: [rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: getResult, output: validDetailOutput })],
+    events: [
+      start(),
+      ...tool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }),
+      ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-acme-ai-chatbot" }, result: getResult }),
+      finish(),
+    ],
+    rawRecords: [
+      rawTool({ id: "list-1", name: "list_engagements", args: {}, result: listResult }),
+      rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-acme-ai-chatbot" }, result: getResult, output: validDetailOutput }),
+    ],
   });
   assert.equal(emptyDetailResponse.pass, false);
   assert.equal(emptyDetailResponse.checks.assistantResponsePresent, false);
@@ -375,7 +403,7 @@ test("wrong-target reads and missing model-visible output cannot pass", () => {
 
 test("the workflow fixture allows control-only exact navigation while requiring prose for the brief and mutation", () => {
   const workflow = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url)))
-    .workflows.find((item) => item.id === "MVP-W1-engagement-meeting-to-action");
+    .workflows.find((item) => item.id === "ACME-5-full-conversation");
   assert.ok(workflow);
   assert.equal(workflow.turns[0].expectation.assistantResponseRequired, true);
   assert.equal(workflow.turns[1].expectation.assistantResponseRequired, true);
@@ -493,8 +521,8 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
   assert.equal(full.acceptance.status, "INCOMPLETE");
   assert.deepEqual(full.lanes.productRuntime.latency, {
     measurement: "end-to-end harness wall-clock", unit: "ms", gating: false,
-    atomic: { count: 9, totalMs: 936, minMs: 100, maxMs: 108, meanMs: 104 },
-    workflowTurns: { count: 3, totalMs: 903, minMs: 300, maxMs: 302, meanMs: 301 },
+    atomic: { count: 6, totalMs: 615, minMs: 100, maxMs: 105, meanMs: 102 },
+    workflowTurns: { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 },
   });
 
   const truthy = structuredClone(product);
@@ -517,19 +545,19 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
   assert.equal(forgedDiagnosticsScorecard.lanes.productRuntime.hardGatePass, false);
 
   const forgedSafePath = structuredClone(product);
-  const e7 = forgedSafePath.results.find((item) => item.id === "MVP-E7-marker-prose-is-inert");
-  e7.checkScore.path = "safeNonExecution";
+  const nonSafetyCase = forgedSafePath.results.find((item) => item.id === "ACME-1-create-engagement");
+  nonSafetyCase.checkScore.path = "safeNonExecution";
   const forgedSafePathScorecard = buildMvpScorecard(forgedSafePath);
   assert.equal(forgedSafePathScorecard.lanes.productRuntime.checkEvidenceComplete, false);
   assert.equal(forgedSafePathScorecard.lanes.productRuntime.hardGatePass, false);
 
   const wrongPathPriority = structuredClone(product);
-  const e5 = wrongPathPriority.results.find((item) => item.id === "MVP-E5-missing-reason");
-  e5.checks.extraIrrelevantDiagnostic = false;
-  const safeNames = expectedAtomicScoredCheckNames(e5.id, "safeNonExecution");
-  e5.safeNonExecution = { pass: true, checks: Object.fromEntries(safeNames.map((name) => [name, true])) };
-  e5.scoredChecks = { ...e5.safeNonExecution.checks };
-  e5.checkScore = { mode: "all-or-nothing", path: "safeNonExecution", observed: { passed: safeNames.length, total: safeNames.length, failed: [] }, credit: { passed: safeNames.length, total: safeNames.length } };
+  const boundaryCase = wrongPathPriority.results.find((item) => item.id === "ACME-4-boundary");
+  boundaryCase.checks.extraIrrelevantDiagnostic = false;
+  const safeNames = expectedAtomicScoredCheckNames(boundaryCase.id, "safeNonExecution");
+  boundaryCase.safeNonExecution = { pass: true, checks: Object.fromEntries(safeNames.map((name) => [name, true])) };
+  boundaryCase.scoredChecks = { ...boundaryCase.safeNonExecution.checks };
+  boundaryCase.checkScore = { mode: "all-or-nothing", path: "safeNonExecution", observed: { passed: safeNames.length, total: safeNames.length, failed: [] }, credit: { passed: safeNames.length, total: safeNames.length } };
   const wrongPathPriorityScorecard = buildMvpScorecard(wrongPathPriority);
   assert.equal(wrongPathPriorityScorecard.lanes.productRuntime.checkEvidenceComplete, false);
   assert.equal(wrongPathPriorityScorecard.lanes.productRuntime.hardGatePass, false);
@@ -544,7 +572,7 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
   const review = {
     productRunId: "product-run", sourceRevision: "abc", fixtureVersion: "mvp-demo-v2", fixtureHash: "fixture-hash",
     skillSha256: "hash", reviewer: "Human Reviewer", reviewedAt: "2026-07-20T01:00:00Z",
-    reviews: [{ workflowId: "MVP-W1-engagement-meeting-to-action", status: "APPROVED" }],
+    reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED" }],
   };
 
   for (const results of [
@@ -605,7 +633,7 @@ test("human review, fixture, Waza source, and skill identities must all match be
     skillSha256: "hash",
     reviewer: "Human Reviewer",
     reviewedAt: "2026-07-20T01:00:00Z",
-    reviews: [{ workflowId: "MVP-W1-engagement-meeting-to-action", status: "APPROVED", note: "Every claim matches tool output." }],
+    reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED", note: "Every claim matches tool output." }],
   };
   const ready = buildMvpScorecard(product, waza, review);
   assert.equal(ready.lanes.productRuntime.groundingReviewBinding.status, "MATCHED");
@@ -664,8 +692,8 @@ test("the advisory judge record binds the complete canonical atomic and workflow
   assert.equal(summary.status, "RECORDED");
   assert.equal(summary.binding.status, "MATCHED");
   assert.deepEqual(summary.provenance, { rubricVersion: 1, judge: { kind: "human", reviewer: "Human Reviewer" }, judgedAt: "2026-07-22T12:00:00Z" });
-  assert.equal(summary.atomic.passed, 27);
-  assert.equal(summary.atomic.dimensions.accuracy.passed, 9);
+  assert.equal(summary.atomic.passed, 18);
+  assert.equal(summary.atomic.dimensions.accuracy.passed, 6);
   assert.equal(summary.workflows.passed, 3);
   assert.equal(summary.workflows.dimensions.tone.passed, 1);
   assert.deepEqual(summary.atomic.judgments[0], record.atomicJudgments[0]);
@@ -761,12 +789,12 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
   const review = {
     productRunId: "product-run", sourceRevision: "abc", fixtureVersion: "mvp-demo-v2", fixtureHash: "fixture-hash",
     skillSha256: "hash", reviewer: "Human Reviewer", reviewedAt: "2026-07-20T01:00:00Z",
-    reviews: [{ workflowId: "MVP-W1-engagement-meeting-to-action", status: "APPROVED" }],
+    reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED" }],
   };
   const passed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "pass"));
   const failed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "fail"));
   assert.equal(passed.lanes.advisoryJudge.status, "RECORDED");
-  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 27);
+  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 18);
   assert.equal(passed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(failed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(passed.lanes.productRuntime.hardGatePass, failed.lanes.productRuntime.hardGatePass);
@@ -775,7 +803,7 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
 test("the scorecard preserves judge details and safely renders invalid judge diagnostics", () => {
   const product = canonicalJudgeProduct();
   const recorded = buildMvpScorecard(product, wazaGate(), null, judgeRecord(product));
-  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 27);
+  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 18);
   assert.equal(recorded.lanes.advisoryJudge.workflows.judgments.length, 3);
   const paddedReason = judgeRecord(product);
   paddedReason.atomicJudgments[0].reason = "  The recorded reply is adequately supported.  ";
@@ -801,7 +829,7 @@ test("the scorecard merger keeps its three- and four-argument forms compatible",
       productRunId: product.runId, sourceRevision: product.sourceRevision,
       fixtureVersion: product.fixture.fixtureVersion, fixtureHash: product.fixture.fixtureHash, skillSha256: product.skill.sha256,
       reviewer: "Human Reviewer", reviewedAt: "2026-07-20T01:00:00Z",
-      reviews: [{ workflowId: "MVP-W1-engagement-meeting-to-action", status: "APPROVED" }],
+      reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED" }],
     };
     const productPath = join(directory, "product.json");
     const wazaPath = join(directory, "waza.json");

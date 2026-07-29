@@ -625,69 +625,75 @@ def find_engagement_item(eng: dict, kind: str, ref: str) -> dict | None:
 
 
 def _seed_engagements() -> None:
-    """Demo fixture (idempotent): two similarly-named engagements for the ambiguity demo,
-    different membership shapes, one French-deliverables convention."""
+    """Demo fixture (idempotent): three CSA customer engagements around the Acme
+    Internal AI Chatbot narrative. Membership shapes differ so authorization is
+    demonstrable — dan owns Acme and co-edits Initech, ava owns Initech and
+    co-edits Acme, and sam solely owns Globex (nobody else is a member)."""
     container = _container()
     fixtures = [
         {
-            "id": "eng-website-launch", "name": "Website Launch",
-            "description": "Marketing site refresh and launch",
-            "customer": "Contoso Retail", "stage": "Build",
-            "status": "yellow",
-            "statusNote": "CMS migration slipped a week; launch date at risk until content freeze lands.",
-            "targetDate": "2026-07-24",
+            "id": "eng-acme-ai-chatbot", "name": "Acme Internal AI Chatbot",
+            "description": "Employee-facing internal assistant on Azure OpenAI, grounded with "
+                           "RAG over Acme's HR and IT policy documents.",
+            "customer": "Acme Corp", "stage": "Build",
+            "status": "green", "statusNote": "",
+            "startDate": "2026-06-01", "targetDate": "2026-09-30",
             "milestones": [
-                {"id": "m-1", "title": "Design sign-off", "dueDate": "2026-07-01",
+                {"id": "m-1", "title": "Architecture sign-off", "dueDate": "2026-06-20",
                  "status": "Done", "notes": ""},
-                {"id": "m-2", "title": "Content freeze", "dueDate": "2026-07-18",
+                {"id": "m-2", "title": "Pilot to 500 employees", "dueDate": "2026-09-30",
                  "status": "In progress", "notes": ""},
             ],
             "risks": [
-                {"id": "r-1", "title": "CMS migration overrun", "severity": "Medium",
-                 "status": "Open", "mitigation": "Parallel-run old CMS until cutover.",
+                {"id": "r-1", "title": "Data-privacy review pending", "severity": "High",
+                 "status": "Open",
+                 "mitigation": "Security review of the RAG data boundary with Acme IT Security.",
                  "owner": "dan"},
             ],
             "actions": [
-                {"id": "a-1", "title": "Confirm CDN contract renewal", "owner": "dan",
-                 "dueDate": "2026-07-15", "status": "Open", "notes": ""},
+                {"id": "a-1", "title": "Send architecture diagram to Dana Okafor", "owner": "dan",
+                 "dueDate": "2026-07-30", "status": "Open", "notes": ""},
             ],
-            "members": [{"userId": "dan", "role": "owner"}, {"userId": "sam", "role": "viewer"}],
+            "members": [{"userId": "dan", "role": "owner"}, {"userId": "ava", "role": "editor"}],
             "conventions": [],
             "tasks": [
-                {"id": "t-1", "title": "Draft launch checklist", "status": "In progress",
-                 "priority": "High", "group": "Launch", "dueDate": "2026-07-16",
+                {"id": "t-1", "title": "Finalize RAG grounding source list", "status": "In progress",
+                 "priority": "High", "group": "Build", "dueDate": "2026-07-31",
                  "subtasks": [], "notes": "", "createdAt": _now_iso()},
-                {"id": "t-2", "title": "Review homepage copy", "status": "To do",
-                 "priority": "Medium", "group": "Content", "dueDate": "2026-07-14",
+                {"id": "t-2", "title": "Draft pilot rollout comms", "status": "To do",
+                 "priority": "Medium", "group": "Launch", "dueDate": "2026-08-15",
                  "subtasks": [], "notes": "", "createdAt": _now_iso()},
             ],
         },
         {
-            "id": "eng-product-launch", "name": "Product Launch",
-            "description": "V2 product rollout",
-            "customer": "Fabrikam", "stage": "Design",
-            "targetDate": "2026-08-28",
+            "id": "eng-globex-support-copilot", "name": "Globex Support Copilot",
+            "description": "Customer-support copilot pilot for Globex's tier-1 help desk.",
+            "customer": "Globex", "stage": "Design",
+            "status": "green", "statusNote": "",
+            "startDate": "2026-07-01", "targetDate": "2026-10-15",
             "milestones": [
-                {"id": "m-1", "title": "Pricing model approved", "dueDate": "2026-07-22",
+                {"id": "m-1", "title": "Intent taxonomy approved", "dueDate": "2026-07-25",
                  "status": "Planned", "notes": ""},
             ],
-            "members": [{"userId": "ava", "role": "owner"}, {"userId": "dan", "role": "editor"}],
-            "conventions": [
-                {"id": "c-1", "text": "Status documents are written in French.", "createdBy": "ava",
-                 "createdAt": _now_iso()},
-            ],
-            "tasks": [
-                {"id": "t-1", "title": "Finalize pricing tiers", "status": "To do",
-                 "priority": "High", "group": "Launch", "dueDate": "2026-07-15",
-                 "subtasks": [], "notes": "", "createdAt": _now_iso()},
-            ],
-        },
-        {
-            "id": "eng-q3-budget", "name": "Q3 Budget",
-            "description": "Quarterly budget planning",
-            "members": [{"userId": "ava", "role": "owner"}],
+            "members": [{"userId": "sam", "role": "owner"}],
             "conventions": [],
             "tasks": [],
+        },
+        {
+            "id": "eng-initech-doc-search", "name": "Initech Document Search",
+            "description": "Enterprise document search over Initech's internal knowledge base "
+                           "using Azure AI Search.",
+            "customer": "Initech", "stage": "Discovery",
+            "status": "yellow",
+            "statusNote": "Waiting on Initech to provide the sample document corpus.",
+            "startDate": "2026-07-10", "targetDate": "2026-11-30",
+            "members": [{"userId": "ava", "role": "owner"}, {"userId": "dan", "role": "editor"}],
+            "conventions": [],
+            "tasks": [
+                {"id": "t-1", "title": "Review Initech sample corpus once received", "status": "Blocked",
+                 "priority": "Medium", "group": "Discovery", "dueDate": "",
+                 "subtasks": [], "notes": "", "createdAt": _now_iso()},
+            ],
         },
     ]
     for f in fixtures:
