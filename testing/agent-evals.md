@@ -86,10 +86,41 @@ flowchart LR
     B --> D["Foundry Evaluations<br/>Azure AI Projects SDK · advise"]
 ```
 
-`npm run eval:foundry` converts a finished evidence file into Foundry's agent-message schema
-(one row per scenario/turn; tool definitions generated from
-`session-container/mvp_tool_schemas.py`, ground-truth tool sequences derived from each gold
-contract) and submits it to the Foundry evals API. Microsoft's built-in agent evaluators —
+Layer 4 is three mechanical steps:
+
+1. **Save the transcript.** The layer-3 run already recorded everything: the prompt, every tool
+   call with arguments and results, and the answer text (in `results.json`).
+2. **Convert to Foundry's expected shape** (`scripts/foundry_evidence_rows.py`). Each scenario or
+   workflow turn becomes one row:
+
+   ```json
+   {
+     "item_id": "ACME-2-update-status",
+     "harness_pass": true,
+     "user_request": "…set that engagement to Yellow with the exact reason…",
+     "agent_messages": [
+       {"role": "assistant", "content": [{"type": "tool_call", "tool_call_id": "…",
+         "name": "set_engagement_status",
+         "arguments": {"engagement_id": "eng-acme-ai-chatbot", "status": "yellow", "note": "…"}}]},
+       {"role": "tool", "tool_call_id": "…", "content": [{"type": "tool_result",
+         "tool_result": {"status": "committed", "operation": "update", "…": "…"}}]},
+       {"role": "assistant", "content": [{"type": "text", "text": "The engagement is now Yellow…"}]}
+     ],
+     "tool_defs": ["…every product tool's JSON schema, generated from mvp_tool_schemas.py…"],
+     "expected_actions": ["set_engagement_status"]
+   }
+   ```
+
+   The reconstruction keys tool calls by `tool_call_id` (calls can interleave in the stream),
+   keeps result payloads (several evaluators judge whether the agent *used* what tools
+   returned), and refuses evidence whose ids aren't in the canonical suite.
+3. **Send** (`scripts/foundry_eval_upload.py`): two API calls — `evals.create` names the built-in
+   evaluators and the judge deployment; `evals.runs.create` hands over the rows. Judging runs
+   server-side in Foundry; the run appears in the portal with per-row scores and reasoning.
+
+`npm run eval:foundry` performs steps 2–3 against a finished evidence file, with tool
+definitions generated from `session-container/mvp_tool_schemas.py` and ground-truth tool
+sequences derived from each gold contract, and submits to the Foundry evals API. Microsoft's built-in agent evaluators —
 intent resolution, tool-call accuracy, task adherence, task completion, tool selection/input
 accuracy/output utilization/call success, quality, customer satisfaction, and the
 deterministic task-navigation-efficiency — run **server-side** with an LLM judge and appear in
