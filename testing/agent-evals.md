@@ -60,8 +60,10 @@ Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
 - **Protocol** — the event stream is well-formed: one terminal event, complete tool-call
   lifecycles, result operations matching their tools, navigation bound to a real result.
 - **Tool calls** — the expected call happened with exactly the expected arguments; required
-  tools present; forbidden tools absent; no argument or result targeted any engagement other
-  than the declared one (blast radius of *intent*, not just outcome).
+  tools present; forbidden tools absent; no write or navigation targeted any engagement other
+  than the declared one. Reads are deliberately unbounded: any path that produces the same
+  verified end state passes (τ²-bench's rule), so contracts never degrade into tool-sequence
+  choreography.
 - **Database end state** — read back through the product API afterward: the named engagement
   has the expected status/note; nothing else changed (single-domain invariants
   `onlyNamedEngagementMayChange` / `onlyPersonalAggregateMayChange`, or the joint

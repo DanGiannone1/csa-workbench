@@ -380,25 +380,49 @@ test("wrong-target reads and missing model-visible output cannot pass", () => {
   });
   assert.equal(complete.pass, true);
 
-  const mixedEvents = [
+  // An extra authorized READ of another engagement is a legitimate path: the blast
+  // radius binds writes and navigation, never reads.
+  const extraReadEvents = [
     start(),
     ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: rightResult }),
     ...tool({ id: "get-2", name: "get_engagement", args: { engagement_id: "eng-wrong" }, result: wrongResult }),
     finish(),
   ];
-  const mixed = evaluateCase({
+  const extraRead = evaluateCase({
     expectation,
     before: state,
     after: state,
-    events: mixedEvents,
+    events: extraReadEvents,
     rawRecords: [
       rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: rightResult }),
       rawTool({ id: "get-2", name: "get_engagement", args: { engagement_id: "eng-wrong" }, result: wrongResult }),
     ],
   });
-  assert.equal(mixed.pass, false);
-  assert.equal(mixed.checks.noUnexpectedResourceTargets, false);
-  assert.equal(mixed.checks.noUnexpectedArgumentTargets, false);
+  assert.equal(extraRead.checks.noUnexpectedResourceTargets, true);
+  assert.equal(extraRead.checks.noUnexpectedArgumentTargets, true);
+  assert.equal(extraRead.pass, true);
+
+  // A WRITE targeting any other engagement stays a blast-radius violation.
+  const strayWriteResult = { operation: "update", status: "committed", code: "engagement.committed", resource: { kind: "engagement", id: "eng-wrong" } };
+  const strayWriteEvents = [
+    start(),
+    ...tool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: rightResult }),
+    ...tool({ id: "set-1", name: "set_engagement_status", args: { engagement_id: "eng-wrong", status: "red", note: "stray" }, result: strayWriteResult }),
+    finish(),
+  ];
+  const strayWrite = evaluateCase({
+    expectation,
+    before: state,
+    after: state,
+    events: strayWriteEvents,
+    rawRecords: [
+      rawTool({ id: "get-1", name: "get_engagement", args: { engagement_id: "eng-product-launch" }, result: rightResult }),
+      rawTool({ id: "set-1", name: "set_engagement_status", args: { engagement_id: "eng-wrong", status: "red", note: "stray" }, result: strayWriteResult }),
+    ],
+  });
+  assert.equal(strayWrite.pass, false);
+  assert.equal(strayWrite.checks.noUnexpectedResourceTargets, false);
+  assert.equal(strayWrite.checks.noUnexpectedArgumentTargets, false);
 });
 
 test("the workflow fixture allows control-only exact navigation while requiring prose for the brief and mutation", () => {

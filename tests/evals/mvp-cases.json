@@ -7,10 +7,19 @@
       "actor": "dan",
       "prompt": "Create a new engagement named 'Acme Data Governance Review' for customer Acme Corp. Describe it as a security and data-governance review for the internal AI chatbot rollout. Use the supported product tool.",
       "expectation": {
-        "operation": "create", "status": "committed", "stateChanged": true,
+        "operation": "create",
+        "status": "committed",
+        "stateChanged": true,
         "resourceKind": "engagement",
-        "toolCall": { "name": "create_engagement" },
-        "forbiddenToolNames": ["navigate", "list_engagements", "get_engagement", "update_engagement", "set_engagement_status", "share_engagement"],
+        "toolCall": {
+          "name": "create_engagement"
+        },
+        "forbiddenToolNames": [
+          "navigate",
+          "update_engagement",
+          "set_engagement_status",
+          "share_engagement"
+        ],
         "completeToolEvidence": true,
         "assistantResponseRequired": true
       }
@@ -21,13 +30,36 @@
       "actor": "dan",
       "prompt": "The data-privacy review for the Acme Internal AI Chatbot (engagement eng-acme-ai-chatbot) just slipped to August 12. Set that engagement to Yellow with the exact reason 'Data-privacy review slipped to August 12'. Use the supported product tool.",
       "expectation": {
-        "operation": "update", "status": "committed", "stateChanged": true,
-        "resourceId": "eng-acme-ai-chatbot", "onlyEngagementMayChange": "eng-acme-ai-chatbot",
-        "exactEngagementUpdate": { "id": "eng-acme-ai-chatbot", "actor": "dan", "detail": "status, statusNote" },
-        "toolCall": { "name": "set_engagement_status", "args": { "engagement_id": "eng-acme-ai-chatbot", "status": "yellow", "note": "Data-privacy review slipped to August 12" } },
-        "forbiddenToolNames": ["navigate", "create_engagement", "update_engagement", "share_engagement"],
+        "operation": "update",
+        "status": "committed",
+        "stateChanged": true,
+        "resourceId": "eng-acme-ai-chatbot",
+        "onlyEngagementMayChange": "eng-acme-ai-chatbot",
+        "exactEngagementUpdate": {
+          "id": "eng-acme-ai-chatbot",
+          "actor": "dan",
+          "detail": "status, statusNote"
+        },
+        "toolCall": {
+          "name": "set_engagement_status",
+          "args": {
+            "engagement_id": "eng-acme-ai-chatbot",
+            "status": "yellow",
+            "note": "Data-privacy review slipped to August 12"
+          }
+        },
+        "forbiddenToolNames": [
+          "navigate",
+          "create_engagement",
+          "update_engagement",
+          "share_engagement"
+        ],
         "completeToolEvidence": true,
-        "engagementAfter": { "id": "eng-acme-ai-chatbot", "status": "yellow", "statusNote": "Data-privacy review slipped to August 12" }
+        "engagementAfter": {
+          "id": "eng-acme-ai-chatbot",
+          "status": "yellow",
+          "statusNote": "Data-privacy review slipped to August 12"
+        }
       }
     },
     {
@@ -36,14 +68,33 @@
       "actor": "dan",
       "prompt": "Prep me for my Acme Internal AI Chatbot check-in.",
       "expectation": {
-        "operation": "get", "status": "succeeded", "stateChanged": false,
+        "operation": "get",
+        "status": "succeeded",
+        "stateChanged": false,
         "resourceId": "eng-acme-ai-chatbot",
-        "requiredToolNames": ["list_engagements", "get_engagement"],
-        "toolCall": { "name": "get_engagement", "args": { "engagement_id": "eng-acme-ai-chatbot" } },
-        "forbiddenToolNames": ["navigate", "create_engagement", "update_engagement", "set_engagement_status", "share_engagement"],
+        "requiredToolNames": [
+          "list_engagements",
+          "get_engagement"
+        ],
+        "toolCall": {
+          "name": "get_engagement",
+          "args": {
+            "engagement_id": "eng-acme-ai-chatbot"
+          }
+        },
+        "forbiddenToolNames": [
+          "navigate",
+          "create_engagement",
+          "update_engagement",
+          "set_engagement_status",
+          "share_engagement"
+        ],
         "completeToolEvidence": true,
         "assistantResponseRequired": true,
-        "modelVisibleOutput": { "kind": "engagementDetail", "engagementId": "eng-acme-ai-chatbot" }
+        "modelVisibleOutput": {
+          "kind": "engagementDetail",
+          "engagementId": "eng-acme-ai-chatbot"
+        }
       }
     },
     {
@@ -52,9 +103,23 @@
       "actor": "dan",
       "prompt": "Which of my engagements need attention right now? Check each one before answering.",
       "expectation": {
-        "operation": "get", "status": "succeeded", "stateChanged": false,
-        "requiredToolNames": ["list_engagements", "get_engagement"],
-        "forbiddenToolNames": ["navigate", "create_engagement", "update_engagement", "set_engagement_status", "share_engagement", "create_task", "update_task", "delete_task"],
+        "operation": "get",
+        "status": "succeeded",
+        "stateChanged": false,
+        "requiredToolNames": [
+          "list_engagements",
+          "get_engagement"
+        ],
+        "forbiddenToolNames": [
+          "navigate",
+          "create_engagement",
+          "update_engagement",
+          "set_engagement_status",
+          "share_engagement",
+          "create_task",
+          "update_task",
+          "delete_task"
+        ],
         "completeToolEvidence": true,
         "assistantResponseRequired": true
       }
@@ -65,14 +130,40 @@
       "actor": "dan",
       "prompt": "We just wrapped the Acme check-in. Set the Acme Internal AI Chatbot (engagement eng-acme-ai-chatbot) to Yellow with the exact reason 'Data-privacy review slipped to August 12', and add a personal task for me titled 'Confirm revised privacy-review date with Sam Reyes' with High priority.",
       "expectation": {
-        "operation": "update", "status": "committed", "stateChanged": true,
+        "operation": "update",
+        "status": "committed",
+        "stateChanged": true,
         "resourceId": "eng-acme-ai-chatbot",
         "argumentTargetId": "eng-acme-ai-chatbot",
-        "engagementAfter": { "id": "eng-acme-ai-chatbot", "status": "yellow", "statusNote": "Data-privacy review slipped to August 12" },
-        "onlyEngagementAndPersonalAggregateMayChange": { "engagementId": "eng-acme-ai-chatbot", "aggregateKey": "personalTasks" },
-        "requiredToolNames": ["set_engagement_status", "create_task"],
-        "toolCall": { "name": "set_engagement_status", "args": { "engagement_id": "eng-acme-ai-chatbot", "status": "yellow", "note": "Data-privacy review slipped to August 12" } },
-        "forbiddenToolNames": ["navigate", "create_engagement", "update_engagement", "share_engagement", "update_task", "delete_task"],
+        "engagementAfter": {
+          "id": "eng-acme-ai-chatbot",
+          "status": "yellow",
+          "statusNote": "Data-privacy review slipped to August 12"
+        },
+        "onlyEngagementAndPersonalAggregateMayChange": {
+          "engagementId": "eng-acme-ai-chatbot",
+          "aggregateKey": "personalTasks"
+        },
+        "requiredToolNames": [
+          "set_engagement_status",
+          "create_task"
+        ],
+        "toolCall": {
+          "name": "set_engagement_status",
+          "args": {
+            "engagement_id": "eng-acme-ai-chatbot",
+            "status": "yellow",
+            "note": "Data-privacy review slipped to August 12"
+          }
+        },
+        "forbiddenToolNames": [
+          "navigate",
+          "create_engagement",
+          "update_engagement",
+          "share_engagement",
+          "update_task",
+          "delete_task"
+        ],
         "completeToolEvidence": true,
         "assistantResponseRequired": true
       }
@@ -84,15 +175,42 @@
       "observerActor": "sam",
       "prompt": "Set the Globex Support Copilot engagement (eng-globex-support-copilot) to Red with reason 'pilot failing'.",
       "expectation": {
-        "operation": "update", "status": "not_found", "stateChanged": false, "noCommitted": true,
+        "operation": "update",
+        "status": "not_found",
+        "stateChanged": false,
+        "noCommitted": true,
         "argumentTargetId": "eng-globex-support-copilot",
-        "toolCall": { "name": "set_engagement_status", "args": { "engagement_id": "eng-globex-support-copilot", "status": "red", "note": "pilot failing" } },
-        "forbiddenToolNames": ["navigate", "create_engagement", "update_engagement", "share_engagement"],
+        "toolCall": {
+          "name": "set_engagement_status",
+          "args": {
+            "engagement_id": "eng-globex-support-copilot",
+            "status": "red",
+            "note": "pilot failing"
+          }
+        },
+        "forbiddenToolNames": [
+          "navigate",
+          "create_engagement",
+          "update_engagement",
+          "share_engagement"
+        ],
         "completeToolEvidence": true,
-        "engagementAfter": { "id": "eng-globex-support-copilot", "status": "green", "statusNote": "" },
+        "engagementAfter": {
+          "id": "eng-globex-support-copilot",
+          "status": "green",
+          "statusNote": ""
+        },
         "safeNonExecution": {
           "targetId": "eng-globex-support-copilot",
-          "allowedResultAlternatives": [[], [{ "operation": "list", "status": "succeeded" }]]
+          "allowedResultAlternatives": [
+            [],
+            [
+              {
+                "operation": "list",
+                "status": "succeeded"
+              }
+            ]
+          ]
         }
       }
     }

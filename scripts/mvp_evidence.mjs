@@ -240,6 +240,12 @@ function groundedModelVisibleOutputChecks(expectation, before, toolCalls, rawRec
   };
 }
 
+// Tools whose engagement_id argument states an intent to change (or navigate to) that
+// engagement. Read tools are deliberately absent: reads never bound the blast radius.
+const ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS = new Set([
+  "update_engagement", "set_engagement_status", "share_engagement", "navigate",
+]);
+
 export function applicablePrimaryCheckNames(expectation) {
   const names = ["validEventSequence", "terminalExpected", "structuredResultPolicy"];
   const add = (condition, name) => { if (condition) names.push(name); };
@@ -613,10 +619,17 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
       || onlyEngagementAndPersonalAggregateMayChange(before, after, expectation.onlyEngagementAndPersonalAggregateMayChange),
     resourceKindMatchesTarget: !expectation.resourceKind || matchedResult?.resource?.kind === expectation.resourceKind,
     resourceMatchesTarget: !expectation.resourceId || (matchedResult?.resource?.kind === "engagement" && matchedResult.resource.id === expectation.resourceId),
+    // Blast radius binds what the agent CHANGES or NAVIGATES TO, never what it reads:
+    // an extra authorized read is a legitimate path to the same verified end state
+    // (τ²-bench: any tool sequence producing an equivalent end state passes).
     noUnexpectedResourceTargets: !expectation.resourceId || results.every((result) =>
-      result?.resource?.kind !== "engagement" || result.resource.id === expectation.resourceId),
+      result?.resource?.kind !== "engagement"
+      || !["committed", "resolved"].includes(result.status)
+      || result.resource.id === expectation.resourceId),
     noUnexpectedArgumentTargets: !expectedArgumentTarget || toolCalls.every((call) =>
-      call.args?.engagement_id === undefined || call.args.engagement_id === expectedArgumentTarget),
+      !ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS.has(call.name)
+      || call.args?.engagement_id === undefined
+      || call.args.engagement_id === expectedArgumentTarget),
     requiredToolCalls: !expectation.requiredToolNames
       || expectation.requiredToolNames.every((name) => toolCalls.some((call) => call.name === name)),
     forbiddenToolCalls: !expectation.forbiddenToolNames
