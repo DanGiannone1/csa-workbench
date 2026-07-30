@@ -159,6 +159,38 @@ disagrees with a deterministic check, the deterministic check is authoritative.
   reference solutions violating the domain's own policies). Gold contracts get independent review
   like any other code.
 
+### Sources
+
+State-graded benchmarks (final DB/environment state compared in code):
+
+- τ-bench — [paper](https://arxiv.org/abs/2406.12045) ·
+  [repo](https://github.com/sierra-research/tau-bench) (whole-DB hash vs gold state; pass^k)
+- τ²-bench — [evaluation docs](https://github.com/sierra-research/tau2-bench/blob/main/docs/evaluation.md)
+  ("any sequence of tool calls that produces an equivalent DB end state passes")
+- AgentBench — [paper](https://arxiv.org/abs/2308.03688) (DB track: table hash vs gold hash)
+- WebArena — [paper](https://arxiv.org/abs/2307.13854) (code assertions on live final state)
+- τ²-bench-verified — [repo](https://github.com/amazon-agi/tau2-bench-verified) (gold-state
+  authoring errors as the primary failure mode)
+
+Against trajectory grading; for isolated, reset environments:
+
+- Anthropic, [Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+  (tool-sequence checks "too rigid… overly brittle"; clean environment per trial)
+
+Test identities and environments as documented enterprise practice:
+
+- Microsoft identity platform — [Set up a test environment](https://learn.microsoft.com/en-us/entra/identity-platform/test-setup-environment) ·
+  [Run automated integration tests](https://learn.microsoft.com/en-us/entra/identity-platform/test-automate-integration-testing)
+  (separate test tenant, dedicated test users, MFA exclusions; production auth is not automatable)
+- Playwright — [authentication guidance](https://playwright.dev/docs/auth) (pre-created test
+  accounts, one per parallel worker)
+
+Vendor evaluator scope (why the deterministic layer is ours to build):
+
+- Azure AI Foundry — [agent evaluators](https://learn.microsoft.com/en-us/azure/foundry/concepts/evaluation-evaluators/agent-evaluators)
+  (transcript-graded LLM judges; no environment-state concept — custom evaluators are the
+  outcome-checking mechanism)
+
 ## The one-command demo
 
 To watch a single prompt travel through both layers — deterministic verdict printed fact by
