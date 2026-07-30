@@ -30,6 +30,24 @@ param azureOpenAiModelSkuName string
 @minValue(1)
 @maxValue(1000000)
 param azureOpenAiModelCapacity int
+@minLength(2)
+@maxLength(64)
+param foundryProjectName string
+@minLength(1)
+@maxLength(64)
+param legacyModelDeploymentName string
+@minLength(1)
+@maxLength(128)
+param legacyModelName string
+@minLength(1)
+@maxLength(128)
+param legacyModelVersion string
+@minLength(1)
+@maxLength(64)
+param legacyModelSkuName string
+@minValue(1)
+@maxValue(1000000)
+param legacyModelCapacity int
 param acaInfrastructureNsgId string = ''
 param privateEndpointNsgId string = ''
 
@@ -143,10 +161,10 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2026-05-01' = {
   name: azureOpenAiName
   location: location
-  kind: 'OpenAI'
+  kind: 'AIServices'
   sku: {
     name: 'S0'
   }
@@ -154,7 +172,18 @@ resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
     customSubDomainName: azureOpenAiName
     disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
+    allowProjectManagement: true
   }
+}
+
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-05-01' = {
+  parent: azureOpenAi
+  name: foundryProjectName
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {}
 }
 
 resource azureOpenAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
@@ -172,6 +201,28 @@ resource azureOpenAiDeployment 'Microsoft.CognitiveServices/accounts/deployments
     }
     versionUpgradeOption: 'OnceCurrentVersionExpired'
   }
+}
+
+// Retained for instant rollback of the model binding; deployments on one account must
+// be created serially, so this depends on the primary deployment.
+resource azureOpenAiLegacyDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  parent: azureOpenAi
+  name: legacyModelDeploymentName
+  sku: {
+    name: legacyModelSkuName
+    capacity: legacyModelCapacity
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: legacyModelName
+      version: legacyModelVersion
+    }
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+  dependsOn: [
+    azureOpenAiDeployment
+  ]
 }
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
@@ -428,6 +479,7 @@ output acrLoginServer string = acr.properties.loginServer
 output azureOpenAiName string = azureOpenAi.name
 output azureOpenAiEndpoint string = azureOpenAi.properties.endpoint
 output azureOpenAiDeploymentName string = azureOpenAiDeployment.name
+output foundryProjectName string = foundryProject.name
 output frontendIdentityId string = frontendIdentity.id
 output frontendIdentityClientId string = frontendIdentity.properties.clientId
 output frontendIdentityPrincipalId string = frontendIdentity.properties.principalId

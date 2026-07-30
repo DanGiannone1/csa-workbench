@@ -31,6 +31,11 @@ required_input MODEL_NAME
 required_input MODEL_VERSION
 required_input MODEL_SKU_NAME
 required_input MODEL_CAPACITY
+required_input LEGACY_MODEL_DEPLOYMENT_NAME
+required_input LEGACY_MODEL_NAME
+required_input LEGACY_MODEL_VERSION
+required_input LEGACY_MODEL_SKU_NAME
+required_input LEGACY_MODEL_CAPACITY
 
 INSTANCE_SLUG="$INSTANCE_SLUG"
 MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME"
@@ -38,6 +43,11 @@ MODEL_NAME="$MODEL_NAME"
 MODEL_VERSION="$MODEL_VERSION"
 MODEL_SKU_NAME="$MODEL_SKU_NAME"
 MODEL_CAPACITY="$MODEL_CAPACITY"
+LEGACY_MODEL_DEPLOYMENT_NAME="$LEGACY_MODEL_DEPLOYMENT_NAME"
+LEGACY_MODEL_NAME="$LEGACY_MODEL_NAME"
+LEGACY_MODEL_VERSION="$LEGACY_MODEL_VERSION"
+LEGACY_MODEL_SKU_NAME="$LEGACY_MODEL_SKU_NAME"
+LEGACY_MODEL_CAPACITY="$LEGACY_MODEL_CAPACITY"
 LOCATION="${LOCATION:-eastus2}"
 ACR_LOCATION="${ACR_LOCATION:-$LOCATION}"
 IDENTITY_MODE="${IDENTITY_MODE:-entra}"
@@ -50,6 +60,13 @@ validate_model_input MODEL_VERSION 128
 validate_model_input MODEL_SKU_NAME 64
 [[ "$MODEL_CAPACITY" =~ ^[1-9][0-9]*$ ]] || fail 'MODEL_CAPACITY must be a positive integer'
 (( MODEL_CAPACITY <= 1000000 )) || fail 'MODEL_CAPACITY exceeds maximum 1000000'
+validate_model_input LEGACY_MODEL_DEPLOYMENT_NAME 64
+validate_model_input LEGACY_MODEL_NAME 128
+validate_model_input LEGACY_MODEL_VERSION 128
+validate_model_input LEGACY_MODEL_SKU_NAME 64
+[[ "$LEGACY_MODEL_CAPACITY" =~ ^[1-9][0-9]*$ ]] || fail 'LEGACY_MODEL_CAPACITY must be a positive integer'
+(( LEGACY_MODEL_CAPACITY <= 1000000 )) || fail 'LEGACY_MODEL_CAPACITY exceeds maximum 1000000'
+[[ "$LEGACY_MODEL_DEPLOYMENT_NAME" != "$MODEL_DEPLOYMENT_NAME" ]] || fail 'LEGACY_MODEL_DEPLOYMENT_NAME must differ from MODEL_DEPLOYMENT_NAME'
 [[ "$IDENTITY_MODE" == 'entra' || "$IDENTITY_MODE" == 'demo' ]] || fail "IDENTITY_MODE must be 'entra' or 'demo'"
 [[ "$IDENTITY_MODE" != 'demo' || -n "$DEMO_PASSWORD" ]] || fail 'DEMO_PASSWORD is required when IDENTITY_MODE=demo'
 
@@ -67,6 +84,8 @@ COSMOS_PRIVATE_ENDPOINT_NAME="${BASE_NAME}-cosmos-pe"
 STORAGE_PRIVATE_ENDPOINT_NAME="${BASE_NAME}-storage-pe"
 PRIVATE_DNS_VNET_LINK_NAME="${BASE_NAME}-vnet-link"
 DATABASE_NAME="${BASE_NAME}-entra"
+FOUNDRY_PROJECT_NAME="${FOUNDRY_PROJECT_NAME:-$BASE_NAME}"
+validate_model_input FOUNDRY_PROJECT_NAME 64
 ACA_INFRASTRUCTURE_SUBNET_NAME='aca-infrastructure'
 PRIVATE_ENDPOINT_SUBNET_NAME='private-endpoints'
 COSMOS_PRIVATE_DNS_ZONE='privatelink.documents.azure.com'
@@ -174,7 +193,7 @@ make_plan() {
   validate_account_and_revision
   governance_preflight
   recovery_preflight
-  PLAN_PAYLOAD="$(SCHEMA='csa-workbench-portable-plan-v2' TENANT_ID="$TENANT_ID" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" INSTANCE_SLUG="$INSTANCE_SLUG" RESOURCE_GROUP="$RESOURCE_GROUP" LOCATION="$LOCATION" ACR_LOCATION="$ACR_LOCATION" IDENTITY_MODE="$IDENTITY_MODE" DEMO_PASSWORD_SHA256="$(printf %s "$DEMO_PASSWORD" | sha256sum | awk '{print $1}')" SHA="$SHA" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" RECOVERY_STATE="$RECOVERY_STATE" RECOVERY_DELETION_TARGETS="$RECOVERY_DELETION_TARGETS" python3 - <<'PY'
+  PLAN_PAYLOAD="$(SCHEMA='csa-workbench-portable-plan-v3' TENANT_ID="$TENANT_ID" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" INSTANCE_SLUG="$INSTANCE_SLUG" RESOURCE_GROUP="$RESOURCE_GROUP" LOCATION="$LOCATION" ACR_LOCATION="$ACR_LOCATION" IDENTITY_MODE="$IDENTITY_MODE" DEMO_PASSWORD_SHA256="$(printf %s "$DEMO_PASSWORD" | sha256sum | awk '{print $1}')" SHA="$SHA" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" LEGACY_MODEL_DEPLOYMENT_NAME="$LEGACY_MODEL_DEPLOYMENT_NAME" LEGACY_MODEL_NAME="$LEGACY_MODEL_NAME" LEGACY_MODEL_VERSION="$LEGACY_MODEL_VERSION" LEGACY_MODEL_SKU_NAME="$LEGACY_MODEL_SKU_NAME" LEGACY_MODEL_CAPACITY="$LEGACY_MODEL_CAPACITY" FOUNDRY_PROJECT_NAME="$FOUNDRY_PROJECT_NAME" RECOVERY_STATE="$RECOVERY_STATE" RECOVERY_DELETION_TARGETS="$RECOVERY_DELETION_TARGETS" python3 - <<'PY'
 import json, os
 slug = os.environ['INSTANCE_SLUG']
 payload = {
@@ -184,6 +203,9 @@ payload = {
   'mise_sidecar_image': os.environ['MISE_SIDECAR_IMAGE'],
   'model_deployment_name': os.environ['MODEL_DEPLOYMENT_NAME'], 'model_name': os.environ['MODEL_NAME'], 'model_version': os.environ['MODEL_VERSION'],
   'model_sku_name': os.environ['MODEL_SKU_NAME'], 'model_capacity': int(os.environ['MODEL_CAPACITY']),
+  'legacy_model_deployment_name': os.environ['LEGACY_MODEL_DEPLOYMENT_NAME'], 'legacy_model_name': os.environ['LEGACY_MODEL_NAME'],
+  'legacy_model_version': os.environ['LEGACY_MODEL_VERSION'], 'legacy_model_sku_name': os.environ['LEGACY_MODEL_SKU_NAME'],
+  'legacy_model_capacity': int(os.environ['LEGACY_MODEL_CAPACITY']), 'foundry_project_name': os.environ['FOUNDRY_PROJECT_NAME'],
   'entra_display_names': [f'CSA Workbench [{slug}] Web', f'CSA Workbench [{slug}] API', f'CSA Workbench [{slug}] Runtime'],
   'recovery_state': os.environ['RECOVERY_STATE'], 'recovery_deletion_targets': json.loads(os.environ['RECOVERY_DELETION_TARGETS']),
 }
@@ -203,6 +225,9 @@ foundation_command() {
     --parameters instanceSlug="$INSTANCE_SLUG" location="$LOCATION" acrLocation="$ACR_LOCATION"
     azureOpenAiDeploymentName="$MODEL_DEPLOYMENT_NAME" azureOpenAiModelName="$MODEL_NAME" azureOpenAiModelVersion="$MODEL_VERSION"
     azureOpenAiModelSkuName="$MODEL_SKU_NAME" azureOpenAiModelCapacity="$MODEL_CAPACITY"
+    foundryProjectName="$FOUNDRY_PROJECT_NAME"
+    legacyModelDeploymentName="$LEGACY_MODEL_DEPLOYMENT_NAME" legacyModelName="$LEGACY_MODEL_NAME" legacyModelVersion="$LEGACY_MODEL_VERSION"
+    legacyModelSkuName="$LEGACY_MODEL_SKU_NAME" legacyModelCapacity="$LEGACY_MODEL_CAPACITY"
     acaInfrastructureNsgId="$ACA_INFRASTRUCTURE_NSG_ID" privateEndpointNsgId="$PRIVATE_ENDPOINT_NSG_ID")
 }
 
@@ -255,7 +280,7 @@ foundation_output() {
 }
 
 verify_inventory() {
-  local apps deployments identities resources system_topics system_topic_name system_topic_subscriptions acr azure_open_ai cosmos storage vnet private_endpoints private_dns_zones managed_environment network_security_groups cosmos_dns_links storage_dns_links cosmos_dns_groups storage_dns_groups cosmos_dns_records storage_dns_records frontend_principal api_principal runtime_principal assignments cosmos_sql_assignments
+  local apps deployments identities resources system_topics system_topic_name system_topic_subscriptions acr azure_open_ai foundry_project cosmos storage vnet private_endpoints private_dns_zones managed_environment network_security_groups cosmos_dns_links storage_dns_links cosmos_dns_groups storage_dns_groups cosmos_dns_records storage_dns_records frontend_principal api_principal runtime_principal assignments cosmos_sql_assignments
   apps="$(az containerapp list -g "$RESOURCE_GROUP" -o json)"
   deployments="$(az cognitiveservices account deployment list -g "$RESOURCE_GROUP" -n "$AOAI_NAME" -o json)"
   identities="$(az identity list -g "$RESOURCE_GROUP" -o json)"
@@ -276,6 +301,7 @@ PY
   fi
   acr="$(az acr show -g "$RESOURCE_GROUP" -n "$ACR_NAME" -o json)"
   azure_open_ai="$(az cognitiveservices account show -g "$RESOURCE_GROUP" -n "$AOAI_NAME" -o json)"
+  foundry_project="$(az resource show --ids "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.CognitiveServices/accounts/${AOAI_NAME}/projects/${FOUNDRY_PROJECT_NAME}" -o json)"
   cosmos="$(az cosmosdb show -g "$RESOURCE_GROUP" -n "$COSMOS_ACCOUNT_NAME" -o json)"
   storage="$(az storage account show -g "$RESOURCE_GROUP" -n "$STORAGE_ACCOUNT_NAME" -o json)"
   vnet="$(az network vnet show -g "$RESOURCE_GROUP" -n "$VNET_NAME" -o json)"
@@ -294,11 +320,12 @@ PY
   runtime_principal="$(az identity show -g "$RESOURCE_GROUP" -n "$RUNTIME_IDENTITY_NAME" --query principalId -o tsv)"
   assignments="[$(az role assignment list --assignee "$frontend_principal" --all -o json),$(az role assignment list --assignee "$api_principal" --all -o json),$(az role assignment list --assignee "$runtime_principal" --all -o json)]"
   cosmos_sql_assignments="$(az cosmosdb sql role assignment list -g "$RESOURCE_GROUP" -a "$COSMOS_ACCOUNT_NAME" -o json)"
-  APPS="$apps" DEPLOYMENTS="$deployments" IDENTITIES="$identities" RESOURCES="$resources" SYSTEM_TOPICS="$system_topics" SYSTEM_TOPIC_SUBSCRIPTIONS="$system_topic_subscriptions" ACR="$acr" AZURE_OPEN_AI="$azure_open_ai" COSMOS="$cosmos" STORAGE="$storage" VNET="$vnet" PRIVATE_ENDPOINTS="$private_endpoints" PRIVATE_DNS_ZONES="$private_dns_zones" MANAGED_ENVIRONMENT="$managed_environment" NETWORK_SECURITY_GROUPS="$network_security_groups" COSMOS_DNS_LINKS="$cosmos_dns_links" STORAGE_DNS_LINKS="$storage_dns_links" COSMOS_DNS_GROUPS="$cosmos_dns_groups" STORAGE_DNS_GROUPS="$storage_dns_groups" COSMOS_DNS_RECORDS="$cosmos_dns_records" STORAGE_DNS_RECORDS="$storage_dns_records" ASSIGNMENTS="$assignments" COSMOS_SQL_ASSIGNMENTS="$cosmos_sql_assignments" FRONTEND_APP_NAME="$FRONTEND_APP_NAME" API_APP_NAME="$API_APP_NAME" RUNTIME_APP_NAME="$RUNTIME_APP_NAME" FRONTEND_IDENTITY_NAME="$FRONTEND_IDENTITY_NAME" API_IDENTITY_NAME="$API_IDENTITY_NAME" RUNTIME_IDENTITY_NAME="$RUNTIME_IDENTITY_NAME" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" SHA="$SHA" RESOURCE_GROUP="$RESOURCE_GROUP" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" ENVIRONMENT_NAME="$ENVIRONMENT_NAME" DATABASE_NAME="$DATABASE_NAME" VNET_NAME="$VNET_NAME" COSMOS_ACCOUNT_NAME="$COSMOS_ACCOUNT_NAME" STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT_NAME" ACR_NAME="$ACR_NAME" AOAI_NAME="$AOAI_NAME" COSMOS_PRIVATE_ENDPOINT_NAME="$COSMOS_PRIVATE_ENDPOINT_NAME" STORAGE_PRIVATE_ENDPOINT_NAME="$STORAGE_PRIVATE_ENDPOINT_NAME" COSMOS_PRIVATE_DNS_ZONE="$COSMOS_PRIVATE_DNS_ZONE" STORAGE_PRIVATE_DNS_ZONE="$STORAGE_PRIVATE_DNS_ZONE" PRIVATE_DNS_VNET_LINK_NAME="$PRIVATE_DNS_VNET_LINK_NAME" FRONTEND_PRINCIPAL="$frontend_principal" API_PRINCIPAL="$api_principal" RUNTIME_PRINCIPAL="$runtime_principal" LOCATION="$LOCATION" IDENTITY_MODE="$IDENTITY_MODE" TENANT_ID="$TENANT_ID" API_CLIENT_ID="$API_CLIENT_ID" RUNTIME_CLIENT_ID="$RUNTIME_CLIENT_ID" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" python3 - <<'PY'
+  APPS="$apps" DEPLOYMENTS="$deployments" IDENTITIES="$identities" RESOURCES="$resources" SYSTEM_TOPICS="$system_topics" SYSTEM_TOPIC_SUBSCRIPTIONS="$system_topic_subscriptions" ACR="$acr" AZURE_OPEN_AI="$azure_open_ai" FOUNDRY_PROJECT="$foundry_project" FOUNDRY_PROJECT_NAME="$FOUNDRY_PROJECT_NAME" LEGACY_MODEL_DEPLOYMENT_NAME="$LEGACY_MODEL_DEPLOYMENT_NAME" LEGACY_MODEL_NAME="$LEGACY_MODEL_NAME" LEGACY_MODEL_VERSION="$LEGACY_MODEL_VERSION" LEGACY_MODEL_SKU_NAME="$LEGACY_MODEL_SKU_NAME" LEGACY_MODEL_CAPACITY="$LEGACY_MODEL_CAPACITY" COSMOS="$cosmos" STORAGE="$storage" VNET="$vnet" PRIVATE_ENDPOINTS="$private_endpoints" PRIVATE_DNS_ZONES="$private_dns_zones" MANAGED_ENVIRONMENT="$managed_environment" NETWORK_SECURITY_GROUPS="$network_security_groups" COSMOS_DNS_LINKS="$cosmos_dns_links" STORAGE_DNS_LINKS="$storage_dns_links" COSMOS_DNS_GROUPS="$cosmos_dns_groups" STORAGE_DNS_GROUPS="$storage_dns_groups" COSMOS_DNS_RECORDS="$cosmos_dns_records" STORAGE_DNS_RECORDS="$storage_dns_records" ASSIGNMENTS="$assignments" COSMOS_SQL_ASSIGNMENTS="$cosmos_sql_assignments" FRONTEND_APP_NAME="$FRONTEND_APP_NAME" API_APP_NAME="$API_APP_NAME" RUNTIME_APP_NAME="$RUNTIME_APP_NAME" FRONTEND_IDENTITY_NAME="$FRONTEND_IDENTITY_NAME" API_IDENTITY_NAME="$API_IDENTITY_NAME" RUNTIME_IDENTITY_NAME="$RUNTIME_IDENTITY_NAME" MODEL_DEPLOYMENT_NAME="$MODEL_DEPLOYMENT_NAME" MODEL_NAME="$MODEL_NAME" MODEL_VERSION="$MODEL_VERSION" MODEL_SKU_NAME="$MODEL_SKU_NAME" MODEL_CAPACITY="$MODEL_CAPACITY" SHA="$SHA" RESOURCE_GROUP="$RESOURCE_GROUP" SUBSCRIPTION_ID="$SUBSCRIPTION_ID" ENVIRONMENT_NAME="$ENVIRONMENT_NAME" DATABASE_NAME="$DATABASE_NAME" VNET_NAME="$VNET_NAME" COSMOS_ACCOUNT_NAME="$COSMOS_ACCOUNT_NAME" STORAGE_ACCOUNT_NAME="$STORAGE_ACCOUNT_NAME" ACR_NAME="$ACR_NAME" AOAI_NAME="$AOAI_NAME" COSMOS_PRIVATE_ENDPOINT_NAME="$COSMOS_PRIVATE_ENDPOINT_NAME" STORAGE_PRIVATE_ENDPOINT_NAME="$STORAGE_PRIVATE_ENDPOINT_NAME" COSMOS_PRIVATE_DNS_ZONE="$COSMOS_PRIVATE_DNS_ZONE" STORAGE_PRIVATE_DNS_ZONE="$STORAGE_PRIVATE_DNS_ZONE" PRIVATE_DNS_VNET_LINK_NAME="$PRIVATE_DNS_VNET_LINK_NAME" FRONTEND_PRINCIPAL="$frontend_principal" API_PRINCIPAL="$api_principal" RUNTIME_PRINCIPAL="$runtime_principal" LOCATION="$LOCATION" IDENTITY_MODE="$IDENTITY_MODE" TENANT_ID="$TENANT_ID" API_CLIENT_ID="$API_CLIENT_ID" RUNTIME_CLIENT_ID="$RUNTIME_CLIENT_ID" MISE_SIDECAR_IMAGE="$MISE_SIDECAR_IMAGE" python3 - <<'PY'
 import json, os
 apps = json.loads(os.environ['APPS']); deployments = json.loads(os.environ['DEPLOYMENTS']); identities = json.loads(os.environ['IDENTITIES'])
 import uuid
 resources = json.loads(os.environ['RESOURCES']); acr = json.loads(os.environ['ACR']); aoai = json.loads(os.environ['AZURE_OPEN_AI'])
+foundry_project = json.loads(os.environ['FOUNDRY_PROJECT'])
 system_topics = json.loads(os.environ['SYSTEM_TOPICS']); system_topic_subscriptions = json.loads(os.environ['SYSTEM_TOPIC_SUBSCRIPTIONS'])
 cosmos = json.loads(os.environ['COSMOS']); storage = json.loads(os.environ['STORAGE']); vnet = json.loads(os.environ['VNET'])
 private_endpoints = json.loads(os.environ['PRIVATE_ENDPOINTS']); zones = json.loads(os.environ['PRIVATE_DNS_ZONES']); environment = json.loads(os.environ['MANAGED_ENVIRONMENT'])
@@ -405,12 +432,18 @@ for app in apps:
     if app['name'] == os.environ['RUNTIME_APP_NAME']:
         endpoint = aoai.get('properties', {}).get('endpoint')
         if main_env.get('AZURE_DEPLOYMENT') != os.environ['MODEL_DEPLOYMENT_NAME'] or main_env.get('AZURE_ENDPOINT') != f'{endpoint.rstrip("/")}/openai/v1/': raise SystemExit('runtime Azure OpenAI binding drifted')
-if not isinstance(deployments, list) or len(deployments) != 1: raise SystemExit('Azure OpenAI deployment inventory drifted')
-d = deployments[0]
-model = d.get('properties', {}).get('model', {})
-if d.get('name') != os.environ['MODEL_DEPLOYMENT_NAME'] or d.get('properties', {}).get('provisioningState') != 'Succeeded' or model.get('format') != 'OpenAI' or d.get('sku', {}).get('name') != os.environ['MODEL_SKU_NAME'] or d.get('sku', {}).get('capacity') != int(os.environ['MODEL_CAPACITY']) or model.get('name') != os.environ['MODEL_NAME'] or model.get('version') != os.environ['MODEL_VERSION']: raise SystemExit('Azure OpenAI model profile drifted')
+expected_deployment_profiles = {
+    os.environ['MODEL_DEPLOYMENT_NAME']: (os.environ['MODEL_NAME'], os.environ['MODEL_VERSION'], os.environ['MODEL_SKU_NAME'], int(os.environ['MODEL_CAPACITY'])),
+    os.environ['LEGACY_MODEL_DEPLOYMENT_NAME']: (os.environ['LEGACY_MODEL_NAME'], os.environ['LEGACY_MODEL_VERSION'], os.environ['LEGACY_MODEL_SKU_NAME'], int(os.environ['LEGACY_MODEL_CAPACITY'])),
+}
+if not isinstance(deployments, list) or {d.get('name') for d in deployments} != set(expected_deployment_profiles) or len(deployments) != len(expected_deployment_profiles): raise SystemExit('Azure OpenAI deployment inventory drifted')
+for d in deployments:
+    model = d.get('properties', {}).get('model', {})
+    name, version, sku_name, capacity = expected_deployment_profiles[d['name']]
+    if d.get('properties', {}).get('provisioningState') != 'Succeeded' or model.get('format') != 'OpenAI' or d.get('sku', {}).get('name') != sku_name or d.get('sku', {}).get('capacity') != capacity or model.get('name') != name or model.get('version') != version: raise SystemExit('Azure OpenAI model profile drifted')
 if acr.get('name') != os.environ['ACR_NAME'] or acr.get('sku', {}).get('name') != 'Basic' or acr.get('adminUserEnabled') is not False: raise SystemExit('Container Registry profile drifted')
-if aoai.get('name') != os.environ['AOAI_NAME'] or aoai.get('kind') != 'OpenAI' or aoai.get('sku', {}).get('name') != 'S0' or aoai.get('properties', {}).get('disableLocalAuth') is not True: raise SystemExit('Azure OpenAI account profile drifted')
+if aoai.get('name') != os.environ['AOAI_NAME'] or aoai.get('kind') != 'AIServices' or aoai.get('sku', {}).get('name') != 'S0' or aoai.get('properties', {}).get('disableLocalAuth') is not True or aoai.get('properties', {}).get('allowProjectManagement') is not True: raise SystemExit('Azure OpenAI account profile drifted')
+if foundry_project.get('name') != f"{os.environ['AOAI_NAME']}/{os.environ['FOUNDRY_PROJECT_NAME']}" or foundry_project.get('properties', {}).get('provisioningState') != 'Succeeded': raise SystemExit('Foundry project profile drifted')
 if cosmos.get('disableLocalAuth') is not True or cosmos.get('publicNetworkAccess') != 'Disabled' or cosmos.get('enableAutomaticFailover') is not True: raise SystemExit('Cosmos authentication/network/failover profile drifted')
 if storage.get('publicNetworkAccess') != 'Disabled' or storage.get('allowSharedKeyAccess') is not False or storage.get('allowBlobPublicAccess') is not False: raise SystemExit('Storage authentication/public-blob profile drifted')
 subnets = {subnet.get('name'): subnet for subnet in vnet.get('subnets', [])}
@@ -516,7 +549,7 @@ expected_resources |= {('microsoft.network/networkinterfaces', name) for name in
 if network_security_groups:
     expected_resources |= {('microsoft.network/networksecuritygroups', name) for name in expected_nsgs}
 actual_resources = {(r.get('type', '').lower(), r.get('name', '').lower()) for r in resources if isinstance(r, dict)}
-allowed_children = {('microsoft.documentdb/databaseaccounts/sqldatabases', f'{os.environ["COSMOS_ACCOUNT_NAME"]}/{os.environ["DATABASE_NAME"]}'.lower()), ('microsoft.documentdb/databaseaccounts/sqldatabases/containers', f'{os.environ["COSMOS_ACCOUNT_NAME"]}/{os.environ["DATABASE_NAME"]}/appstate'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{os.environ["AOAI_NAME"]}/{os.environ["MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{os.environ["COSMOS_PRIVATE_DNS_ZONE"]}/{os.environ["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{os.environ["STORAGE_PRIVATE_DNS_ZONE"]}/{os.environ["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{os.environ["COSMOS_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{os.environ["STORAGE_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices', f'{os.environ["STORAGE_ACCOUNT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices/containers', f'{os.environ["STORAGE_ACCOUNT_NAME"]}/default/engagement-artifacts'.lower())}
+allowed_children = {('microsoft.documentdb/databaseaccounts/sqldatabases', f'{os.environ["COSMOS_ACCOUNT_NAME"]}/{os.environ["DATABASE_NAME"]}'.lower()), ('microsoft.documentdb/databaseaccounts/sqldatabases/containers', f'{os.environ["COSMOS_ACCOUNT_NAME"]}/{os.environ["DATABASE_NAME"]}/appstate'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{os.environ["AOAI_NAME"]}/{os.environ["MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{os.environ["AOAI_NAME"]}/{os.environ["LEGACY_MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/projects', f'{os.environ["AOAI_NAME"]}/{os.environ["FOUNDRY_PROJECT_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{os.environ["COSMOS_PRIVATE_DNS_ZONE"]}/{os.environ["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{os.environ["STORAGE_PRIVATE_DNS_ZONE"]}/{os.environ["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{os.environ["COSMOS_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{os.environ["STORAGE_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices', f'{os.environ["STORAGE_ACCOUNT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices/containers', f'{os.environ["STORAGE_ACCOUNT_NAME"]}/default/engagement-artifacts'.lower())}
 if not expected_resources <= actual_resources or any(resource not in expected_resources | allowed_children for resource in actual_resources): raise SystemExit('required resource inventory drifted')
 rg_scope = f'/subscriptions/{os.environ["SUBSCRIPTION_ID"]}/resourceGroups/{os.environ["RESOURCE_GROUP"]}/'.lower()
 if any(not item.get('scope', '').lower().startswith(rg_scope) for item in assignments): raise SystemExit('managed identity role assignment escapes the resource group')
