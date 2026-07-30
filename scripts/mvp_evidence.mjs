@@ -253,8 +253,8 @@ export function applicablePrimaryCheckNames(expectation) {
   add(!!expectation.noCommitted, "noCommitted");
   add(expectation.stateChanged !== undefined, "stateChanged");
   add(!!expectation.engagementAfter, "engagementAfter");
-  add(!!expectation.onlyEngagementMayChange, "onlyNamedEngagementMayChange");
-  add(!!expectation.exactEngagementUpdate, "onlyExpectedEngagementUpdate");
+  add(!!expectation.onlyEngagementMayChange, "onlyEngagementMayChange");
+  add(!!expectation.exactEngagementUpdate, "exactEngagementUpdate");
   add(!!expectation.onlyPersonalAggregateMayChange, "onlyPersonalAggregateMayChange");
   add(!!expectation.onlyEngagementAndPersonalAggregateMayChange, "onlyEngagementAndPersonalAggregateMayChange");
   add(!!expectation.resourceKind, "resourceKindMatchesTarget");
@@ -365,7 +365,7 @@ export function stateFingerprint(state) {
   return createHash("sha256").update(JSON.stringify(normalizedState(state))).digest("hex");
 }
 
-export function onlyNamedEngagementMayChange(before, after, engagementId) {
+export function onlyEngagementMayChange(before, after, engagementId) {
   const normalizedBefore = normalizedState(before);
   const normalizedAfter = normalizedState(after);
   const { engagements: beforeEngagements = [], ...beforeElse } = normalizedBefore;
@@ -378,8 +378,8 @@ export function onlyNamedEngagementMayChange(before, after, engagementId) {
   return JSON.stringify(others(beforeEngagements)) === JSON.stringify(others(afterEngagements));
 }
 
-export function onlyExpectedEngagementUpdate(before, after, { id, actor, detail }) {
-  if (!onlyNamedEngagementMayChange(before, after, id)) return false;
+export function exactEngagementUpdate(before, after, { id, actor, detail }) {
+  if (!onlyEngagementMayChange(before, after, id)) return false;
   const beforeTarget = normalizedState((before.engagements ?? []).find((entry) => entry.id === id));
   const afterTarget = normalizedState((after.engagements ?? []).find((entry) => entry.id === id));
   if (!beforeTarget || !afterTarget) return false;
@@ -611,8 +611,8 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
     noCommitted: !expectation.noCommitted || !results.some((result) => result?.status === "committed"),
     stateChanged: expectation.stateChanged === undefined || (stateFingerprint(before) !== stateFingerprint(after)) === expectation.stateChanged,
     engagementAfter: targetAfter,
-    onlyNamedEngagementMayChange: !expectation.onlyEngagementMayChange || onlyNamedEngagementMayChange(before, after, expectation.onlyEngagementMayChange),
-    onlyExpectedEngagementUpdate: !expectation.exactEngagementUpdate || onlyExpectedEngagementUpdate(before, after, expectation.exactEngagementUpdate),
+    onlyEngagementMayChange: !expectation.onlyEngagementMayChange || onlyEngagementMayChange(before, after, expectation.onlyEngagementMayChange),
+    exactEngagementUpdate: !expectation.exactEngagementUpdate || exactEngagementUpdate(before, after, expectation.exactEngagementUpdate),
     onlyPersonalAggregateMayChange: !expectation.onlyPersonalAggregateMayChange
       || onlyPersonalAggregateMayChange(before, after, expectation.onlyPersonalAggregateMayChange),
     onlyEngagementAndPersonalAggregateMayChange: !expectation.onlyEngagementAndPersonalAggregateMayChange
@@ -637,7 +637,9 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
     expectedToolCall: !expectation.toolCall || toolCalls.some((call) => call.name === expectation.toolCall.name
       && call.args !== null
       && (!Object.hasOwn(expectation.toolCall, "args")
-        || hasCanonicalExactValue(call.args, expectation.toolCall.args))),
+        || hasCanonicalExactValue(call.args, expectation.toolCall.args))
+      && (!Object.hasOwn(expectation.toolCall, "argsInclude")
+        || containsExpected(call.args, expectation.toolCall.argsInclude))),
     completeModelVisibleToolEvidence: !expectation.completeToolEvidence || toolCalls.every((call) => {
       const evidence = productEvidenceFor(call, rawRecords);
       return !!evidence

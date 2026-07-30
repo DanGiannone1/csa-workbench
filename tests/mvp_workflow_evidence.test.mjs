@@ -147,13 +147,31 @@ test("atomic case definitions name forbidden tools and bind rejection attempts t
   const suite = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url)));
   const workflows = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url)));
   for (const item of suite.cases) {
+    // ACME-8-vague-create legitimately names no forbidden tools: an underspecified
+    // request is rejected by requiring zero tool results, not by naming tools it must avoid.
+    if (item.id === "ACME-8-vague-create") {
+      assert.equal(item.expectation.zeroToolResults, true, `${item.id} must require zero tool results`);
+      continue;
+    }
     assert.ok(item.expectation.forbiddenToolNames?.length > 0, `${item.id} must name forbidden tools`);
   }
-  for (const [id, engagementId] of [["ACME-7-meeting-wrapup", "eng-acme-ai-chatbot"], ["ACME-4-boundary", "eng-globex-support-copilot"]]) {
-    const item = suite.cases.find((entry) => entry.id === id);
-    assert.equal(item.expectation.argumentTargetId, engagementId);
-    assert.equal(item.expectation.toolCall.name, "set_engagement_status");
-    assert.equal(item.expectation.toolCall.args.engagement_id, engagementId);
+  {
+    // ACME-7's pinned toolCall targets its second write (create_task, matched by
+    // argsInclude); the engagement-status write is still bound via argumentTargetId.
+    const item = suite.cases.find((entry) => entry.id === "ACME-7-meeting-wrapup");
+    assert.equal(item.expectation.argumentTargetId, "eng-acme-ai-chatbot");
+    assert.equal(item.expectation.toolCall.name, "create_task");
+    assert.equal(item.expectation.toolCall.argsInclude.title, "Confirm revised privacy-review date with Dana Okafor");
+    assert.equal(item.expectation.toolCall.argsInclude.priority, "High");
+  }
+  {
+    // ACME-4-boundary no longer pins an exact attempted call (the prompt doesn't leak the
+    // engagement ID), but it still binds the rejection attempt to the intended target ID.
+    const item = suite.cases.find((entry) => entry.id === "ACME-4-boundary");
+    assert.equal(item.expectation.argumentTargetId, "eng-globex-support-copilot");
+    assert.equal(item.expectation.toolCall, undefined);
+    assert.equal(item.expectation.operation, undefined);
+    assert.equal(item.expectation.status, undefined);
   }
   assert.deepEqual(suite.cases.map((item) => item.id), MVP_EVAL_MANIFEST.atomicCaseIds);
   assert.deepEqual(MVP_EVAL_MANIFEST.safetyAtomicCaseIds, ["ACME-4-boundary"]);
@@ -545,7 +563,7 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
   assert.equal(full.acceptance.status, "INCOMPLETE");
   assert.deepEqual(full.lanes.productRuntime.latency, {
     measurement: "end-to-end harness wall-clock", unit: "ms", gating: false,
-    atomic: { count: 6, totalMs: 615, minMs: 100, maxMs: 105, meanMs: 102 },
+    atomic: { count: 7, totalMs: 721, minMs: 100, maxMs: 106, meanMs: 103 },
     workflowTurns: { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 },
   });
 
@@ -716,8 +734,8 @@ test("the advisory judge record binds the complete canonical atomic and workflow
   assert.equal(summary.status, "RECORDED");
   assert.equal(summary.binding.status, "MATCHED");
   assert.deepEqual(summary.provenance, { rubricVersion: 1, judge: { kind: "human", reviewer: "Human Reviewer" }, judgedAt: "2026-07-22T12:00:00Z" });
-  assert.equal(summary.atomic.passed, 18);
-  assert.equal(summary.atomic.dimensions.accuracy.passed, 6);
+  assert.equal(summary.atomic.passed, 21);
+  assert.equal(summary.atomic.dimensions.accuracy.passed, 7);
   assert.equal(summary.workflows.passed, 3);
   assert.equal(summary.workflows.dimensions.tone.passed, 1);
   assert.deepEqual(summary.atomic.judgments[0], record.atomicJudgments[0]);
@@ -818,7 +836,7 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
   const passed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "pass"));
   const failed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "fail"));
   assert.equal(passed.lanes.advisoryJudge.status, "RECORDED");
-  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 18);
+  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 21);
   assert.equal(passed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(failed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(passed.lanes.productRuntime.hardGatePass, failed.lanes.productRuntime.hardGatePass);
@@ -827,7 +845,7 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
 test("the scorecard preserves judge details and safely renders invalid judge diagnostics", () => {
   const product = canonicalJudgeProduct();
   const recorded = buildMvpScorecard(product, wazaGate(), null, judgeRecord(product));
-  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 18);
+  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 21);
   assert.equal(recorded.lanes.advisoryJudge.workflows.judgments.length, 3);
   const paddedReason = judgeRecord(product);
   paddedReason.atomicJudgments[0].reason = "  The recorded reply is adequately supported.  ";

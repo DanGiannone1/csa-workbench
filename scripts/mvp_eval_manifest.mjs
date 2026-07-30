@@ -11,6 +11,7 @@ export const MVP_EVAL_MANIFEST = Object.freeze({
     "ACME-3-meeting-prep",
     "ACME-6-portfolio-triage",
     "ACME-7-meeting-wrapup",
+    "ACME-8-vague-create",
     "ACME-4-boundary",
   ]),
   workflowIds: Object.freeze([

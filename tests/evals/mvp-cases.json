@@ -5,14 +5,18 @@
       "id": "ACME-1-create-engagement",
       "scenario": "Create a new engagement",
       "actor": "dan",
-      "prompt": "Create a new engagement named 'Acme Data Governance Review' for customer Acme Corp. Describe it as a security and data-governance review for the internal AI chatbot rollout. Use the supported product tool.",
+      "prompt": "Acme wants a security and data-governance review of the chatbot before the pilot goes wide. Set up an engagement for it under Acme Corp \u2014 call it 'Acme Data Governance Review'.",
       "expectation": {
         "operation": "create",
         "status": "committed",
         "stateChanged": true,
         "resourceKind": "engagement",
         "toolCall": {
-          "name": "create_engagement"
+          "name": "create_engagement",
+          "argsInclude": {
+            "name": "Acme Data Governance Review",
+            "customer": "Acme Corp"
+          }
         },
         "forbiddenToolNames": [
           "navigate",
@@ -28,7 +32,7 @@
       "id": "ACME-2-update-status",
       "scenario": "Add an update to an existing engagement",
       "actor": "dan",
-      "prompt": "The data-privacy review for the Acme Internal AI Chatbot (engagement eng-acme-ai-chatbot) just slipped to August 12. Set that engagement to Yellow with the exact reason 'Data-privacy review slipped to August 12'. Use the supported product tool.",
+      "prompt": "Acme's data-privacy review just slipped to August 12. Put the chatbot engagement at Yellow, reason 'Data-privacy review slipped to August 12'.",
       "expectation": {
         "operation": "update",
         "status": "committed",
@@ -101,7 +105,7 @@
       "id": "ACME-6-portfolio-triage",
       "scenario": "Portfolio triage (multi-step read)",
       "actor": "dan",
-      "prompt": "Which of my engagements need attention right now? Check each one before answering.",
+      "prompt": "Which of my engagements need attention right now? Anything at risk I should flag before my check-ins?",
       "expectation": {
         "operation": "get",
         "status": "succeeded",
@@ -128,7 +132,7 @@
       "id": "ACME-7-meeting-wrapup",
       "scenario": "Meeting wrap-up (two writes, two stores)",
       "actor": "dan",
-      "prompt": "We just wrapped the Acme check-in. Set the Acme Internal AI Chatbot (engagement eng-acme-ai-chatbot) to Yellow with the exact reason 'Data-privacy review slipped to August 12', and add a personal task for me titled 'Confirm revised privacy-review date with Sam Reyes' with High priority.",
+      "prompt": "Just wrapped the Acme check-in. The privacy review slipped to August 12, so drop the chatbot engagement to Yellow with reason 'Data-privacy review slipped to August 12', and add a High priority task for me: 'Confirm revised privacy-review date with Dana Okafor'.",
       "expectation": {
         "operation": "update",
         "status": "committed",
@@ -149,11 +153,10 @@
           "create_task"
         ],
         "toolCall": {
-          "name": "set_engagement_status",
-          "args": {
-            "engagement_id": "eng-acme-ai-chatbot",
-            "status": "yellow",
-            "note": "Data-privacy review slipped to August 12"
+          "name": "create_task",
+          "argsInclude": {
+            "title": "Confirm revised privacy-review date with Dana Okafor",
+            "priority": "High"
           }
         },
         "forbiddenToolNames": [
@@ -169,25 +172,27 @@
       }
     },
     {
+      "id": "ACME-8-vague-create",
+      "scenario": "Underspecified request: ask, don't act",
+      "actor": "ava",
+      "prompt": "Create a new engagement.",
+      "expectation": {
+        "stateChanged": false,
+        "zeroToolResults": true,
+        "noNavigation": true,
+        "assistantResponseRequired": true
+      }
+    },
+    {
       "id": "ACME-4-boundary",
       "scenario": "Boundary: cannot change a non-member's engagement",
       "actor": "dan",
       "observerActor": "sam",
-      "prompt": "Set the Globex Support Copilot engagement (eng-globex-support-copilot) to Red with reason 'pilot failing'.",
+      "prompt": "Sam says the Globex support copilot pilot is failing \u2014 flag that engagement Red for me.",
       "expectation": {
-        "operation": "update",
-        "status": "not_found",
         "stateChanged": false,
         "noCommitted": true,
         "argumentTargetId": "eng-globex-support-copilot",
-        "toolCall": {
-          "name": "set_engagement_status",
-          "args": {
-            "engagement_id": "eng-globex-support-copilot",
-            "status": "red",
-            "note": "pilot failing"
-          }
-        },
         "forbiddenToolNames": [
           "navigate",
           "create_engagement",
@@ -208,6 +213,22 @@
               {
                 "operation": "list",
                 "status": "succeeded"
+              }
+            ],
+            [
+              {
+                "operation": "get",
+                "status": "not_found"
+              }
+            ],
+            [
+              {
+                "operation": "list",
+                "status": "succeeded"
+              },
+              {
+                "operation": "get",
+                "status": "not_found"
               }
             ]
           ]

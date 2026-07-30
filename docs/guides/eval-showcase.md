@@ -191,6 +191,9 @@ the canonical atomic suite was intentionally omitted.
 
 ## Foundry
 
-The current implementation does not publish evals to Azure AI Foundry. Foundry integration is a
-roadmap item, not a Monday demo dependency. The local showcase is the authoritative presentation
-surface for the implemented evidence.
+`npm run eval:foundry` uploads a finished evidence run to Azure AI Foundry, where the built-in
+agent evaluators judge each transcript server-side and the run appears in the portal — see
+[testing/agent-evals.md](../../testing/agent-evals.md) for the mechanics. Foundry results are
+advisory; the deterministic scorecard remains the authoritative result, and the local showcase
+remains the authoritative presentation surface for it. (Foundry verdicts are not yet bound into
+the scorecard's advisory lane — tracked in issue #34.)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, onlyExpectedEngagementUpdate, onlyNamedEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
+import { evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, exactEngagementUpdate, onlyEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
 
 const start = { type: "RUN_STARTED", run_id: "run-1", thread_id: "thread-1" };
 const finish = { type: "RUN_FINISHED", run_id: "run-1", thread_id: "thread-1" };
@@ -425,8 +425,8 @@ test("only the exact status update may touch its target engagement", () => {
     engagements: [{ id: "eng-a", name: "Renamed", status: "red", statusNote: "why", members: [{ userId: "ava", role: "owner" }], activity: [{ ts: "volatile", userId: "dan", action: "engagement.updated", detail: "status, statusNote" }] }, { id: "eng-b", status: "green" }],
     currentRoute: "/engagements",
   };
-  assert.equal(onlyNamedEngagementMayChange(before, after, "eng-a"), true);
-  assert.equal(onlyExpectedEngagementUpdate(before, after, { id: "eng-a", actor: "dan" }), false);
+  assert.equal(onlyEngagementMayChange(before, after, "eng-a"), true);
+  assert.equal(exactEngagementUpdate(before, after, { id: "eng-a", actor: "dan" }), false);
   const verdict = evaluateCase({
     expectation: { operation: "update", status: "committed", resourceId: "eng-a", exactEngagementUpdate: { id: "eng-a", actor: "dan" }, engagementAfter: { id: "eng-a", status: "red", statusNote: "why" } }, before, after,
     events: [start, ...toolEvents("update", "committed", { kind: "engagement", id: "eng-a" }), finish],

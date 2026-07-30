@@ -15,9 +15,23 @@
             "status": "succeeded",
             "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": false,
-            "requiredToolNames": ["list_engagements", "get_engagement"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "set_engagement_status", "share_engagement", "navigate"],
-            "toolCall": { "name": "get_engagement", "args": { "engagement_id": "eng-acme-ai-chatbot" } },
+            "requiredToolNames": [
+              "list_engagements",
+              "get_engagement"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement",
+              "navigate"
+            ],
+            "toolCall": {
+              "name": "get_engagement",
+              "args": {
+                "engagement_id": "eng-acme-ai-chatbot"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": true,
             "noNavigation": true
@@ -32,11 +46,33 @@
             "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": true,
             "onlyEngagementMayChange": "eng-acme-ai-chatbot",
-            "exactEngagementUpdate": { "id": "eng-acme-ai-chatbot", "actor": "dan", "detail": "status, statusNote" },
-            "engagementAfter": { "id": "eng-acme-ai-chatbot", "status": "yellow", "statusNote": "Data-privacy review slipped to August 12" },
-            "requiredToolNames": ["set_engagement_status"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "share_engagement", "navigate"],
-            "toolCall": { "name": "set_engagement_status", "args": { "engagement_id": "eng-acme-ai-chatbot", "status": "yellow", "note": "Data-privacy review slipped to August 12" } },
+            "exactEngagementUpdate": {
+              "id": "eng-acme-ai-chatbot",
+              "actor": "dan",
+              "detail": "status, statusNote"
+            },
+            "engagementAfter": {
+              "id": "eng-acme-ai-chatbot",
+              "status": "yellow",
+              "statusNote": "Data-privacy review slipped to August 12"
+            },
+            "requiredToolNames": [
+              "set_engagement_status"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "share_engagement",
+              "navigate"
+            ],
+            "toolCall": {
+              "name": "set_engagement_status",
+              "args": {
+                "engagement_id": "eng-acme-ai-chatbot",
+                "status": "yellow",
+                "note": "Data-privacy review slipped to August 12"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": true,
             "noNavigation": true
@@ -50,9 +86,22 @@
             "status": "resolved",
             "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": false,
-            "requiredToolNames": ["navigate"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "set_engagement_status", "share_engagement"],
-            "toolCall": { "name": "navigate", "args": { "destination_id": "engagement_overview", "engagement_id": "eng-acme-ai-chatbot" } },
+            "requiredToolNames": [
+              "navigate"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement"
+            ],
+            "toolCall": {
+              "name": "navigate",
+              "args": {
+                "destination_id": "engagement_overview",
+                "engagement_id": "eng-acme-ai-chatbot"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": false,
             "navigation": {
@@ -67,16 +116,31 @@
         },
         {
           "id": "capture",
-          "prompt": "Add a personal task for me to send Dana the updated architecture diagram, High priority.",
+          "prompt": "Add a task for me: send Dana the updated architecture diagram. High priority.",
           "expectation": {
             "operation": "create_task",
             "status": "committed",
             "stateChanged": true,
             "resourceKind": "task",
             "onlyPersonalAggregateMayChange": "personalTasks",
-            "requiredToolNames": ["create_task"],
-            "forbiddenToolNames": ["navigate", "list_engagements", "create_engagement", "get_engagement", "update_engagement", "set_engagement_status", "share_engagement"],
-            "toolCall": { "name": "create_task" },
+            "requiredToolNames": [
+              "create_task"
+            ],
+            "forbiddenToolNames": [
+              "navigate",
+              "list_engagements",
+              "create_engagement",
+              "get_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement"
+            ],
+            "toolCall": {
+              "name": "create_task",
+              "argsInclude": {
+                "priority": "High"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": true
           }
