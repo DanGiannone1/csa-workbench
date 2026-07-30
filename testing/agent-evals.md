@@ -136,6 +136,29 @@ Foundry results are **advisory by design**: LLM judges are valuable for language
 task-level second opinions, but they are policy-blind and judge-model-sensitive. Where a judge
 disagrees with a deterministic check, the deterministic check is authoritative.
 
+## Design position (validated against the field, July 2026)
+
+- **Grading final database state in code is the mainstream benchmark pattern, not a novelty.**
+  τ-bench and τ²-bench (Sierra) grade by hashing the entire post-run database against a gold
+  state derived by replaying reference actions on a fresh database — no LLM judge in the reward
+  path; AgentBench's DB track and WebArena/OSWorld likewise verify final environment state with
+  code. τ²-bench's docs state the agent "is not required to take this specific path; any sequence
+  of tool calls that produces an equivalent DB end state passes."
+- **Trajectory (tool-sequence) grading is the documented anti-pattern.** Anthropic's eval
+  guidance: checking "a sequence of tool calls in the right order" is "too rigid and results in
+  overly brittle tests." Contracts here assert outcomes and safety envelopes, not paths.
+- **Isolated deployment + synthetic test identities is Microsoft's documented procedure** for
+  automated testing (separate test tenant, dedicated test users, credentials in Key Vault, MFA
+  exclusions — production-tenant auth cannot be automated by design). The demo identity mode is
+  this pattern implemented in-app; no eval framework ships scripted multi-identity testing at all.
+- **Foundry's built-in agent evaluators are transcript-graded LLM judges with no concept of
+  environment state**; Microsoft's own mechanism for outcome checking is custom evaluators. The
+  deterministic layer here is therefore strictly stronger than the vendor default and matches the
+  benchmark literature.
+- **The field's documented risk is gold-state authoring errors** (Amazon's τ²-bench-verified found
+  reference solutions violating the domain's own policies). Gold contracts get independent review
+  like any other code.
+
 ## The one-command demo
 
 To watch a single prompt travel through both layers — deterministic verdict printed fact by
