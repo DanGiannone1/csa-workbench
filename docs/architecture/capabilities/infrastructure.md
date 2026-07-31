@@ -18,8 +18,12 @@ Private network
 ```
 
 The resource group also contains a Basic Azure Container Registry, Azure OpenAI account and model
-deployment, virtual network, private DNS zones, Cosmos DB account, and Storage account. Each
-Container App scales from zero to one replica.
+deployment, virtual network, private DNS zones, Cosmos DB account, Storage account, Log Analytics
+workspace, and Application Insights. Each Container App scales from zero to one replica.
+
+The API and runtime send OpenTelemetry traces to the instance Application Insights through the
+`APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable. Tracing activates only when that
+variable is present, so local development is unaffected.
 
 ## Data services
 
@@ -65,11 +69,14 @@ See the [deployment guide](../../guides/deployment.md) for the complete procedur
 
 Scale-to-zero removes an always-running compute minimum but does not make the deployment free. Costs
 can come from active Container Apps, including the authentication sidecars, Cosmos requests and
-storage, Blob operations, private endpoints, the registry, image builds, and model use. Sidecars
-scale to zero with their parent app.
+storage, Blob operations, private endpoints, the registry, image builds, model use, and Log
+Analytics trace ingestion with its 30-day retention. Sidecars scale to zero with their parent app.
 
-The MVP does not provision Application Insights, a Log Analytics workspace, NAT Gateway, Azure
-Firewall, Front Door, API Management, VPN, Azure AI Search, or a warm assistant pool.
+The MVP does not provision a NAT Gateway, Azure Firewall, Front Door, API Management, VPN, Azure AI
+Search, or a warm assistant pool. Application Insights receives traces only: both applications turn
+the OpenTelemetry log and metric exporters off, and container console logs and data-plane diagnostic
+settings remain unprovisioned. Azure automatically creates a Failure Anomalies smart-detector alert
+rule for the component, which the deployment inspection tolerates.
 
 ## Local differences
 
