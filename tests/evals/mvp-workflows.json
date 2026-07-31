@@ -128,9 +128,7 @@
             ],
             "forbiddenToolNames": [
               "navigate",
-              "list_engagements",
               "create_engagement",
-              "get_engagement",
               "update_engagement",
               "set_engagement_status",
               "share_engagement"

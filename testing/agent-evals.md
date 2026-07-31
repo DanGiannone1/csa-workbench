@@ -14,17 +14,23 @@ The whole flow in one picture:
 
 ```mermaid
 flowchart LR
-    A["Gold-standard prompts<br/>tests/evals/"] --> B["The real product<br/>sign in, send each prompt"]
-    B --> C["Transcript saved<br/>tool calls · answers · DB before/after"]
-    C --> D["Deterministic checks<br/>code grades the facts — the gate"]
-    C --> E["Clean + reshape<br/>the transcript"]
-    E --> F["Foundry evaluators<br/>LLM judges grade the language — advisory"]
+    A["Gold-standard prompts<br/>tests/evals/"] --> B["Reset to known test data<br/>before every scenario"]
+    B --> C["The real product<br/>sign in, send the prompt"]
+    C --> D["Transcript saved<br/>tool calls · answers · DB before/after"]
+    D --> E["Deterministic checks<br/>code grades the facts — the gate"]
+    D --> F["Clean + reshape<br/>the transcript"]
+    E -. "pass/fail rides along" .-> F
+    F --> G["Foundry evaluators<br/>LLM judges grade the language — advisory"]
 ```
 
 Five parts make this work, and the sections below walk them in order: gold-standard scenarios
 that say what good looks like; test identities to sign in with; a driver that runs the prompts
 through the real product and saves the evidence; deterministic checks that grade it; and the
 Foundry upload for a judged second opinion.
+
+One naming note before you read the files: this guide says **scenario** throughout, while the
+code and JSON say *case* (`mvp-cases.json`, `atomicCaseIds`, `evaluateCase`, `MVP_EVAL_SCOPE=atomic`)
+— same thing. Inside a scenario, the `scenario` field is just its title.
 
 ## The pieces
 
@@ -38,6 +44,7 @@ Foundry upload for a judged second opinion.
 | Grader | `scripts/mvp_evidence.mjs` | `evaluateCase` / `evaluateWorkflow`: the deterministic checks |
 | Scorecard | `scripts/mvp_scorecard.mjs` (+ `mvp_scorecard_history.mjs`) | Aggregates evidence into the product hard gate, Waza lane, and advisory-judge lane |
 | Foundry upload | `scripts/foundry_evidence_rows.py`, `scripts/foundry_eval_upload.py` | Converts evidence to Foundry's agent-message schema and scores it server-side with the built-in agent evaluators |
+| Judge questions | `tests/evals/judge-rubrics.json`, checked by `scripts/mvp_judge.mjs` | The other half of layer 4: per-scenario questions a human answers by hand today (accuracy, leakage, tone), separate from the Foundry lane |
 | Skill laboratory | `scripts/waza_eval.sh`, `tests/evals/waza/**` | Separate lane: one skill tested in isolation with mocked product actions (not covered further here) |
 
 ## Test identities
@@ -46,8 +53,8 @@ Every scenario runs as a real signed-in user, not a mocked one. In demo identity
 seeds three test accounts — dan, ava, sam — who share one demo password (`DEMO_PASSWORD`), and
 the driver logs each one in through the product's own `POST /auth/login`, so evals exercise the
 same sign-in path a person uses. Every scenario names its actor, and the boundary scenario needs
-two: sam attempts a change on an Engagement he's not a member of, and the untouched end state is
-verified from dan's own signed-in view.
+two: dan asks to flag an Engagement he is not a member of, and the untouched end state is then
+verified from sam's own signed-in view, since sam is the only member of that Engagement.
 
 Evals only ever run against an isolated instance with this seeded data — production runs Entra
 and has no demo mode. An app without an in-app demo mode does the same thing with dedicated test
@@ -88,7 +95,7 @@ enforces permissions between.
 
 ## What the deterministic checks verify
 
-Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
+Six families (about three dozen named checks in `mvp_evidence.mjs`):
 
 - **Protocol** — the event stream is well-formed: one terminal event, complete tool-call
   lifecycles, result operations matching their tools, navigation bound to a real result.
@@ -102,8 +109,9 @@ Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
   `onlyEngagementMayChange` / `onlyPersonalAggregateMayChange`, or the joint
   `onlyEngagementAndPersonalAggregateMayChange` when one prompt legitimately writes an
   engagement *and* a personal record); safety cases prove no write was committed.
-- **Grounding** — for read scenarios, the tool output the model saw is re-rendered from the
-  pre-turn database and must match byte-for-byte: the brief cannot contain invented facts.
+- **Grounding** — where a scenario declares it (today, the meeting-prep read), the tool output
+  the model saw is re-rendered independently from the pre-turn database and must match: the
+  brief cannot rest on invented facts.
 - **Corroboration** — every client-visible tool result must match the server-side trace record.
 - **Conversation integrity** (the multi-turn scenario) — one session throughout, each turn starting from the
   previous turn's exact end state, expected turn count, expected final engagement state.
@@ -111,6 +119,17 @@ Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
 Assistant wording is deliberately **recorded but never scored** here — free-form prose cannot
 be pass/failed deterministically. The checks confirm an answer exists and that what the model
 was told is true; judging the answer's quality is the advisory lane's job.
+
+**Read-only features** are graded by the same families, minus the end-state one — there is
+nothing to assert about a database that shouldn't have changed. `ACME-3-meeting-prep` and
+`ACME-6-portfolio-triage` are the template: code gates the actions (the right records were read,
+nothing was written, nothing else was touched) and grounding gates honesty, while whether the
+summary was *useful* goes to the judges.
+
+**Scenarios whose right answer is to refuse** get graded twice, and the better result counts.
+`ACME-4-boundary` can correctly come out two ways: the assistant refuses outright without
+touching a tool, or it tries a read, gets "not found", and stops. The contract declares both as
+acceptable, so a correct refusal is never punished for taking one shape rather than the other.
 
 ## Shipping the transcript to Foundry
 
@@ -125,7 +144,7 @@ Layer 4 is three mechanical steps:
    {
      "item_id": "ACME-2-update-status",
      "harness_pass": true,
-     "user_request": "…set that engagement to Yellow with the exact reason…",
+     "user_request": "Acme's data-privacy review just slipped to August 12. Put the chatbot engagement at Yellow, reason '…'.",
      "agent_messages": [
        {"role": "assistant", "content": [{"type": "tool_call", "tool_call_id": "…",
          "name": "set_engagement_status",
@@ -160,6 +179,13 @@ Required environment: `MVP_RESULTS` (path to `results.json`), `FOUNDRY_PROJECT_E
 optional `FOUNDRY_EVAL_GROUP_ID` to add runs to an existing group. Output lands as
 `foundry-run.json` beside the evidence, including the portal `report_url`.
 
+Two limits worth knowing when reading the portal. The scenarios whose correct answer is *do
+nothing* (the boundary case, the vague ask) declare no expected tool calls, so their rows carry
+an empty `expected_actions` and the tool-oriented evaluators have nothing meaningful to score —
+their real contract lives in the deterministic checks. And the one deterministic evaluator,
+task navigation efficiency, is configured order-insensitively, because our own contracts grade
+outcomes rather than tool order.
+
 Foundry results are **advisory by design**: LLM judges are valuable for language quality and
 task-level second opinions, but they are policy-blind and judge-model-sensitive. Where a judge
 disagrees with a deterministic check, the deterministic check is authoritative.
@@ -179,7 +205,7 @@ disagrees with a deterministic check, the deterministic check is authoritative.
 - **Demo identities in an isolated instance follow Microsoft's own testing procedure** — a
   [separate test environment](https://learn.microsoft.com/en-us/entra/identity-platform/test-setup-environment)
   with [dedicated test users](https://learn.microsoft.com/en-us/entra/identity-platform/test-automate-integration-testing),
-  because production-tenant auth is not automatable by design.
+  because interactive sign-in with MFA can't be scripted against a production tenant.
   [Playwright's auth guidance](https://playwright.dev/docs/auth) uses the same pattern:
   pre-created test accounts.
 - **Foundry's [built-in agent evaluators](https://learn.microsoft.com/en-us/azure/foundry/concepts/evaluation-evaluators/agent-evaluators)
@@ -196,7 +222,7 @@ To watch a single prompt travel through both layers — deterministic verdict pr
 fact, then the same transcript judged in Foundry:
 
 ```bash
-npm run eval:demo ACME-2-update-status     # any scenario id from the suite; app must be running
+npm run eval:demo ACME-2-update-status     # any single-prompt scenario id; app must be running
 ```
 
 It prints the agent's tool calls with arguments, the database before/after from authoritative
@@ -211,7 +237,7 @@ link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs 
 uv run dev.py
 
 # 2. Full suite (terminal 2; same env values as the app)
-export MVP_API_URL='http://127.0.0.1:18000'
+export MVP_API_URL='http://127.0.0.1:8000'   # the port your app is serving on
 export MVP_RAW_TRACE_ROOT='<run logs>/sdk-events'
 export MVP_RESET_BEFORE_RUN=1
 export MVP_EVAL_SCOPE=all          # all | atomic | workflow

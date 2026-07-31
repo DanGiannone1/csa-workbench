@@ -20,7 +20,7 @@ The audience only needs three ideas at first:
 Do not introduce Waza, Deep Agents, fixtures, graders, provenance, pass@k, or tool-sequence policy
 in the opening. Those details are available for questions after the basic story is clear.
 
-## Before Monday
+## Before the session
 
 Prepare fresh evidence before the meeting. Do not depend on a long model run completing during the
 presentation.
@@ -39,7 +39,7 @@ presentation.
 6. Start an isolated application in terminal 1:
 
    ```bash
-   export CSA_LOCAL_RUN_ID=mondaydemo
+   export CSA_LOCAL_RUN_ID=evaldemo
    export CSA_RUNTIME_PORT=18080
    export CSA_API_PORT=18000
    export CSA_FRONTEND_PORT=13000
@@ -47,29 +47,29 @@ presentation.
    export IDENTITY_MODE=demo
    export DEMO_PASSWORD='same-value-as-.env'
    export COSMOS_ENDPOINT='http://localhost:8081'
-   export COSMOS_DATABASE='csa_workbench_mondaydemo_local'
-   export COSMOS_CONTAINER='appstate_mondaydemo_local'
+   export COSMOS_DATABASE='csa_workbench_evaldemo_local'
+   export COSMOS_CONTAINER='appstate_evaldemo_local'
    uv run dev.py
    ```
 
 7. In terminal 2, use matching values and run the full product suite:
 
    ```bash
-   export CSA_LOCAL_RUN_ID=mondaydemo
-   export WORKSPACE='.local-runs/mondaydemo/workspace'
-   export ARTIFACTS_DIR='.mvp-artifacts/mondaydemo'
+   export CSA_LOCAL_RUN_ID=evaldemo
+   export WORKSPACE='.local-runs/evaldemo/workspace'
+   export ARTIFACTS_DIR='.mvp-artifacts/evaldemo'
    export AGENT_BACKEND=deepagents
    export AZURE_DEPLOYMENT='same-deployment-name-as-.env'
    export IDENTITY_MODE=demo
    export DEMO_PASSWORD='same-value-as-.env'
    export COSMOS_ENDPOINT='http://localhost:8081'
-   export COSMOS_DATABASE='csa_workbench_mondaydemo_local'
-   export COSMOS_CONTAINER='appstate_mondaydemo_local'
+   export COSMOS_DATABASE='csa_workbench_evaldemo_local'
+   export COSMOS_CONTAINER='appstate_evaldemo_local'
    export MVP_API_URL='http://127.0.0.1:18000'
-   export MVP_RAW_TRACE_ROOT='.local-runs/mondaydemo/logs/sdk-events'
+   export MVP_RAW_TRACE_ROOT='.local-runs/evaldemo/logs/sdk-events'
    export MVP_RESET_BEFORE_RUN=1
    export MVP_EVAL_SCOPE=all
-   export MVP_RUN_ID="monday-full-$(date -u +%Y%m%dT%H%M%SZ)"
+   export MVP_RUN_ID="eval-full-$(date -u +%Y%m%dT%H%M%SZ)"
    npm run eval:mvp
    ```
 
@@ -84,6 +84,9 @@ presentation.
 
 9. Open <http://127.0.0.1:4310>. The page discovers the newest local product and Waza evidence on
    every refresh.
+
+This repository ships no recorded evidence — every panel reads "Not run" until you complete the
+run above.
 
 To pin specific artifacts instead of the newest ones:
 
@@ -196,4 +199,4 @@ agent evaluators judge each transcript server-side and the run appears in the po
 [testing/agent-evals.md](../../testing/agent-evals.md) for the mechanics. Foundry results are
 advisory; the deterministic scorecard remains the authoritative result, and the local showcase
 remains the authoritative presentation surface for it. (Foundry verdicts are not yet bound into
-the scorecard's advisory lane — tracked in issue #34.)
+the scorecard's advisory lane — a tracked follow-up.)
