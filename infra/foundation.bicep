@@ -57,6 +57,7 @@ var runtimeIdentityName = '${baseName}-runtime-identity'
 var virtualNetworkName = '${baseName}-vnet'
 var cosmosPrivateEndpointName = '${baseName}-cosmos-pe'
 var storagePrivateEndpointName = '${baseName}-storage-pe'
+var openAiPrivateEndpointName = '${baseName}-openai-pe'
 var privateDnsVnetLinkName = '${baseName}-vnet-link'
 var databaseName = '${baseName}-entra'
 var acrName = globalStem
@@ -81,6 +82,7 @@ module platform 'platform.bicep' = {
     virtualNetworkName: virtualNetworkName
     cosmosPrivateEndpointName: cosmosPrivateEndpointName
     storagePrivateEndpointName: storagePrivateEndpointName
+    openAiPrivateEndpointName: openAiPrivateEndpointName
     privateDnsVnetLinkName: privateDnsVnetLinkName
     databaseName: databaseName
     cosmosAccountName: cosmosAccountName
@@ -112,6 +114,7 @@ output runtimeAppName string = runtimeAppName
 output virtualNetworkName string = virtualNetworkName
 output cosmosPrivateEndpointName string = cosmosPrivateEndpointName
 output storagePrivateEndpointName string = storagePrivateEndpointName
+output openAiPrivateEndpointName string = openAiPrivateEndpointName
 output privateDnsVnetLinkName string = privateDnsVnetLinkName
 output databaseName string = databaseName
 output environmentDefaultDomain string = platform.outputs.environmentDefaultDomain

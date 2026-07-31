@@ -8,6 +8,7 @@ param runtimeIdentityName string
 param virtualNetworkName string
 param cosmosPrivateEndpointName string
 param storagePrivateEndpointName string
+param openAiPrivateEndpointName string
 param privateDnsVnetLinkName string
 param databaseName string
 param cosmosAccountName string
@@ -60,6 +61,10 @@ var cosmosPrivateDnsZoneName = 'privatelink.documents.azure.com'
 // This is the Azure public-cloud Private Link suffix required by the approved Storage endpoint.
 #disable-next-line no-hardcoded-env-urls
 var storagePrivateDnsZoneName = 'privatelink.blob.core.windows.net'
+// The AIServices account private endpoint publishes all three data-plane FQDN families.
+var openAiPrivateDnsZoneName = 'privatelink.openai.azure.com'
+var cognitiveServicesPrivateDnsZoneName = 'privatelink.cognitiveservices.azure.com'
+var aiServicesPrivateDnsZoneName = 'privatelink.services.ai.azure.com'
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: virtualNetworkName
@@ -171,7 +176,7 @@ resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2026-05-01' = {
   properties: {
     customSubDomainName: azureOpenAiName
     disableLocalAuth: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
     allowProjectManagement: true
   }
 }
@@ -317,6 +322,21 @@ resource storagePrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = 
   location: 'global'
 }
 
+resource openAiPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: openAiPrivateDnsZoneName
+  location: 'global'
+}
+
+resource cognitiveServicesPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: cognitiveServicesPrivateDnsZoneName
+  location: 'global'
+}
+
+resource aiServicesPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: aiServicesPrivateDnsZoneName
+  location: 'global'
+}
+
 resource cosmosPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: cosmosPrivateDnsZone
   name: privateDnsVnetLinkName
@@ -331,6 +351,42 @@ resource cosmosPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetw
 
 resource storagePrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: storagePrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource openAiPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: openAiPrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource cognitiveServicesPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: cognitiveServicesPrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource aiServicesPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: aiServicesPrivateDnsZone
   name: privateDnsVnetLinkName
   location: 'global'
   properties: {
@@ -407,6 +463,54 @@ resource storagePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateD
         name: 'blob'
         properties: {
           privateDnsZoneId: storagePrivateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
+resource openAiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
+  name: openAiPrivateEndpointName
+  location: location
+  properties: {
+    subnet: {
+      id: privateEndpointSubnet.id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'openai-account'
+        properties: {
+          privateLinkServiceId: azureOpenAi.id
+          groupIds: [
+            'account'
+          ]
+        }
+      }
+    ]
+  }
+}
+
+resource openAiPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = {
+  parent: openAiPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'openai'
+        properties: {
+          privateDnsZoneId: openAiPrivateDnsZone.id
+        }
+      }
+      {
+        name: 'cognitiveservices'
+        properties: {
+          privateDnsZoneId: cognitiveServicesPrivateDnsZone.id
+        }
+      }
+      {
+        name: 'aiservices'
+        properties: {
+          privateDnsZoneId: aiServicesPrivateDnsZone.id
         }
       }
     ]
