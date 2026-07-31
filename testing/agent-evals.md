@@ -21,18 +21,38 @@ flowchart LR
     E --> F["Foundry evaluators<br/>LLM judges grade the language — advisory"]
 ```
 
+Five parts make this work, and the sections below walk them in order: gold-standard scenarios
+that say what good looks like; test identities to sign in with; a driver that runs the prompts
+through the real product and saves the evidence; deterministic checks that grade it; and the
+Foundry upload for a judged second opinion.
+
 ## The pieces
 
 | Piece | Where | What it is |
 |---|---|---|
 | Gold-standard scenarios | `tests/evals/mvp-cases.json`, `tests/evals/mvp-workflows.json` | 8 scenarios — 7 single prompts and 1 four-turn conversation. Each states the prompt(s) a user would type, who is signed in, the expected tool calls and arguments (exact or a declared subset), forbidden actions, and the expected database end state. Single prompts isolate one behavior each; the conversation proves context carries across turns ("Open it." must still mean the same Engagement) |
 | Official suite list | `scripts/mvp_eval_manifest.mjs` | The frozen list of scenario ids the scorecard accepts, and which of them pass or fail as a whole (the safety scenario) |
+| Test identities | `auth_users.py`, seeded in `session-container/appdb.py` | Three demo accounts (dan / ava / sam) sharing one demo password; every scenario names which one runs the prompt |
 | Known test data | `session-container/appdb.py` (`_seed_engagements`), reset via `scripts/reset_demo_state.py` | The demo data every run starts from (version `acme-ai-v1`): actors dan/ava/sam and three engagements around the "Acme Internal AI Chatbot" story |
 | Driver | `scripts/mvp_agent_eval.mjs` | Runs the suite against the live app and writes evidence |
 | Grader | `scripts/mvp_evidence.mjs` | `evaluateCase` / `evaluateWorkflow`: the deterministic checks |
 | Scorecard | `scripts/mvp_scorecard.mjs` (+ `mvp_scorecard_history.mjs`) | Aggregates evidence into the product hard gate, Waza lane, and advisory-judge lane |
 | Foundry upload | `scripts/foundry_evidence_rows.py`, `scripts/foundry_eval_upload.py` | Converts evidence to Foundry's agent-message schema and scores it server-side with the built-in agent evaluators |
 | Skill laboratory | `scripts/waza_eval.sh`, `tests/evals/waza/**` | Separate lane: one skill tested in isolation with mocked product actions (not covered further here) |
+
+## Test identities
+
+Every scenario runs as a real signed-in user, not a mocked one. In demo identity mode the app
+seeds three test accounts — dan, ava, sam — who share one demo password (`DEMO_PASSWORD`), and
+the driver logs each one in through the product's own `POST /auth/login`, so evals exercise the
+same sign-in path a person uses. Every scenario names its actor, and the boundary scenario needs
+two: sam attempts a change on an Engagement he's not a member of, and the untouched end state is
+verified from dan's own signed-in view.
+
+Evals only ever run against an isolated instance with this seeded data — production runs Entra
+and has no demo mode. An app without an in-app demo mode does the same thing with dedicated test
+users in an isolated test deployment; that's the documented test-tenant procedure cited in the
+design position below.
 
 ## What happens on `npm run eval:mvp`, step by step
 
