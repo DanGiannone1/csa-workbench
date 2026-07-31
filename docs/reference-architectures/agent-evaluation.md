@@ -78,12 +78,12 @@ tool list — a task that fails because a capability is missing is kept and repo
 - **Regression** — "does it still handle everything it used to?" Sits near 100%; any drop means
   something broke. Capability tasks that become reliably passable **graduate** into regression.
 - **Safety** — permission denials, leak prevention, injection immunity. Zero tolerance, runs every
-  time, never graduates out. (Gap: the current six-case suite retired the dedicated inert-marker
+  time, never graduates out. (Gap: the current seven-case suite retired the dedicated inert-marker
   injection case with the Acme consolidation; injection immunity is presently asserted only by the
   protocol validator's binding rules and must regain a dedicated case — tracked in issue #34's
   follow-ups.)
 
-In these terms, the six atomic cases plus the four-turn workflow in
+In these terms, the seven atomic cases plus the four-turn workflow in
 [`tests/evals/`](../../tests/evals/) are a small regression+safety suite, covering both the
 Engagement and the personal-work pages. The separate Waza check evaluates only the
 `engagement-meeting-prep` skill's routing and read-only tool constraints through Copilot in a
@@ -112,9 +112,10 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 
 ## Current implementation
 
-- The loopback-only Deep Agents runner has six atomic cases (Engagement create/update/read,
-  a whole-portfolio multi-read, a two-store engagement+personal write, and one authorization
-  boundary) and one four-turn workflow, resets the fixture before each, and grades saved application state,
+- The loopback-only Deep Agents runner has seven atomic cases (Engagement create/update/read,
+  a whole-portfolio multi-read, a two-store engagement+personal write, a vague ask that must be
+  answered with a question rather than an action, and one authorization boundary) and one
+  four-turn workflow, resets the fixture before each, and grades saved application state,
   structured events, exact targets/arguments, forbidden tools, and complete model-visible
   product-tool outputs. Check-level partial credit is implemented: only requirements configured by a
   task count (plus the universal event, terminal, and structured-result checks), and grounding

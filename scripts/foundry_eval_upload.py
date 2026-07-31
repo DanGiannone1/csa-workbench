@@ -89,7 +89,9 @@ def main() -> None:
          "initialization_parameters": {"model": judge}, "data_mapping": {"messages": "{{item.conversation}}"}},
         {"type": "azure_ai_evaluator", "name": "task_navigation_efficiency",
          "evaluator_name": "builtin.task_navigation_efficiency",
-         "initialization_parameters": {"matching_mode": "in_order_match"},
+         # Order-insensitive on purpose: our contracts grade outcomes, not tool
+         # sequences, so the advisory lane should not punish a different order.
+         "initialization_parameters": {"matching_mode": "any_order_match"},
          "data_mapping": {"actions": "{{item.agent_messages}}", "expected_actions": "{{item.expected_actions}}"}},
     ]
 

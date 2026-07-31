@@ -22,6 +22,13 @@ and shares it with the right team members. They can then ask the assistant to pr
 brief, make a supported status change, and open the updated Engagement. Private Tasks, Calendar
 events, and Reminders remain available only to the signed-in user throughout that work.
 
+## How we test the assistant
+
+Testing follows a four-layer model — unit checks, integration checks, deterministic agent evals
+against the running product, and LLM-as-judge review — described in the
+[Testing Charter](testing/testing-charter.md). The agent-eval pipeline end to end, including the
+Azure AI Foundry integration, is in [testing/agent-evals.md](testing/agent-evals.md).
+
 ## Run it locally
 
 Install Python 3.12 or later, `uv`, Node.js and npm, Azure CLI, and a local Cosmos DB emulator. Then:

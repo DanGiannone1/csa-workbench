@@ -1,3 +1,16 @@
+// The deterministic grader for layer 3 (see testing/agent-evals.md).
+//
+// Two entry points: evaluateCase for a single-prompt scenario, evaluateWorkflow for the
+// multi-turn one. Each computes every check it can, then credits only the ones the scenario's
+// contract actually declares.
+//
+// The checks fall into six families: protocol (the event stream is well-formed), tool calls
+// (expected call, expected arguments, forbidden tools, nothing written outside the declared
+// target), database end state (read back through the product API), grounding (tool output the
+// model saw re-rendered from the pre-turn database), corroboration (client stream vs the
+// server-side trace), and conversation integrity. Reads are deliberately unbounded — any path
+// producing the same verified end state passes.
+
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 
@@ -152,6 +165,10 @@ function authoritativeEngagements(before) {
   return { actorId, engagements: before.engagements };
 }
 
+// The renderers below deliberately re-implement the product's tool-output formatting
+// (session-container/agent.py and agent_deepagents.py) rather than importing it: a grounding
+// oracle that shared code with the thing it checks would agree with any bug. They must be
+// updated together when the product's wording changes.
 function renderAuthorizedEngagementList(before) {
   const state = authoritativeEngagements(before);
   if (!state) return null;
@@ -352,7 +369,7 @@ export function requireStableSourceRevision(expectedRevision, observedRevision, 
 }
 
 export function normalizedState(value) {
-  const volatile = new Set(["_etag", "_rid", "_self", "_attachments", "_ts", "createdAt", "createdAt", "uploadedAt", "savedAt", "ts"]);
+  const volatile = new Set(["_etag", "_rid", "_self", "_attachments", "_ts", "createdAt", "uploadedAt", "savedAt", "ts"]);
   if (Array.isArray(value)) return value.map(normalizedState).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.entries(value)
