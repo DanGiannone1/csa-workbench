@@ -22,6 +22,8 @@ param storageAccountName string
 param azureOpenAiEndpoint string
 param azureOpenAiDeployment string
 param databaseName string
+@secure()
+param appInsightsConnectionString string
 @allowed([
   'entra'
   'demo'
@@ -96,6 +98,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'COSMOS_CONTAINER', value: containerName }
           { name: 'ARTIFACTS_ACCOUNT', value: storageAccountName }
           { name: 'ARTIFACTS_CONTAINER', value: artifactContainer }
+          { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
         ], identityMode == 'demo'
           ? [{ name: 'DEMO_PASSWORD', secretRef: 'demo-password' }]
           : [{ name: 'MISE_VALIDATION_ENDPOINT', value: 'http://127.0.0.1:8081/Validate' }])
@@ -146,6 +149,7 @@ resource runtime 'Microsoft.App/containerApps@2024-03-01' = {
           { name: 'COSMOS_ENDPOINT', value: cosmosEndpoint }
           { name: 'COSMOS_DATABASE', value: databaseName }
           { name: 'COSMOS_CONTAINER', value: containerName }
+          { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
         ]
       }, {
         name: 'mise-auth'

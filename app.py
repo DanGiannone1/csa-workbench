@@ -47,6 +47,7 @@ from api_auth import APIAuthenticator, AuthConfig
 from auth_users import current_user
 from identity_config import IdentityConfig
 from session_manager import SessionManager
+from workbench_core.otel_tracing import setup_tracing
 from workbench_core.trace_logging import setup_trace_logging, trace_event
 
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ _SEED_ARTIFACT_ID = "art-seed0001"
 def _seed_engagement_artifacts() -> int:
     """Give every seeded engagement one openable kickoff-notes.md (idempotent)."""
     seeded = 0
-    for engagement_id in ("eng-website-launch", "eng-product-launch", "eng-q3-budget"):
+    for engagement_id in ("eng-acme-ai-chatbot", "eng-globex-support-copilot", "eng-initech-doc-search"):
         engagement = appdb.load_engagement(engagement_id)
         if engagement is None:
             continue
@@ -235,6 +236,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="CSA Workbench", lifespan=lifespan)
 app.add_middleware(JsonRequestBodyLimitMiddleware)
+# Instrument after the body-limit middleware so the tracing middleware wraps it
+# and rejected oversize requests still produce spans.
+setup_tracing(app)
 
 
 def _cors_origins(frontend_url: str | None) -> list[str]:

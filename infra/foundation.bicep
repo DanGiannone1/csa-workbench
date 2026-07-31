@@ -64,6 +64,8 @@ var acrName = globalStem
 var cosmosAccountName = globalStem
 var storageAccountName = globalStem
 var azureOpenAiName = 'csawb-${uniqueString(subscription().subscriptionId, instanceSlug)}'
+var logAnalyticsName = '${baseName}-logs'
+var appInsightsName = '${baseName}-insights'
 
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: resourceGroupName
@@ -103,10 +105,15 @@ module platform 'platform.bicep' = {
     legacyModelCapacity: legacyModelCapacity
     acaInfrastructureNsgId: acaInfrastructureNsgId
     privateEndpointNsgId: privateEndpointNsgId
+    logAnalyticsName: logAnalyticsName
+    appInsightsName: appInsightsName
   }
 }
 
 output resourceGroupName string = resourceGroup.name
+output logAnalyticsName string = logAnalyticsName
+output appInsightsName string = appInsightsName
+output appInsightsConnectionString string = platform.outputs.appInsightsConnectionString
 output environmentName string = environmentName
 output frontendAppName string = frontendAppName
 output apiAppName string = apiAppName

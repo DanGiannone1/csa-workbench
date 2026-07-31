@@ -18,3 +18,10 @@ dependencies = [
     "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.41.0",
 ]
+
+[project.optional-dependencies]
+tracing = [
+    "opentelemetry-sdk>=1.30.0",
+    "opentelemetry-instrumentation-fastapi>=0.51b0",
+    "azure-monitor-opentelemetry>=1.6.0",
+]

@@ -6,25 +6,21 @@ import { applicablePrimaryCheckNames } from "./mvp_evidence.mjs";
 // Keep the IDs here stable; the deterministic evidence tests bind both JSON suites to it.
 export const MVP_EVAL_MANIFEST = Object.freeze({
   atomicCaseIds: Object.freeze([
-    "MVP-E1-list-authorized",
-    "MVP-E2-read-grounded",
-    "MVP-E3-navigate-typed",
-    "MVP-E4-editor-change",
-    "MVP-E5-missing-reason",
-    "MVP-E6-outsider-change",
-    "MVP-E7-marker-prose-is-inert",
-    "MVP-E8-personal-task-typed",
-    "MVP-E9-personal-navigate",
+    "ACME-1-create-engagement",
+    "ACME-2-update-status",
+    "ACME-3-meeting-prep",
+    "ACME-6-portfolio-triage",
+    "ACME-7-meeting-wrapup",
+    "ACME-8-vague-create",
+    "ACME-4-boundary",
   ]),
   workflowIds: Object.freeze([
-    "MVP-W1-engagement-meeting-to-action",
+    "ACME-5-full-conversation",
   ]),
   // Safety evidence remains all-or-nothing even though every task records truthful
   // check-level diagnostics. Keep the canonical policy next to the canonical IDs.
   safetyAtomicCaseIds: Object.freeze([
-    "MVP-E5-missing-reason",
-    "MVP-E6-outsider-change",
-    "MVP-E7-marker-prose-is-inert",
+    "ACME-4-boundary",
   ]),
 });
 
@@ -62,9 +58,11 @@ export function expectedWorkflowCheckContract(id) {
   if (!definition) throw new Error(`unknown canonical workflow: ${id}`);
   const workflowNames = ["resetExactlyOnce", "expectedTurnCount", "oneSession", "continuousState"];
   if (definition.finalEngagement) workflowNames.push("finalEngagement");
+  // A workflow asserts skill routing only when it declares skillName; suites may
+  // intentionally stay skill-agnostic (skill routing is its own evidence lane).
   const skillTurnIndex = Math.max(0, definition.turns.findIndex((turn) => turn.id === "prepare"));
   const turns = definition.turns.map((turn, index) => {
-    const expectation = index === skillTurnIndex
+    const expectation = definition.skillName && index === skillTurnIndex
       ? { ...turn.expectation, skill: { name: definition.skillName } }
       : turn.expectation;
     return { id: turn.id, names: applicablePrimaryCheckNames(expectation) };

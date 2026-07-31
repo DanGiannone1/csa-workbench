@@ -51,6 +51,8 @@ param legacyModelSkuName string
 param legacyModelCapacity int
 param acaInfrastructureNsgId string = ''
 param privateEndpointNsgId string = ''
+param logAnalyticsName string
+param appInsightsName string
 
 var containerName = 'appstate'
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
@@ -136,6 +138,27 @@ resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
         workloadProfileType: 'Consumption'
       }
     ]
+  }
+}
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: logAnalyticsName
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: appInsightsName
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
   }
 }
 
@@ -578,6 +601,7 @@ resource apiBlobDataContributor 'Microsoft.Authorization/roleAssignments@2022-04
   }
 }
 
+output appInsightsConnectionString string = appInsights.properties.ConnectionString
 output environmentDefaultDomain string = environment.properties.defaultDomain
 output environmentId string = environment.id
 output cosmosAccountName string = cosmos.name
