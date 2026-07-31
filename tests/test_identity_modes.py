@@ -326,6 +326,46 @@ def test_unbound_preexisting_workspace_cannot_be_claimed(monkeypatch: pytest.Mon
     assert response.status_code == 404
 
 
+def test_bound_session_with_missing_workspace_returns_neutral_not_found(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    from fastapi.testclient import TestClient
+    import server
+
+    sid = "0123456789abcdef"
+    workspace = tmp_path / sid
+    workspace.mkdir()
+    (workspace / "notes.txt").write_text("temporary", encoding="utf-8")
+    monkeypatch.setattr(server, "WORKSPACE", str(tmp_path))
+    server._sessions.clear()
+    server._session_users.clear()
+    server._sessions[sid] = object()
+    server._session_users[sid] = "dan"
+
+    with TestClient(server.app) as client:
+        headers = {"X-User-Id": "dan"}
+        before = client.get(f"/files?identifier={sid}", headers=headers)
+        assert before.status_code == 200
+        assert [entry["filename"] for entry in before.json()["files"]] == ["notes.txt"]
+
+        workspace.rename(tmp_path / "removed-workspace")
+
+        session_response = client.get(f"/session?identifier={sid}", headers=headers)
+        files_response = client.get(f"/files?identifier={sid}", headers=headers)
+        chat_response = client.post(
+            f"/chat/stream?identifier={sid}", headers=headers, json={"prompt": "hello"},
+        )
+
+    expected = {"detail": "Session not found"}
+    assert session_response.status_code == 404
+    assert session_response.json() == expected
+    assert files_response.status_code == 404
+    assert files_response.json() == expected
+    assert chat_response.status_code == 404
+    assert chat_response.json() == expected
+    assert not workspace.exists()
+
+
 def test_bound_workspace_file_endpoints_reject_another_actor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
     import server

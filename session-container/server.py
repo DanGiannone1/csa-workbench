@@ -111,6 +111,14 @@ def _require_existing_session(session_id: str) -> None:
     raise HTTPException(status_code=404, detail="Session not found")
 
 
+def _require_existing_workspace(session_id: str) -> Path:
+    """Return the live session workspace or fail with the neutral not-found result."""
+    workspace = Path(_session_workspace(session_id))
+    if workspace.is_dir():
+        return workspace
+    raise HTTPException(status_code=404, detail="Session not found")
+
+
 def _get_identifier(request: Request) -> str:
     return _normalize_session_id(request.query_params.get("identifier"))
 
@@ -156,7 +164,7 @@ def _get_user(request: Request) -> str:
 def _workspace_for_request(request: Request) -> str:
     session_id = _get_identifier(request)
     _get_user(request)
-    return _session_workspace(session_id)
+    return str(_require_existing_workspace(session_id))
 
 
 def _session_lock(session_id: str) -> asyncio.Lock:
@@ -262,8 +270,8 @@ async def get_session(request: Request) -> dict:
     session_id = _get_identifier(request)
     _require_existing_session(session_id)
     _get_user(request)
-    workspace = Path(_session_workspace(session_id))
-    files = sorted(p.name for p in workspace.iterdir() if p.is_file()) if workspace.exists() else []
+    workspace = _require_existing_workspace(session_id)
+    files = sorted(p.name for p in workspace.iterdir() if p.is_file())
     return {
         "session_id": session_id,
         "status": "active",
@@ -290,6 +298,7 @@ async def chat_stream(req: ChatRequest, request: Request) -> StreamingResponse:
     # Verify actor ownership before taking the process-local turn lock. A rejected
     # caller must never be able to leave the owner's session artificially busy.
     user_id = _get_user(request)
+    _require_existing_workspace(session_id)
     lock = _session_lock(session_id)
 
     # Reject immediately if another turn is already in progress.
