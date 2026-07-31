@@ -88,6 +88,8 @@ def reset_guard(env: dict[str, str]) -> dict[str, str]:
     """Validate the entire destructive target before importing storage code."""
     if env.get("IDENTITY_MODE", "").strip().lower() != "demo":
         raise ValueError("reset is allowed only when IDENTITY_MODE=demo")
+    # Seeding no longer needs the password, but every caller signs in right after
+    # a reset — fail fast here rather than after the wipe.
     if not env.get("DEMO_PASSWORD", "").strip():
         raise ValueError("DEMO_PASSWORD is required for a demo reset")
     if env.get(RESET_OPT_IN, "") != "YES":

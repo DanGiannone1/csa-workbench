@@ -159,6 +159,12 @@ def ensure_seeded() -> None:
             _container().replace_item(item=_USERS_DOC_ID, body=users_doc)
         except cosmos_exceptions.CosmosResourceNotFoundError:
             _container().create_item(users_doc)
+    elif any("passwordHash" in u for u in users_doc["users"]):
+        # Registries seeded before credentials moved out of the database still
+        # carry first-boot hashes; scrub them so none rest here.
+        for u in users_doc["users"]:
+            u.pop("passwordHash", None)
+        _container().replace_item(item=_USERS_DOC_ID, body=users_doc)
     for user in users_doc["users"]:
         _ensure_personal_workspace_seeded(user["id"], demo=True)
     _seed_engagements()

@@ -236,6 +236,11 @@ def test_demo_seeding_creates_actors_private_workspaces_and_shared_engagement_re
     }
     assert all("passwordHash" not in u for u in container.items["users"]["users"])
 
+    # Re-seeding an already-populated registry scrubs first-boot hashes in place.
+    container.items["users"]["users"][0]["passwordHash"] = "legacy$stale"
+    appdb.ensure_seeded()
+    assert all("passwordHash" not in u for u in container.items["users"]["users"])
+
 
 def test_demo_login_checks_the_running_password_not_seed_time_state(monkeypatch: pytest.MonkeyPatch) -> None:
     import appdb
@@ -247,11 +252,15 @@ def test_demo_login_checks_the_running_password_not_seed_time_state(monkeypatch:
         "identitySubject": "demo:dan", "passwordHash": "legacy$hash-from-first-boot",
     }]}
     monkeypatch.setattr(appdb, "_ensure_user_registry", lambda: registry)
-    monkeypatch.setattr(auth_users, "_config", lambda: IdentityConfig(
-        mode="demo", demo_password="rotated-secret",
-        tenant_id=None, api_client_id=None, allowed_audiences=(),
-    ))
+    monkeypatch.setattr(auth_users, "_FAILED_LOGIN_DELAY_SECONDS", 0)
 
+    def use_password(value: str | None) -> None:
+        monkeypatch.setattr(auth_users, "_config", lambda: IdentityConfig(
+            mode="demo", demo_password=value,
+            tenant_id=None, api_client_id=None, allowed_audiences=(),
+        ))
+
+    use_password("rotated-secret")
     result = auth_users.login("dan", "rotated-secret")
     assert result["user"]["id"] == "dan"
     assert "passwordHash" not in result["user"]
@@ -263,6 +272,13 @@ def test_demo_login_checks_the_running_password_not_seed_time_state(monkeypatch:
         assert err.value.status_code == 401
     with pytest.raises(HTTPException):
         auth_users.login("ghost", "rotated-secret")
+
+    # An unset password must fail closed, never open the door to empty guesses.
+    for absent in (None, ""):
+        use_password(absent)
+        with pytest.raises(HTTPException) as err:
+            auth_users.login("dan", absent or "")
+        assert err.value.status_code == 401
 
 
 def test_identity_registry_rejects_mixed_mode_actor_stores(monkeypatch: pytest.MonkeyPatch) -> None:
