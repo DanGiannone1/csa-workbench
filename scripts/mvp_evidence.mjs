@@ -240,6 +240,12 @@ function groundedModelVisibleOutputChecks(expectation, before, toolCalls, rawRec
   };
 }
 
+// Tools whose engagement_id argument states an intent to change (or navigate to) that
+// engagement. Read tools are deliberately absent: reads never bound the blast radius.
+const ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS = new Set([
+  "update_engagement", "set_engagement_status", "share_engagement", "navigate",
+]);
+
 export function applicablePrimaryCheckNames(expectation) {
   const names = ["validEventSequence", "terminalExpected", "structuredResultPolicy"];
   const add = (condition, name) => { if (condition) names.push(name); };
@@ -247,9 +253,10 @@ export function applicablePrimaryCheckNames(expectation) {
   add(!!expectation.noCommitted, "noCommitted");
   add(expectation.stateChanged !== undefined, "stateChanged");
   add(!!expectation.engagementAfter, "engagementAfter");
-  add(!!expectation.onlyEngagementMayChange, "onlyNamedEngagementMayChange");
-  add(!!expectation.exactEngagementUpdate, "onlyExpectedEngagementUpdate");
+  add(!!expectation.onlyEngagementMayChange, "onlyEngagementMayChange");
+  add(!!expectation.exactEngagementUpdate, "exactEngagementUpdate");
   add(!!expectation.onlyPersonalAggregateMayChange, "onlyPersonalAggregateMayChange");
+  add(!!expectation.onlyEngagementAndPersonalAggregateMayChange, "onlyEngagementAndPersonalAggregateMayChange");
   add(!!expectation.resourceKind, "resourceKindMatchesTarget");
   add(!!expectation.resourceId, "resourceMatchesTarget");
   add(!!expectation.resourceId, "noUnexpectedResourceTargets");
@@ -358,7 +365,7 @@ export function stateFingerprint(state) {
   return createHash("sha256").update(JSON.stringify(normalizedState(state))).digest("hex");
 }
 
-export function onlyNamedEngagementMayChange(before, after, engagementId) {
+export function onlyEngagementMayChange(before, after, engagementId) {
   const normalizedBefore = normalizedState(before);
   const normalizedAfter = normalizedState(after);
   const { engagements: beforeEngagements = [], ...beforeElse } = normalizedBefore;
@@ -371,8 +378,8 @@ export function onlyNamedEngagementMayChange(before, after, engagementId) {
   return JSON.stringify(others(beforeEngagements)) === JSON.stringify(others(afterEngagements));
 }
 
-export function onlyExpectedEngagementUpdate(before, after, { id, actor, detail }) {
-  if (!onlyNamedEngagementMayChange(before, after, id)) return false;
+export function exactEngagementUpdate(before, after, { id, actor, detail }) {
+  if (!onlyEngagementMayChange(before, after, id)) return false;
   const beforeTarget = normalizedState((before.engagements ?? []).find((entry) => entry.id === id));
   const afterTarget = normalizedState((after.engagements ?? []).find((entry) => entry.id === id));
   if (!beforeTarget || !afterTarget) return false;
@@ -403,6 +410,32 @@ export function onlyPersonalAggregateMayChange(before, after, aggregateKey) {
   const { [aggregateKey]: beforeItems = [], ...beforeElse } = normalizedBefore;
   const { [aggregateKey]: afterItems = [], ...afterElse } = normalizedAfter;
   if (JSON.stringify(beforeElse) !== JSON.stringify(afterElse)) return false;
+  if (!Array.isArray(beforeItems) || !Array.isArray(afterItems) || afterItems.length !== beforeItems.length + 1) return false;
+  const remaining = [...afterItems];
+  for (const entry of beforeItems) {
+    const index = remaining.findIndex((candidate) => JSON.stringify(candidate) === JSON.stringify(entry));
+    if (index < 0) return false;
+    remaining.splice(index, 1);
+  }
+  return remaining.length === 1;
+}
+
+// A single turn that legitimately writes both an Engagement and one of the actor's
+// personal aggregates (e.g. "set the status AND add me a follow-up task"): the named
+// engagement may change, the named aggregate gains exactly one record with all prior
+// records retained, and everything else — other engagements, other top-level keys —
+// stays byte-identical.
+export function onlyEngagementAndPersonalAggregateMayChange(before, after, { engagementId, aggregateKey }) {
+  const normalizedBefore = normalizedState(before);
+  const normalizedAfter = normalizedState(after);
+  const { engagements: beforeEngagements = [], [aggregateKey]: beforeItems = [], ...beforeElse } = normalizedBefore;
+  const { engagements: afterEngagements = [], [aggregateKey]: afterItems = [], ...afterElse } = normalizedAfter;
+  if (JSON.stringify(beforeElse) !== JSON.stringify(afterElse)) return false;
+  const beforeTarget = beforeEngagements.find((entry) => entry.id === engagementId);
+  const afterTarget = afterEngagements.find((entry) => entry.id === engagementId);
+  if (!beforeTarget || !afterTarget) return false;
+  const others = (entries) => entries.filter((entry) => entry.id !== engagementId);
+  if (JSON.stringify(others(beforeEngagements)) !== JSON.stringify(others(afterEngagements))) return false;
   if (!Array.isArray(beforeItems) || !Array.isArray(afterItems) || afterItems.length !== beforeItems.length + 1) return false;
   const remaining = [...afterItems];
   for (const entry of beforeItems) {
@@ -578,16 +611,25 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
     noCommitted: !expectation.noCommitted || !results.some((result) => result?.status === "committed"),
     stateChanged: expectation.stateChanged === undefined || (stateFingerprint(before) !== stateFingerprint(after)) === expectation.stateChanged,
     engagementAfter: targetAfter,
-    onlyNamedEngagementMayChange: !expectation.onlyEngagementMayChange || onlyNamedEngagementMayChange(before, after, expectation.onlyEngagementMayChange),
-    onlyExpectedEngagementUpdate: !expectation.exactEngagementUpdate || onlyExpectedEngagementUpdate(before, after, expectation.exactEngagementUpdate),
+    onlyEngagementMayChange: !expectation.onlyEngagementMayChange || onlyEngagementMayChange(before, after, expectation.onlyEngagementMayChange),
+    exactEngagementUpdate: !expectation.exactEngagementUpdate || exactEngagementUpdate(before, after, expectation.exactEngagementUpdate),
     onlyPersonalAggregateMayChange: !expectation.onlyPersonalAggregateMayChange
       || onlyPersonalAggregateMayChange(before, after, expectation.onlyPersonalAggregateMayChange),
+    onlyEngagementAndPersonalAggregateMayChange: !expectation.onlyEngagementAndPersonalAggregateMayChange
+      || onlyEngagementAndPersonalAggregateMayChange(before, after, expectation.onlyEngagementAndPersonalAggregateMayChange),
     resourceKindMatchesTarget: !expectation.resourceKind || matchedResult?.resource?.kind === expectation.resourceKind,
     resourceMatchesTarget: !expectation.resourceId || (matchedResult?.resource?.kind === "engagement" && matchedResult.resource.id === expectation.resourceId),
+    // Blast radius binds what the agent CHANGES or NAVIGATES TO, never what it reads:
+    // an extra authorized read is a legitimate path to the same verified end state
+    // (τ²-bench: any tool sequence producing an equivalent end state passes).
     noUnexpectedResourceTargets: !expectation.resourceId || results.every((result) =>
-      result?.resource?.kind !== "engagement" || result.resource.id === expectation.resourceId),
+      result?.resource?.kind !== "engagement"
+      || !["committed", "resolved"].includes(result.status)
+      || result.resource.id === expectation.resourceId),
     noUnexpectedArgumentTargets: !expectedArgumentTarget || toolCalls.every((call) =>
-      call.args?.engagement_id === undefined || call.args.engagement_id === expectedArgumentTarget),
+      !ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS.has(call.name)
+      || call.args?.engagement_id === undefined
+      || call.args.engagement_id === expectedArgumentTarget),
     requiredToolCalls: !expectation.requiredToolNames
       || expectation.requiredToolNames.every((name) => toolCalls.some((call) => call.name === name)),
     forbiddenToolCalls: !expectation.forbiddenToolNames
@@ -595,7 +637,9 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
     expectedToolCall: !expectation.toolCall || toolCalls.some((call) => call.name === expectation.toolCall.name
       && call.args !== null
       && (!Object.hasOwn(expectation.toolCall, "args")
-        || hasCanonicalExactValue(call.args, expectation.toolCall.args))),
+        || hasCanonicalExactValue(call.args, expectation.toolCall.args))
+      && (!Object.hasOwn(expectation.toolCall, "argsInclude")
+        || containsExpected(call.args, expectation.toolCall.argsInclude))),
     completeModelVisibleToolEvidence: !expectation.completeToolEvidence || toolCalls.every((call) => {
       const evidence = productEvidenceFor(call, rawRecords);
       return !!evidence

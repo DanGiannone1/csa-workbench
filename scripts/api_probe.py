@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "session-container"))
 
-WL = "eng-website-launch"
+WL = "eng-acme-ai-chatbot"
 failures = 0
 
 
@@ -54,22 +54,22 @@ def main() -> int:
         ok("empty upload → 422", res.status_code == 422, str(res.status_code))
 
         # ── Canonical-id keying: upload via the UNPREFIXED id, read via canonical ──
-        res = client.post("/engagements/website-launch/artifacts", headers=dan,
+        res = client.post("/engagements/acme-ai-chatbot/artifacts", headers=dan,
                           files={"file": ("probe.txt", b"canonical-key-check", "text/plain")})
         ok("upload via unprefixed engagement id → 201", res.status_code == 201, str(res.status_code))
         art_id = res.json().get("id", "")
         res = client.get(f"/engagements/{WL}/artifacts/{art_id}", headers=dan)
         ok("download via canonical id returns the bytes",
            res.status_code == 200 and res.content == b"canonical-key-check")
-        res = client.delete(f"/engagements/website-launch/artifacts/{art_id}", headers=dan)
+        res = client.delete(f"/engagements/acme-ai-chatbot/artifacts/{art_id}", headers=dan)
         ok("delete via unprefixed id → 204", res.status_code == 204, str(res.status_code))
         res = client.get(f"/engagements/{WL}/artifacts/{art_id}", headers=dan)
         ok("deleted artifact gone from both paths", res.status_code == 404, str(res.status_code))
 
         # ── Member-removal error shapes ─────────────────────────────────────────
-        res = client.delete(f"/engagements/{WL}/members/sam", headers=ava)  # ava: non-member
+        res = client.delete(f"/engagements/{WL}/members/ava", headers=sam)  # sam: non-member
         ok("non-member remove_member → 404 (no membership leak)", res.status_code == 404, str(res.status_code))
-        res = client.delete(f"/engagements/{WL}/members/dan", headers=sam)  # sam: viewer
+        res = client.delete(f"/engagements/{WL}/members/dan", headers=ava)  # ava: editor (non-owner)
         ok("non-owner member remove_member → 403", res.status_code == 403, str(res.status_code))
         res = client.delete(f"/engagements/{WL}/members/dan", headers=dan)  # dan: only owner
         ok("removing the last owner → 422", res.status_code == 422, str(res.status_code))
@@ -88,10 +88,10 @@ def main() -> int:
 
         # ── Member add resolves username (case-insensitive), rejects unknown ────
         res = client.post(f"/engagements/{WL}/members", headers=dan,
-                          json={"userId": "AVA", "role": "viewer"})
+                          json={"userId": "SAM", "role": "viewer"})
         ok("member add by username resolves case-insensitively",
-           res.status_code == 201 and res.json().get("userId") == "ava", str(res.status_code))
-        res = client.delete(f"/engagements/{WL}/members/ava", headers=dan)
+           res.status_code == 201 and res.json().get("userId") == "sam", str(res.status_code))
+        res = client.delete(f"/engagements/{WL}/members/sam", headers=dan)
         ok("cleanup: probe member removed", res.status_code == 204, str(res.status_code))
         res = client.post(f"/engagements/{WL}/members", headers=dan,
                           json={"userId": "nobody-here", "role": "viewer"})

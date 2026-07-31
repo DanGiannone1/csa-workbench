@@ -1,24 +1,37 @@
 {
-  "fixtureVersion": "mvp-demo-v2",
+  "fixtureVersion": "acme-ai-v1",
   "workflows": [
     {
-      "id": "MVP-W1-engagement-meeting-to-action",
+      "id": "ACME-5-full-conversation",
+      "scenario": "Full multi-turn conversation",
       "actor": "dan",
-      "description": "Prepare a grounded brief, carry the resolved target into an exact update, then navigate to it.",
-      "skillName": "engagement-meeting-prep",
-      "groundingTurn": 0,
+      "description": "Prep a grounded brief for the Acme check-in, carry the resolved engagement into an exact status update, open it, then capture a personal follow-up task.",
       "turns": [
         {
           "id": "prepare",
-          "prompt": "Prep me for my Product Launch status meeting.",
+          "prompt": "Prep me for my Acme Internal AI Chatbot check-in.",
           "expectation": {
             "operation": "get",
             "status": "succeeded",
-            "resourceId": "eng-product-launch",
+            "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": false,
-            "requiredToolNames": ["list_engagements", "get_engagement"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "set_engagement_status", "share_engagement", "navigate"],
-            "toolCall": { "name": "get_engagement", "args": { "engagement_id": "eng-product-launch" } },
+            "requiredToolNames": [
+              "list_engagements",
+              "get_engagement"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement",
+              "navigate"
+            ],
+            "toolCall": {
+              "name": "get_engagement",
+              "args": {
+                "engagement_id": "eng-acme-ai-chatbot"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": true,
             "noNavigation": true
@@ -26,21 +39,42 @@
         },
         {
           "id": "update",
-          "prompt": "Pricing approval slipped. Set its status to Yellow with the exact reason 'Pricing approval slipped'.",
+          "prompt": "The data-privacy review slipped to August 12. Set it to Yellow with the exact reason 'Data-privacy review slipped to August 12'.",
           "expectation": {
             "operation": "update",
             "status": "committed",
-            "resourceId": "eng-product-launch",
+            "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": true,
-            "onlyEngagementMayChange": "eng-product-launch",
-            "exactEngagementUpdate": { "id": "eng-product-launch", "actor": "dan", "detail": "status, statusNote" },
-            "engagementAfter": { "id": "eng-product-launch", "status": "yellow", "statusNote": "Pricing approval slipped" },
-            "requiredToolNames": ["set_engagement_status"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "share_engagement", "navigate"],
-            "toolCall": { "name": "set_engagement_status", "args": { "engagement_id": "eng-product-launch", "status": "yellow", "note": "Pricing approval slipped" } },
+            "onlyEngagementMayChange": "eng-acme-ai-chatbot",
+            "exactEngagementUpdate": {
+              "id": "eng-acme-ai-chatbot",
+              "actor": "dan",
+              "detail": "status, statusNote"
+            },
+            "engagementAfter": {
+              "id": "eng-acme-ai-chatbot",
+              "status": "yellow",
+              "statusNote": "Data-privacy review slipped to August 12"
+            },
+            "requiredToolNames": [
+              "set_engagement_status"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "share_engagement",
+              "navigate"
+            ],
+            "toolCall": {
+              "name": "set_engagement_status",
+              "args": {
+                "engagement_id": "eng-acme-ai-chatbot",
+                "status": "yellow",
+                "note": "Data-privacy review slipped to August 12"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": true,
-            "forbiddenSkillNames": ["engagement-meeting-prep"],
             "noNavigation": true
           }
         },
@@ -50,29 +84,72 @@
           "expectation": {
             "operation": "navigate",
             "status": "resolved",
-            "resourceId": "eng-product-launch",
+            "resourceId": "eng-acme-ai-chatbot",
             "stateChanged": false,
-            "requiredToolNames": ["navigate"],
-            "forbiddenToolNames": ["create_engagement", "update_engagement", "set_engagement_status", "share_engagement"],
-            "toolCall": { "name": "navigate", "args": { "destination_id": "engagement_overview", "engagement_id": "eng-product-launch" } },
+            "requiredToolNames": [
+              "navigate"
+            ],
+            "forbiddenToolNames": [
+              "create_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement"
+            ],
+            "toolCall": {
+              "name": "navigate",
+              "args": {
+                "destination_id": "engagement_overview",
+                "engagement_id": "eng-acme-ai-chatbot"
+              }
+            },
             "completeToolEvidence": true,
             "assistantResponseRequired": false,
-            "forbiddenSkillNames": ["engagement-meeting-prep"],
             "navigation": {
               "destination": {
                 "id": "engagement_overview",
-                "path": "/engagements/eng-product-launch",
-                "engagementId": "eng-product-launch"
+                "path": "/engagements/eng-acme-ai-chatbot",
+                "engagementId": "eng-acme-ai-chatbot"
               },
               "requestedAtNavigationVersion": 0
             }
           }
+        },
+        {
+          "id": "capture",
+          "prompt": "Add a task for me: send Dana the updated architecture diagram. High priority.",
+          "expectation": {
+            "operation": "create_task",
+            "status": "committed",
+            "stateChanged": true,
+            "resourceKind": "task",
+            "onlyPersonalAggregateMayChange": "personalTasks",
+            "requiredToolNames": [
+              "create_task"
+            ],
+            "forbiddenToolNames": [
+              "navigate",
+              "list_engagements",
+              "create_engagement",
+              "get_engagement",
+              "update_engagement",
+              "set_engagement_status",
+              "share_engagement"
+            ],
+            "toolCall": {
+              "name": "create_task",
+              "argsInclude": {
+                "priority": "High"
+              }
+            },
+            "completeToolEvidence": true,
+            "assistantResponseRequired": true
+          }
         }
       ],
       "finalEngagement": {
-        "id": "eng-product-launch",
+        "id": "eng-acme-ai-chatbot",
         "status": "yellow",
-        "statusNote": "Pricing approval slipped"
+        "statusNote": "Data-privacy review slipped to August 12"
       }
     }
   ]

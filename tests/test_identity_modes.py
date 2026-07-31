@@ -232,7 +232,7 @@ def test_demo_seeding_creates_actors_private_workspaces_and_shared_engagement_re
     appdb.ensure_seeded("test-secret")
     assert set(container.items) == {
         "users", "personal-dan", "personal-ava", "personal-sam",
-        "eng-website-launch", "eng-product-launch", "eng-q3-budget",
+        "eng-acme-ai-chatbot", "eng-globex-support-copilot", "eng-initech-doc-search",
     }
 
 

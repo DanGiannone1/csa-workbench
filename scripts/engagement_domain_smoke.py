@@ -45,11 +45,12 @@ def main() -> None:
 
     # 2. Seeded fixtures got the domain layer (idempotent seed keeps ids).
     engs = {e["id"]: e for e in appdb.list_engagements_for("dan")}
-    wl = engs.get("eng-website-launch")
-    check("seeded Website Launch is yellow with a why",
-          wl is not None and wl["status"] == "yellow" and bool(wl["statusNote"].strip()))
+    initech = engs.get("eng-initech-doc-search")
+    check("seeded Initech Document Search is yellow with a why",
+          initech is not None and initech["status"] == "yellow" and bool(initech["statusNote"].strip()))
+    acme = engs.get("eng-acme-ai-chatbot")
     check("seeded engagement tasks present",
-          wl is not None and len(wl["tasks"]) == 2)
+          acme is not None and len(acme["tasks"]) == 2)
 
     # 2b. Legacy mapping: a pre-rename doc (health/amber) reads as status/yellow.
     legacy = {"id": "eng-legacy-probe", "name": "Legacy", "members": [],

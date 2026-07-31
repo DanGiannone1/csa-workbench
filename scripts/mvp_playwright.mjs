@@ -205,8 +205,8 @@ try {
   const danSeed = await state(dan.page);
   const avaSeed = await state(ava.page);
   const fixturePortfolios = {
-    dan: ["eng-product-launch", "eng-website-launch"],
-    ava: ["eng-product-launch", "eng-q3-budget"],
+    dan: ["eng-acme-ai-chatbot", "eng-initech-doc-search"],
+    ava: ["eng-acme-ai-chatbot", "eng-initech-doc-search"],
   };
   const danIds = (danSeed.engagements ?? []).map((entry) => entry.id).sort();
   const avaIds = (avaSeed.engagements ?? []).map((entry) => entry.id).sort();
@@ -285,12 +285,23 @@ try {
   check("MVP-P11-outsider-forged-write-neutral-404", samWrite.status === 404, String(samWrite.status));
   check("MVP-P12-outsider-write-unchanged-state", JSON.stringify(beforeForged.engagements.find((entry) => entry.id === engagementId)) === JSON.stringify(afterForged.engagements.find((entry) => entry.id === engagementId)));
 
+  // No seeded engagement carries a viewer member (each actor holds owner or editor
+  // roles on their seeded engagements), so grant sam a read-only "viewer"
+  // role on the same durable engagement to exercise the granted-access viewer view.
+  await dan.page.getByTestId("engagement-tab-settings").click();
+  await dan.page.getByTestId("member-user-select").selectOption("sam");
+  await dan.page.getByTestId("member-role-select").selectOption("viewer");
+  await dan.page.getByTestId("member-add-btn").click();
+  await eventually(async () => (await state(dan.page)).engagements.find((entry) => entry.id === engagementId)?.members.some((member) => member.userId === "sam" && member.role === "viewer"));
+  await sam.page.reload({ waitUntil: "networkidle" });
+
   await sam.page.getByTestId("nav-toggle").click();
   await sam.page.getByTestId("nav-drawer").waitFor({ state: "visible" });
   await sam.page.getByTestId("nav--engagements").click();
   await sam.page.locator("#workbench-nav").waitFor({ state: "hidden" });
-  await sam.page.getByTestId("engagement-row-eng-website-launch").click();
-  await sam.page.getByRole("heading", { name: "Website Launch", exact: true }).waitFor({ state: "visible" });
+  await eventually(() => sam.page.getByTestId(`engagement-row-${engagementId}`).count());
+  await sam.page.getByTestId(`engagement-row-${engagementId}`).click();
+  await sam.page.getByRole("heading", { name: engagementName, exact: true }).waitFor({ state: "visible" });
   await sam.page.getByTestId("engagement-overview").waitFor({ state: "visible" });
   await sam.page.getByTestId("viewer-note").waitFor({ state: "visible" });
   check("MVP-P13-viewer-has-no-editor-affordance", await sam.page.getByTestId("engagement-detail-editor").count() === 0);

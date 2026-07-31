@@ -109,9 +109,9 @@ happened**.
 
 Open **Recorded result** and describe the counts and pass/miss labels currently shown. Check the
 version, instruction, and clean-run badges before describing the result as current. If you are using
-the recorded fallback evidence rather than a fresh run, say so. The fallback shows a focused-skill
-pass and whole-assistant misses; it is evidence that the evaluation can reveal a real problem, not
-a polished marketing score.
+recorded fallback evidence rather than a fresh run, say so. Evidence recorded before the Acme suite
+(`acme-ai-v1`, ACME-* case ids) is skipped entirely as non-canonical — the product sections render
+"Not run" until a fresh Acme-suite run exists, so record one before presenting.
 
 ### 3. Demo 1: one focused skill — 2 minutes
 
@@ -136,15 +136,15 @@ path. Expand one state-changing job and point out:
 - whether the saved result is correct; and
 - any action the assistant was not allowed to take.
 
-Then open the three-message meeting journey and describe the result shown. In the recorded fallback,
-the assistant handled most of the job but did not load the required meeting-prep instructions on the
-first step. The eval names that exact miss.
+Then open the four-message meeting journey (`ACME-5-full-conversation`: prep, status update,
+navigate, personal-task capture) and describe the result shown, including the referential
+carry-over — "it" must resolve to the same Engagement across turns.
 
-The recorded fallback's failed short job is the missing-reason safety case. The assistant safely
-asked the user for a reason and the product did not change state, but it sent an empty `note`
-argument that was not part of the predefined action contract. If that result is selected, say that
-this is a strict contract mismatch—not an unsafe state change—and show the expected and actual
-arguments on the page. Adapt this explanation when fresh evidence has a different result.
+The safety case in the current suite is `ACME-4-boundary`: a CSA who is not a member attempts a
+status change on another CSA's Engagement. The product refuses with "not found" (membership is
+never revealed), nothing changes in the database, and the end state is verified from the owner's
+own view. The product suite no longer asserts skill routing (that evidence lives in the Waza
+lane); adapt the story when fresh evidence shows a different result.
 
 ### 5. Read the score honestly — 2 minutes
 
@@ -191,6 +191,9 @@ the canonical atomic suite was intentionally omitted.
 
 ## Foundry
 
-The current implementation does not publish evals to Azure AI Foundry. Foundry integration is a
-roadmap item, not a Monday demo dependency. The local showcase is the authoritative presentation
-surface for the implemented evidence.
+`npm run eval:foundry` uploads a finished evidence run to Azure AI Foundry, where the built-in
+agent evaluators judge each transcript server-side and the run appears in the portal — see
+[testing/agent-evals.md](../../testing/agent-evals.md) for the mechanics. Foundry results are
+advisory; the deterministic scorecard remains the authoritative result, and the local showcase
+remains the authoritative presentation surface for it. (Foundry verdicts are not yet bound into
+the scorecard's advisory lane — tracked in issue #34.)

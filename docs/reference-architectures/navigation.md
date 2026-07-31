@@ -13,7 +13,7 @@ Navigation should feel like using an app, not operating an AI system.
 3. If the user says where they want to go, the assistant searches the places that actually exist and
    opens the best match.
 
-For example, someone working on the Website Launch Engagement might see **Tasks**, **Next
+For example, someone working on the Acme Internal AI Chatbot Engagement might see **Tasks**, **Next
 milestone**, and **Steering deck** as quick links. Clicking **Tasks** opens it immediately. Saying
 "open the launch tasks" produces the same result through the assistant.
 
@@ -58,12 +58,12 @@ A destination has this logical structure:
 ```json
 {
   "id": "destination:engagement:eng-42:tasks",
-  "title": "Website Launch tasks",
+  "title": "Acme Internal AI Chatbot tasks",
   "route": "/engagements/eng-42/tasks",
   "kind": "engagement-tasks",
   "scope": {"kind": "engagement", "id": "eng-42"},
-  "aliases": ["launch tasks", "website tasks"],
-  "searchText": "Website Launch tasks action items",
+  "aliases": ["chatbot tasks", "acme tasks"],
+  "searchText": "Acme Internal AI Chatbot tasks action items",
   "version": "..."
 }
 ```
@@ -164,7 +164,7 @@ The backend returns data, not marker prose:
   "status": "resolved",
   "destination": {
     "id": "destination:engagement:eng-42:tasks",
-    "title": "Website Launch tasks",
+    "title": "Acme Internal AI Chatbot tasks",
     "route": "/engagements/eng-42/tasks"
   },
   "routeEffect": {"type": "navigate", "route": "/engagements/eng-42/tasks"},

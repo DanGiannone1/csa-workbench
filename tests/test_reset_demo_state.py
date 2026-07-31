@@ -35,7 +35,7 @@ def test_reset_guard_accepts_explicit_local_demo_target() -> None:
 
 def test_reset_fixture_version_and_summary_exclude_legacy_personal_state() -> None:
     source = Path(reset_demo_state.__file__).read_text(encoding="utf-8")
-    assert reset_demo_state.FIXTURE_VERSION == "mvp-demo-v2"
+    assert reset_demo_state.FIXTURE_VERSION == "acme-ai-v1"
     assert "personalSpaces" not in source
     assert "load_state" not in source
 
