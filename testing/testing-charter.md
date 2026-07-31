@@ -45,8 +45,8 @@ Each layer catches what the one below cannot: layer 2 proves a tool works when c
 layer 3 proves the agent *chooses* to call it correctly from natural language; layer 4 reports
 whether the words around those actions served the user.
 
-This design is validated against published agent benchmarks and platform guidance — see the
-[design position and sources](agent-evals.md#design-position-validated-against-the-field-july-2026).
+The sources behind this design are cited claim by claim in the
+[design position](agent-evals.md#design-position).
 
 ## Running the layers
 
