@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 import secrets
 import sys
@@ -32,11 +33,16 @@ def _config() -> IdentityConfig:
 
 
 def login(username: str, password: str) -> dict:
-    """Verify credentials → {token, user}. Raises 401 on failure (no reason leakage)."""
+    """Verify credentials → {token, user}. Raises 401 on failure (no reason leakage).
+
+    The running DEMO_PASSWORD is the one shared demo credential; the database
+    stores none, so rotating it is a config change plus restart."""
     config = _config()
     if not config.is_demo or not config.demo_password:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    user = appdb.verify_login(username, password)
+    if not hmac.compare_digest((password or "").encode("utf-8"), config.demo_password.encode("utf-8")):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    user = appdb.find_demo_user(username)
     if user is None:
         raise HTTPException(status_code=401, detail="Unauthorized")
     token = secrets.token_urlsafe(32)

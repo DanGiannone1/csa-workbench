@@ -195,7 +195,7 @@ def reset() -> dict:
     if workspace_root.exists():
         shutil.rmtree(workspace_root)
     appdb._container_singleton = None
-    appdb.ensure_seeded(os.environ["DEMO_PASSWORD"])
+    appdb.ensure_seeded()
     # Seed artifacts use the same code path as the application, without importing
     # the FastAPI lifespan or touching an Azure blob backend (guarded above).
     import app as orchestrator  # noqa: PLC0415

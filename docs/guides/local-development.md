@@ -26,6 +26,10 @@ uv sync
 Set `IDENTITY_MODE=demo`, a local `DEMO_PASSWORD`, the Azure OpenAI values, and Cosmos emulator values
 in `.env`. Do not commit real secrets. Read `.env.example` for the current variable names.
 
+All demo accounts (`dan`, `ava`, `sam`) sign in with the running `DEMO_PASSWORD`. Nothing
+credential-related is stored in the database, so changing the password is just editing `.env`
+and restarting the app.
+
 ## Start the application
 
 ```bash

@@ -229,11 +229,40 @@ def test_demo_seeding_creates_actors_private_workspaces_and_shared_engagement_re
 
     container = Container()
     monkeypatch.setattr(appdb, "_container", lambda: container)
-    appdb.ensure_seeded("test-secret")
+    appdb.ensure_seeded()
     assert set(container.items) == {
         "users", "personal-dan", "personal-ava", "personal-sam",
         "eng-acme-ai-chatbot", "eng-globex-support-copilot", "eng-initech-doc-search",
     }
+    assert all("passwordHash" not in u for u in container.items["users"]["users"])
+
+
+def test_demo_login_checks_the_running_password_not_seed_time_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    import appdb
+
+    # A registry seeded by an old deploy, stale hash and all: the hash must be
+    # ignored (and never returned) — only the running DEMO_PASSWORD signs you in.
+    registry = {"id": "users", "sessionId": "users", "users": [{
+        "id": "dan", "username": "dan", "displayName": "Dan", "identity": "demo",
+        "identitySubject": "demo:dan", "passwordHash": "legacy$hash-from-first-boot",
+    }]}
+    monkeypatch.setattr(appdb, "_ensure_user_registry", lambda: registry)
+    monkeypatch.setattr(auth_users, "_config", lambda: IdentityConfig(
+        mode="demo", demo_password="rotated-secret",
+        tenant_id=None, api_client_id=None, allowed_audiences=(),
+    ))
+
+    result = auth_users.login("dan", "rotated-secret")
+    assert result["user"]["id"] == "dan"
+    assert "passwordHash" not in result["user"]
+    auth_users.logout(result["token"])
+
+    for wrong in ("hash-from-first-boot", "", "ROTATED-SECRET"):
+        with pytest.raises(HTTPException) as err:
+            auth_users.login("dan", wrong)
+        assert err.value.status_code == 401
+    with pytest.raises(HTTPException):
+        auth_users.login("ghost", "rotated-secret")
 
 
 def test_identity_registry_rejects_mixed_mode_actor_stores(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -242,7 +271,7 @@ def test_identity_registry_rejects_mixed_mode_actor_stores(monkeypatch: pytest.M
     registry = {"id": "users", "sessionId": "users", "users": [{"id": "u-object", "identity": "entra"}]}
     monkeypatch.setattr(appdb, "_ensure_user_registry", lambda: registry)
     with pytest.raises(appdb.IdentityRegistryError, match="non-demo"):
-        appdb.ensure_seeded("test-secret")
+        appdb.ensure_seeded()
 
     registry["users"] = [{"id": "dan", "identity": "demo"}]
     with pytest.raises(appdb.IdentityRegistryError, match="canonical"):

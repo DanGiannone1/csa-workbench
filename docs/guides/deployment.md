@@ -149,6 +149,16 @@ npm run playwright:mvp
 
 `DEMO_PASSWORD` must already be available without printing it.
 
+For a demo-mode instance, the running `DEMO_PASSWORD` is the sign-in password for every demo
+account — the database stores no credentials. Keep the value in the untracked `.env`. To look it
+up or rotate it on a deployed instance:
+
+```bash
+az containerapp secret show -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --secret-name demo-password --query value -o tsv
+az containerapp secret set  -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --secrets demo-password='<new-value>'
+az containerapp revision restart -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --revision "$(az containerapp revision list -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --query '[?properties.active].name' -o tsv)"
+```
+
 ## Entra API check
 
 ```bash
