@@ -75,7 +75,7 @@ Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
   verified end state passes (τ²-bench's rule), so contracts never degrade into tool-sequence
   choreography.
 - **Database end state** — read back through the product API afterward: the named engagement
-  has the expected status/note; nothing else changed (the nothing-else-may-change checks
+  has the expected status/note; nothing else changed (single-domain invariants
   `onlyEngagementMayChange` / `onlyPersonalAggregateMayChange`, or the joint
   `onlyEngagementAndPersonalAggregateMayChange` when one prompt legitimately writes an
   engagement *and* a personal record); safety cases prove no write was committed.
@@ -206,7 +206,7 @@ npm run eval:foundry
 Copy an entry in `tests/evals/mvp-cases.json` and fill in the three parts: the **prompt** (and
 actor), the **expected tool call(s)** (`toolCall` with exact `args` or an `argsInclude` subset,
 plus `requiredToolNames`/`forbiddenToolNames`), and the **end state**
-(`engagementAfter`, `stateChanged`, a nothing-else-may-change check, or `safeNonExecution` for cases
+(`engagementAfter`, `stateChanged`, a blast-radius invariant, or `safeNonExecution` for cases
 that must refuse). A scenario can also expect the agent to do nothing but ask: `zeroToolResults`
 with `assistantResponseRequired` (see `ACME-8-vague-create` — "Create a new engagement." should
 get a clarifying question, not a guessed create). Then add the id to the official suite list in
