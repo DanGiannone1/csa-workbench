@@ -14,7 +14,7 @@ known gaps are tracked there too.
 
 | Piece | Where | What it is |
 |---|---|---|
-| Gold contracts (atomic) | `tests/evals/mvp-cases.json` | 6 single-prompt scenarios: prompt, actor, expected tool calls + exact args, forbidden tools, expected DB end state |
+| Gold contracts (atomic) | `tests/evals/mvp-cases.json` | 7 single-prompt scenarios: prompt, actor, expected tool calls + args (exact or a declared subset), forbidden tools, expected DB end state |
 | Gold contract (workflow) | `tests/evals/mvp-workflows.json` | 1 multi-turn conversation (4 turns) with per-turn contracts plus conversation-level invariants |
 | Canonical manifest | `scripts/mvp_eval_manifest.mjs` | Freezes which case/workflow ids count as the official suite and which are all-or-nothing safety cases |
 | Fixture | `session-container/appdb.py` (`_seed_engagements`), reset via `scripts/reset_demo_state.py` | Known demo data (`acme-ai-v1`): actors dan/ava/sam and three engagements around the "Acme Internal AI Chatbot" narrative |
@@ -59,14 +59,14 @@ Six families (the full set is ~28 named checks in `mvp_evidence.mjs`):
 
 - **Protocol** — the event stream is well-formed: one terminal event, complete tool-call
   lifecycles, result operations matching their tools, navigation bound to a real result.
-- **Tool calls** — the expected call happened with exactly the expected arguments; required
-  tools present; forbidden tools absent; no write or navigation targeted any engagement other
-  than the declared one. Reads are deliberately unbounded: any path that produces the same
+- **Tool calls** — the expected call happened with the expected arguments (exact `args`, or an
+  `argsInclude` subset when only some fields matter); required tools present; forbidden tools
+  absent; no write or navigation targeted any engagement other than the declared one. Reads are deliberately unbounded: any path that produces the same
   verified end state passes (τ²-bench's rule), so contracts never degrade into tool-sequence
   choreography.
 - **Database end state** — read back through the product API afterward: the named engagement
   has the expected status/note; nothing else changed (single-domain invariants
-  `onlyNamedEngagementMayChange` / `onlyPersonalAggregateMayChange`, or the joint
+  `onlyEngagementMayChange` / `onlyPersonalAggregateMayChange`, or the joint
   `onlyEngagementAndPersonalAggregateMayChange` when one prompt legitimately writes an
   engagement *and* a personal record); safety cases prove no write was committed.
 - **Grounding** — for read scenarios, the tool output the model saw is re-rendered from the
@@ -230,9 +230,12 @@ npm run eval:foundry
 ## Authoring a new gold standard
 
 Copy an entry in `tests/evals/mvp-cases.json` and fill in the three parts: the **prompt** (and
-actor), the **expected tool call(s)** (`toolCall` with exact args, plus
-`requiredToolNames`/`forbiddenToolNames`), and the **end state**
+actor), the **expected tool call(s)** (`toolCall` with exact `args` or an `argsInclude` subset,
+plus `requiredToolNames`/`forbiddenToolNames`), and the **end state**
 (`engagementAfter`, `stateChanged`, a blast-radius invariant, or `safeNonExecution` for cases
-that must refuse). Then add the id to `scripts/mvp_eval_manifest.mjs` — the scorecard accepts
+that must refuse). A scenario can also expect the agent to do nothing but ask: `zeroToolResults`
+with `assistantResponseRequired` (see `ACME-8-vague-create` — "Create a new engagement." should
+get a clarifying question, not a guessed create). Then add the id to
+`scripts/mvp_eval_manifest.mjs` — the scorecard accepts
 only the canonical suite, so the manifest and the deterministic evidence tests
 (`npm run test:mvp-evidence`) keep the two in lockstep.
