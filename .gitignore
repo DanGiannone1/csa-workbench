@@ -237,3 +237,6 @@ logs/
 # Engagement artifact bytes (local dev backend)
 /artifacts/
 .claude/settings.local.json
+
+# Claude worktrees are session-scoped checkouts, never repo content.
+.claude/worktrees/

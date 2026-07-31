@@ -24,15 +24,15 @@ review of one Engagement.
 
 ## USE FOR
 
-- “Prep me for my Product Launch status meeting.”
+- “Prep me for my Acme Internal AI Chatbot check-in.”
 - “I have a customer status call soon; give me the Engagement health brief.”
-- “What should I know before the Fabrikam Engagement review?”
+- “What should I know before the Acme Corp Engagement review?”
 
 ## DO NOT USE FOR
 
 - “List my Engagements.”
-- “Set Product Launch to Yellow.”
-- “Open Product Launch.”
+- “Set Acme Internal AI Chatbot to Yellow.”
+- “Open Acme Internal AI Chatbot.”
 - create, share, or direct field-update requests.
 
 1. Resolve the Engagement from authorized data. If the user supplied a stable ID, use it. Otherwise,

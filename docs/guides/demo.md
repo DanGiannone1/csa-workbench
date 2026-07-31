@@ -10,27 +10,32 @@ This demo shows the main shared-work and assistant workflow.
 
 ## Main workflow
 
-1. Create or open the **Product Launch** Engagement in the web application.
-2. Ask the assistant to prepare for the Product Launch status meeting.
+This mirrors the canonical multi-turn eval workflow (`ACME-5-full-conversation`).
+
+1. Open the **Acme Internal AI Chatbot** Engagement in the web application.
+2. Ask the assistant: `Prep me for my Acme Internal AI Chatbot check-in.`
 3. Confirm that the meeting brief uses the Engagement's recorded customer, status, dates,
    milestones, tasks, and risks.
 4. Tell the assistant:
 
    ```text
-   Pricing approval slipped. Set its status to Yellow with the exact reason
-   'Pricing approval slipped'.
+   The data-privacy review slipped to August 12. Set it to Yellow with the exact
+   reason 'Data-privacy review slipped to August 12'.
    ```
 
-5. Confirm that Product Launch now shows Yellow with that exact reason.
+5. Confirm that Acme Internal AI Chatbot now shows Yellow with that exact reason.
 6. Tell the assistant: `Open it.`
-7. Confirm that the application opens the Product Launch Engagement.
+7. Confirm that the application opens the Acme Internal AI Chatbot Engagement.
+8. Tell the assistant:
+   `Add a personal task for me to send Dana the updated architecture diagram, High priority.`
+9. Open Tasks and confirm that the new task belongs to the signed-in user.
 
 ## Private-work workflow
 
-1. Ask the assistant to create a private task.
-2. Open Tasks and confirm that the new task belongs to the signed-in user.
-3. Ask the assistant to open Reminders.
-4. Confirm that the application moves to Reminders without changing another user's records.
+The main workflow's final step already shows private task creation. To show private navigation:
+
+1. Ask the assistant to open Reminders.
+2. Confirm that the application moves to Reminders without changing another user's records.
 
 ## What the demo explains
 

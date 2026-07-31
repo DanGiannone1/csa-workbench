@@ -121,8 +121,10 @@ for (const sourceDefinition of selectedSuites.workflowDefinitions) {
   requireFixtureIdentity(workflowFixture, fixture);
   fixture ??= workflowFixture;
   const definition = structuredClone(sourceDefinition);
-  const skillTurn = definition.turns.find((entry) => entry.id === "prepare") ?? definition.turns[0];
-  skillTurn.expectation.skill = { name: skill.name, sha256: skill.sha256 };
+  if (definition.skillName) {
+    const skillTurn = definition.turns.find((entry) => entry.id === "prepare") ?? definition.turns[0];
+    skillTurn.expectation.skill = { name: skill.name, sha256: skill.sha256 };
+  }
   const session = await sessionFor(definition.actor);
   const before = await state(session);
   const turnEvidence = [];
