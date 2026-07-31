@@ -469,6 +469,8 @@ resource storagePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateD
   }
 }
 
+// The private-link connection mutates the account's provisioning state, so it must not
+// run while project or model-deployment writes are in flight on the same account.
 resource openAiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
   name: openAiPrivateEndpointName
   location: location
@@ -488,6 +490,10 @@ resource openAiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' =
       }
     ]
   }
+  dependsOn: [
+    foundryProject
+    azureOpenAiLegacyDeployment
+  ]
 }
 
 resource openAiPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = {
