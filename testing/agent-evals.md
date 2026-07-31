@@ -52,7 +52,10 @@ verified from dan's own signed-in view.
 Evals only ever run against an isolated instance with this seeded data — production runs Entra
 and has no demo mode. An app without an in-app demo mode does the same thing with dedicated test
 users in an isolated test deployment; that's the documented test-tenant procedure cited in the
-design position below.
+design position below. Sign-in itself is the swappable part — a local copy could accept a
+test-mode header naming the user instead of a login. The seeded users aren't swappable: who is
+asking scopes what the assistant sees, and the boundary scenario needs two users the app
+enforces permissions between.
 
 ## What happens on `npm run eval:mvp`, step by step
 
