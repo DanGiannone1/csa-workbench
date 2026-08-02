@@ -156,6 +156,7 @@ def _run_deploy(tmp_path: Path, *args: str, recovery: bool = False, bad_recovery
         "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "AZ_LOG": str(log), "INSTANCE_SLUG": "mvp1",
         "FAKE_RECOVERY": "1" if recovery else "0", "FAKE_BAD_RECOVERY": "1" if bad_recovery else "0",
         "FAKE_RECOVERY_APPS": recovery_apps_order, "FAKE_RECOVERY_PROFILE": recovery_profile,
+        "CSA_TEST_COMMAND_SHIMS": "1",
         "MODEL_DEPLOYMENT_NAME": "deployment", "MODEL_NAME": "model", "MODEL_VERSION": "2026-01-01",
         "MODEL_SKU_NAME": "GlobalStandard", "MODEL_CAPACITY": "30",
         "LEGACY_MODEL_DEPLOYMENT_NAME": "legacy-deployment", "LEGACY_MODEL_NAME": "legacy-model",

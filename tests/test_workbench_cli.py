@@ -72,10 +72,26 @@ def test_windows_azure_cli_uses_its_python_in_utf8_mode(monkeypatch: pytest.Monk
     monkeypatch.setattr(host_commands.os, "name", "nt")
     monkeypatch.setattr(host_commands.shutil, "which", lambda _name: "C:/AzureCLI/bin/az.cmd")
     monkeypatch.setattr(host_commands.Path, "is_file", lambda _path: True)
+    body = '{"text":"café ☕ with spaces & | % and \\"quotes\\""}'
 
-    command = host_commands.command_for_host(["az", "acr", "build"])
+    command = host_commands.command_for_host(["az", "rest", "--method", "POST", "--body", body])
 
-    assert command[1:5] == ["-X", "utf8", "-IBm", "azure.cli"]
+    assert command == [
+        "C:\\AzureCLI\\python.exe", "-X", "utf8", "-IBm", "azure.cli",
+        "rest", "--method", "POST", "--body", body,
+    ]
+
+
+def test_windows_azure_cli_fails_closed_without_its_python(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts import host_commands
+
+    monkeypatch.setattr(host_commands.os, "name", "nt")
+    monkeypatch.setattr(host_commands.shutil, "which", lambda _name: "C:/AzureCLI/bin/az.cmd")
+    monkeypatch.setattr(host_commands.Path, "is_file", lambda _path: False)
+    monkeypatch.delenv("CSA_TEST_COMMAND_SHIMS", raising=False)
+
+    with pytest.raises(RuntimeError, match="installation is incomplete"):
+        host_commands.command_for_host(["az", "rest", "--body", '{"unsafe":"& | %"}'])
 
 
 @pytest.mark.parametrize(

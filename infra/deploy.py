@@ -471,7 +471,7 @@ class Deployment:
         outputs["runtime_fqdn"] = f"{self.runtime_app_name}.internal.{outputs['environment_domain']}"
 
         entra = json.loads(self.output([
-            sys.executable, "infra/entra.py", "--instance-slug", self.slug, "--tenant-id", self.tenant_id,
+            sys.executable, "-m", "infra.entra", "--instance-slug", self.slug, "--tenant-id", self.tenant_id,
             "--frontend-redirect-uri", outputs["frontend_url"], "--api-uami-principal-id", outputs["api_principal_id"],
         ]))
         outputs.update({

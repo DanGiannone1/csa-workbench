@@ -21,6 +21,11 @@ def command_for_host(command: Sequence[str]) -> list[str]:
         azure_python = shim.parent.parent / "python.exe"
         if azure_python.is_file():
             return [str(azure_python), "-X", "utf8", "-IBm", "azure.cli", *values[1:]]
+        if not (
+            os.environ.get("PYTEST_CURRENT_TEST")
+            and os.environ.get("CSA_TEST_COMMAND_SHIMS") == "1"
+        ):
+            raise RuntimeError("Azure CLI installation is incomplete: bundled python.exe is missing")
     if values[0] in {"npm", "npx"} and shim.suffix.lower() in {".cmd", ".bat"}:
         node = shim.parent / "node.exe"
         script = shim.parent / "node_modules" / "npm" / "bin" / ("npx-cli.js" if values[0] == "npx" else "npm-cli.js")
