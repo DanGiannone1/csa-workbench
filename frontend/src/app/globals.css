@@ -205,6 +205,12 @@ html, body {
 /* Empty-chat greeting in the display face. */
 .tw-empty-title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; color: var(--text-primary); }
 
+/* Initials avatar on the reference's soft brand wash. */
+.tw-avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border-radius: 50%; background: var(--surface-brand-subtle); color: var(--brand-strong); font-weight: 700;
+}
+
 /* Visual Cell Formatting — priority pills */
 .cell-pill {
   display: inline-flex;
