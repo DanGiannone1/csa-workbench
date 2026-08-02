@@ -34,4 +34,5 @@ current product. They are design references, not commitments or schedules.
 
 The [governance guide](governance/README.md) links the required development, testing, and agent rules.
 The root [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), and
-[CLAUDE.md](../CLAUDE.md) provide contributor and runtime entry points.
+[CLAUDE.md](../CLAUDE.md), plus [GitHub Copilot instructions](../.github/copilot-instructions.md),
+provide contributor and runtime entry points.
