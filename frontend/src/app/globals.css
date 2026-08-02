@@ -180,16 +180,6 @@ html, body {
   border: 1px solid var(--border-danger);
 }
 
-/* Avatars */
-.message-avatar-assistant {
-  background: var(--surface-brand-subtle);
-  color: var(--brand-accent);
-  border: 1px solid var(--border-brand-subtle);
-  border-radius: 0.75rem;
-  display: flex; width: 2.25rem; height: 2.25rem; flex-shrink: 0;
-  align-items: center; justify-content: center;
-}
-
 /* Thinking indicator — quiet inline label + dots, per the design reference. */
 .thinking-row { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
 .thinking-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
@@ -237,25 +227,6 @@ html, body {
   background: var(--surface-2);
   transform-origin: left;
 }
-
-/* Mini-Preview Indicators */
-.preview-indicator {
-  height: 3px;
-  border-radius: 999px;
-  background: var(--border-subtle);
-  overflow: hidden;
-  margin-top: 4px;
-}
-.preview-indicator-fill {
-  height: 100%;
-  background: var(--brand-primary);
-}
-
-@keyframes pulse-gentle {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-.animate-pulse-gentle { animation: pulse-gentle 2s ease-in-out infinite; }
 
 /* The assistant icon (in the header and the collapsed launcher pill) pulses while the
    agent is working, so there's an ambient "thinking" signal even when the dock is collapsed. */
@@ -419,15 +390,6 @@ html, body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
 
-.interactive-chip {
-  background: var(--surface-1); border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-resting); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.interactive-chip:hover {
-  border-color: var(--brand-primary); transform: translateY(-3px);
-  box-shadow: var(--shadow-raised); background: var(--surface-2);
-}
-
 /* ───────────────────────── CSA Workbench app pane ───────────────────────── */
 /* Full-bleed shell per the design reference: panes join with 1px borders, no outer
    padding, no rounded outer frame. The rail carries the brand; there is no appbar. */
@@ -451,20 +413,14 @@ html, body {
 .tw-brand-title { font-weight: 600; color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; }
 .tw-brand-status { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; }
 .tw-nav-section { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; margin: 0.9rem 0.7rem 0.3rem; }
-.tw-nav-item, .tw-nav-client, .tw-nav-wa {
+.tw-nav-item {
   display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left;
   padding: 0.55rem 0.7rem; border-radius: 9px; font-size: 0.84rem; color: var(--text-secondary);
   transition: background 0.15s, color 0.15s; font-weight: 500; cursor: pointer;
 }
-.tw-nav-item:hover, .tw-nav-client:hover, .tw-nav-wa:hover { background: var(--surface-2); color: var(--text-primary); }
+.tw-nav-item:hover { background: var(--surface-2); color: var(--text-primary); }
 .tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--brand-strong); font-weight: 600; }
 .tw-nav-count { margin-left: auto; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
-.tw-nav-client { font-size: 0.8rem; color: var(--text-primary); }
-.tw-nav-engagement { margin: 0 0 0.25rem 0.55rem; padding-left: 0.5rem; border-left: 1px solid var(--border-subtle); }
-.tw-nav-engagement-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 0.3rem 0.5rem 0.15rem; }
-.tw-nav-wa { font-size: 0.8rem; font-weight: 500; padding: 0.35rem 0.6rem; }
-.tw-nav-wa-active { background: var(--surface-brand-subtle); color: var(--brand-primary); font-weight: 700; }
-
 .tw-content { flex: 1; min-width: 0; overflow-y: auto; }
 .tw-app .tw-input {
   width: 100%; min-width: 0; min-height: 2.5rem; padding: 0.5rem 0.65rem;
@@ -548,17 +504,6 @@ html, body {
 .tw-type { font-size: 0.66rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
 .tw-type-obligation { background: var(--surface-brand-subtle); color: var(--brand-primary); }
 .tw-type-general { background: var(--surface-2); color: var(--text-muted); }
-
-.tw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
-.tw-card {
-  display: flex; flex-direction: column; gap: 0.25rem; text-align: left; padding: 0.9rem;
-  border: 1px solid var(--border-subtle); border-radius: 0.85rem; background: var(--surface-1);
-  transition: border-color 0.15s, transform 0.15s, background 0.15s;
-}
-.tw-card:hover { border-color: var(--brand-primary); transform: translateY(-2px); background: var(--surface-2); }
-.tw-card-icon { color: var(--brand-primary); margin-bottom: 0.25rem; }
-.tw-card-title { font-weight: 700; color: var(--text-primary); font-size: 0.88rem; }
-.tw-card-meta { font-size: 0.72rem; color: var(--text-muted); }
 
 /* The stats row renders as the reference's joined aggregate strip. */
 .tw-stats {
@@ -728,11 +673,6 @@ button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
 .tw-addform label, .tw-edit-grid label { display: grid; gap: 0.3rem; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; }
 .tw-edit-grid textarea.tw-input { min-height: 4.5rem; resize: vertical; }
 .tw-form-actions { align-self: end; min-height: 2.5rem; }
-.tw-engagement-card { width: 100%; cursor: pointer; }
-.tw-engagement-main { display: grid; min-width: 0; gap: 0.15rem; }
-.tw-engagement-main .tw-td-sub { overflow-wrap: anywhere; }
-.tw-engagement-meta { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.45rem; }
-.tw-engagement-meta .tw-td-sub { display: inline-flex; align-items: center; gap: 0.2rem; }
 .tw-task-list { display: grid; gap: 0.4rem; }
 .tw-task-row { display: flex; gap: 0.45rem; align-items: center; padding: 0.35rem; border: 1px solid var(--border-subtle); border-radius: 0.7rem; background: var(--surface-1); }
 .tw-task-open { min-width: 0; flex: 1; display: grid; grid-template-columns: minmax(12rem, 1fr) auto auto; align-items: center; gap: 0.7rem; padding: 0.4rem; text-align: left; }
@@ -743,12 +683,11 @@ button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
 .tw-stable-id { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .tw-artifact-row .tw-td-title { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .tw-artifact-row { flex-wrap: wrap; }
-.tw-activity { flex-wrap: wrap; }
 .tw-workspace-stale { position: sticky; bottom: 0.5rem; margin: 0.75rem; padding: 0.55rem 0.75rem; border: 1px solid var(--border-warning); border-radius: 0.6rem; background: var(--surface-warning); color: var(--text-warning); font-size: 0.78rem; box-shadow: var(--shadow-raised); }
 
 /* Shared production surfaces. Keep existing selectors so behavior and test hooks do not change. */
 .tw-app, .tw-screen, [data-testid="host-shell"], [data-testid="assistant-workspace"] { background: var(--app-bg) !important; color: var(--text-primary); }
-.tw-card, .tw-section, .tw-empty-card, .tw-addform { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
+.tw-empty-card, .tw-addform { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
 .tw-btn, .tw-btn-primary, .message-body-user { background: var(--brand-primary) !important; color: var(--text-on-brand) !important; background-image: none !important; }
 .tw-btn:hover, .tw-btn-primary:hover { background: var(--brand-strong) !important; }
 .tw-tabs { border-color: var(--border-subtle); }
@@ -775,9 +714,6 @@ button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
   .tw-addform, .tw-edit-grid { grid-template-columns: minmax(0, 1fr); }
   .tw-addform label, .tw-edit-grid label { min-width: 0; }
   .tw-app .tw-input { max-width: 100%; }
-  .tw-engagement-card { align-items: flex-start; flex-wrap: wrap; }
-  .tw-engagement-main { flex: 1 1 calc(100% - 2rem); }
-  .tw-engagement-meta { width: 100%; margin-left: 1.9rem; justify-content: flex-start; }
   .tw-task-row { align-items: flex-start; }
   .tw-task-open { grid-template-columns: 1fr; gap: .3rem; }
   .tw-artifact-row { align-items: center; }
