@@ -1,5 +1,5 @@
 name: tasks-skill-eval
-description: Advisory routing and safe private-task behavior for the CSA Workbench tasks skill.
+description: Advisory routing and tool-selection probes for the CSA Workbench tasks skill; arguments and outcomes are not graded.
 skill: tasks
 schemaVersion: "1.2"
 version: "1.0.0"
@@ -52,6 +52,16 @@ mcp_mocks:
         description: Calendar work is outside this task-skill evaluation.
         input_schema: { type: object }
         responses: [{ match_schema: { type: object }, error: Calendar actions are outside this skill evaluation. }]
+
+metrics:
+  - name: routing_accuracy
+    weight: 0.6
+    threshold: 1.0
+    description: Direct task prompts load the task skill and calendar prompts do not.
+  - name: tool_selection
+    weight: 0.4
+    threshold: 1.0
+    description: Direct task prompts select a task tool and avoid calendar tools.
 
 tasks:
   - tasks/*.yaml

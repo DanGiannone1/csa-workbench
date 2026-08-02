@@ -1,6 +1,6 @@
 id: WAZA-TSK-1-direct-create
 name: Direct private task request
-description: A direct task request loads the task skill and creates one private task.
+description: A direct task request loads the task skill and selects create_task; arguments and the saved outcome are not graded here.
 tags: [advisory, routing, positive]
 inputs:
   prompt: Add a High priority task to review the proposal.

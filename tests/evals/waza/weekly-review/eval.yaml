@@ -1,5 +1,5 @@
 name: weekly-review-skill-eval
-description: Advisory routing and workflow coverage for the CSA Workbench weekly-review skill.
+description: Advisory routing and tool-selection probes for the CSA Workbench weekly-review skill; arguments and outcomes are not graded.
 skill: weekly-review
 schemaVersion: "1.2"
 version: "1.0.0"
@@ -42,6 +42,16 @@ mcp_mocks:
         description: A single task request is outside the weekly-review workflow.
         input_schema: { type: object }
         responses: [{ match_schema: { type: object }, error: Use the task skill for one task request. }]
+
+metrics:
+  - name: routing_accuracy
+    weight: 0.6
+    threshold: 1.0
+    description: Weekly-review prompts load the workflow skill and one-off task prompts do not.
+  - name: tool_selection
+    weight: 0.4
+    threshold: 1.0
+    description: Weekly-review prompts select the four review tools and avoid one-off task creation.
 
 tasks:
   - tasks/*.yaml

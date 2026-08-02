@@ -1,6 +1,6 @@
 id: WAZA-WR-1-full-review
 name: Weekly review workflow
-description: The weekly-review prompt loads the workflow skill and uses all four review actions.
+description: The weekly-review prompt loads the workflow skill and selects all four review tools; arguments and outcomes are not graded here.
 tags: [advisory, routing, workflow]
 inputs:
   prompt: Run my weekly review and plan next week.

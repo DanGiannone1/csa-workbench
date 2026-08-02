@@ -1,6 +1,6 @@
 id: WAZA-CAL-1-direct-create
 name: Direct calendar request
-description: A direct calendar request loads the calendar skill and creates one event.
+description: A direct calendar request loads the calendar skill and selects create_event; arguments and the saved outcome are not graded here.
 tags: [advisory, routing, positive]
 inputs:
   prompt: Schedule a Focus block named Proposal review on 2026-08-10 from 09:00 to 10:00.

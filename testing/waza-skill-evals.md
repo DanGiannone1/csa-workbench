@@ -1,65 +1,172 @@
 # Waza skill-evaluation guide
 
-This guide covers **Waza**, Microsoft's open-source command-line tool for testing one set of skill instructions in a controlled laboratory. It does **not** run the CSA Workbench Deep Agents product runtime. A Waza result can show that a skill is likely to load and use mocked tools appropriately; it cannot prove that the deployed application used the same skill correctly.
+Waza is Microsoft's command-line laboratory for testing one set of skill instructions with fake
+product tools. It does **not** run the CSA Workbench Deep Agents product runtime. A Waza result can
+show routing and mocked-tool behavior; only `npm run eval:mvp` and the browser journey can support a
+claim about the real application.
 
-Start with [the eval introduction](../tests/evals/README.md) if these terms are new.
+Start with [Input prompt + Expected output](../tests/evals/README.md) if evaluations are new to you.
+This repository pins [Waza v0.38.3](https://github.com/microsoft/waza/tree/v0.38.3). Its
+[eval schema](https://github.com/microsoft/waza/blob/v0.38.3/schemas/eval.schema.json),
+[task schema](https://github.com/microsoft/waza/blob/v0.38.3/schemas/task.schema.json), and
+[grader reference](https://github.com/microsoft/waza/tree/v0.38.3/docs/graders) are the upstream
+authority for the file format.
 
-## What Waza checks
+## Setup and authentication
 
-A Waza evaluation contains:
+The repository wrapper downloads the pinned Linux or macOS binary, checks its SHA-256 digest, and
+stores it under `evidence/mvp/local-synthetic/tools/waza/v0.38.3/`. Do not install an unpinned binary
+over that path.
 
-- one skill's `SKILL.md` instructions;
-- a small set of fake product tools (**mocks**) with known responses;
-- natural-language tasks;
-- checks that inspect which skill loaded and which mocked tools were used; and
-- optional language-quality checks that are explicitly advisory.
+The suites use Waza's `copilot-sdk` executor. A local run therefore needs an active GitHub Copilot
+session. In CI, Waza's documented route is a scoped `GITHUB_TOKEN`. A custom Copilot SDK provider
+may instead use `COPILOT_BASE_URL`, `COPILOT_PROVIDER`, and the provider credential described in
+the [pinned upstream setup](https://github.com/microsoft/waza/blob/v0.38.3/README.md#custom-copilot-sdk-providers).
+Never commit a token or paste it into an evidence file.
 
-The source files live under `tests/evals/waza/<skill-name>/`. The four product skills have a matching evaluation directory: `engagement-meeting-prep`, `tasks`, `calendar`, and `weekly-review`.
-
-## Read a task before you edit it
-
-```yaml
-id: WAZA-TASK-1-direct-trigger
-inputs:
-  prompt: Add a High priority task to review the proposal.
-graders:
-  - type: skill_invocation
-    config:
-      required_skills: [tasks]
-```
-
-The prompt is the client-visible input. The grader is the technical check that decides whether the right instructions loaded. Tool constraints then verify the safe action boundary. A prompt grader uses a model to review prose; label it advisory because it can disagree with another model.
-
-## Run it
-
-Run the readiness check first. It validates that Waza can load the skill instructions:
+Before any model call, run both deterministic checks:
 
 ```text
+npm run eval:waza:validate
 npm run eval:waza:check
 ```
 
-The existing gate covers meeting preparation because it has recorded stability evidence. The other three skills are advisory while they collect repeated, reviewed results. The advisory command runs those suites and records the exact skill hash, Waza version, source revision, model, and tag.
+`validate` retrieves the two v0.38.3 schemas from their pinned URLs, rejects a hash mismatch, parses
+the checked-in YAML, and validates every eval and task. `check` asks the pinned Waza binary whether
+each of the four `SKILL.md` files is ready. Skill readiness does not replace eval-schema validation.
 
-```text
+## Mocks and task anatomy
+
+Each `tests/evals/waza/<skill>/eval.yaml` names the skill, executor, model, metrics, task files, and
+fake product tools. A mock defines the tool's input shape and a known response. It never contacts
+CSA Workbench or changes product data:
+
+```yaml
+mcp_mocks:
+  - name: csa
+    tools:
+      create_task:
+        input_schema:
+          type: object
+          required: [title]
+        responses:
+          - match_schema: { type: object, required: [title] }
+            return: { status: committed, resource: { kind: task, id: t-new } }
+```
+
+A task supplies the client-like prompt and graders:
+
+```yaml
+id: WAZA-TSK-1-direct-create
+name: Direct private task request
+description: The task skill and create_task tool should be selected; arguments and outcome are not graded.
+tags: [advisory, routing, positive]
+inputs:
+  prompt: Add a High priority task to review the proposal.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    config: { mode: exact_match, required_skills: [tasks], allow_extra: false }
+  - type: tool_constraint
+    config:
+      expect_tools: [{ tool: ".*create_task$" }]
+      reject_tools: [{ tool: ".*create_event$" }]
+```
+
+`skill_invocation` and `tool_constraint` are deterministic over the recorded transcript. They prove
+only the routing or tool-name condition they state. A `prompt` grader uses a model to review prose;
+it is advisory and can disagree with another judge. The current task, calendar, and weekly-review
+suites do not check tool arguments, returned status, or saved product outcome.
+
+## Commands by operating system
+
+Run from the repository root. These commands call a model after the two validation commands.
+
+Linux Bash:
+
+```bash
+npm run eval:waza:gate
 npm run eval:waza:advisory
 ```
 
-On Linux and macOS, run the command from a Bash-compatible terminal. The pinned Waza runner does
-not currently support native Windows. On Windows, run it in WSL; it changes no product data because
-every product action is mocked. The repository's cross-platform wrapper work may make command
-selection easier, but it cannot turn an unsupported Waza binary into native Windows support.
+macOS Terminal using Bash or another Bash-compatible shell:
 
-## Gate versus advisory
+```bash
+npm run eval:waza:gate
+npm run eval:waza:advisory
+```
 
-| Type | Meaning | Promotion rule |
+Windows using WSL, from the repository directory mounted inside WSL:
+
+```bash
+npm run eval:waza:gate
+npm run eval:waza:advisory
+```
+
+The repository wrapper is Bash-only and intentionally supports Linux and macOS binaries. On a
+Windows workstation, use WSL for repository-bound provenance. Upstream Waza v0.38.3 also publishes
+[native Windows binaries](https://github.com/microsoft/waza/releases/tag/v0.38.3), but this wrapper
+does not install or bind evidence from them. That is a wrapper limitation, not a Waza limitation.
+
+## Gate, advisory, and exit status
+
+The meeting-prep routing suite is the existing gate. Tasks, calendar, and weekly-review are
+advisory routing/tool-selection probes until repeated clean results are reviewed.
+
+| Exit | Meaning | Evidence behavior |
 |---|---|---|
-| Gate | A deterministic, stable check that blocks a candidate evaluation result when it fails. | Keep task inputs, mocks, tool constraints, runner, and evidence provenance fixed; collect repeated clean runs and obtain reviewer approval. |
-| Advisory | Useful signal that does not block release acceptance. | Use this while a task, rubric, model, or stability evidence is still being refined. |
+| `0` | Every selected task passed. | Provenance is appended to each result. |
+| `1` | One or more tasks failed their graders. | The advisory command continues through all three suites, appends provenance to each produced result, then returns `1`. |
+| `2` or another higher value | Setup, invalid configuration, or runtime failure. | The command stops because no trustworthy task result may exist; the original status is preserved. |
 
-Never call an advisory language grader proof. Never use a Waza result as Deep Agents runtime evidence. Pair it with `npm run eval:mvp` for the live application and browser checks for the user journey.
+An advisory failure is a finding to investigate, not a release gate. Never use Waza to override a
+Deep Agents product-runtime failure.
 
-## Trials, evidence, and limits
+## Evidence and a worked interpretation
 
-One run is one sample. If a task uses multiple trials, record the trial count. `pass@k` is the chance that at least one of *k* independent attempts succeeds; `pass^k` is the chance that every attempt succeeds. Store only evidence that names the skill version, source revision, mocks, model, runner, and time. Compare results only when those conditions are compatible.
+Each run writes:
 
-**Next:** For a real product behavior claim, use [product-runtime evaluation](agent-evals.md). For a client-readable explanation, return to [the eval introduction](../tests/evals/README.md).
+```text
+evidence/mvp/local-synthetic/waza/<UTC-time>-<process>-<skill>/
+  waza.json
+  transcripts/
+```
+
+`waza.json` contains Waza's result plus `csaMvpProvenance`: Waza version, source revision before and
+after, clean/dirty state, tag, skill name/path/hash, eval path, and time. Waza's canonical config
+records the executor, model, and trial count; task entries contain validation details. The Git revision binds tracked
+mock definitions; dirty evidence is demonstration-only.
+
+Example interpretation:
+
+| Recorded fact | Plain-English result |
+|---|---|
+| `status: passed`; required skill and tool validations passed | This sampled prompt selected the intended skill and mocked tool. It does not prove arguments, a saved outcome, or Deep Agents behavior. |
+| `status: failed`; `tool_constraint` failed | The sampled prompt selected a forbidden tool or missed a required tool. Read that task's transcript and grader feedback. |
+| No `waza.json`; process returned `2` | The suite did not execute reliably. Fix setup or schema errors before interpreting behavior. |
+
+## Repeated trials and promotion
+
+One trial is one sample. To request five attempts per task while retaining repository provenance:
+
+Linux or macOS:
+
+```bash
+CSA_WAZA_TRIALS=5 npm run eval:waza:advisory
+```
+
+WSL uses the same command inside its Bash shell:
+
+```bash
+CSA_WAZA_TRIALS=5 npm run eval:waza:advisory
+```
+
+Record the trial count and every outcome. `pass@k` is the chance that at least one of *k*
+independent attempts succeeds; `pass^k` is the chance that all *k* attempts succeed. The fraction
+of individual attempts that passed is the **pass rate**, not pass@k. Repeated trials do not promote
+an advisory suite automatically: compare only compatible source, skill, mocks, model, runner, and
+trial conditions, then obtain independent reviewer approval.
+
+**Next:** Use [product-runtime evaluation](agent-evals.md) for real application behavior, or return
+to the [beginner eval guide](../tests/evals/README.md) for client-facing examples.
