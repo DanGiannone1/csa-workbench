@@ -121,7 +121,7 @@ function inputs(overrides = {}) {
     tasks: ["WAZA-MP-1-direct-trigger", "WAZA-MP-2-paraphrased-trigger", "WAZA-MP-3-list-does-not-trigger", "WAZA-MP-4-update-does-not-trigger"].map((test_id) => ({ test_id, status: "passed" })),
     metrics: {},
     csaMvpProvenance: {
-      runner: "scripts/waza_eval.sh", wazaVersion: "0.38.3", sourceRevision: product.sourceRevision,
+      runner: "scripts/workbench.py", wazaVersion: "0.38.3", sourceRevision: product.sourceRevision,
       sourceRevisionAfter: product.sourceRevision, sourceDirtyBefore: false, sourceDirtyAfter: false,
       tag: "gate", eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml", recordedAt: "2026-07-22T12:01:00Z",
       skill: { name: "engagement-meeting-prep", path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },

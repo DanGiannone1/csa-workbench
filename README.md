@@ -31,17 +31,17 @@ Azure AI Foundry integration, is in [testing/agent-evals.md](testing/agent-evals
 
 ## Run it locally
 
-Install Python 3.12 or later, `uv`, Node.js and npm, Azure CLI, and a local Cosmos DB emulator. Then:
+Install Python 3.12 or later, `uv`, Node.js and npm, and a local Cosmos DB emulator. Then run the
+same two commands from PowerShell, Terminal, or any other shell on Windows, macOS, or Linux:
 
 ```bash
-cp .env.example .env
-npm ci
-uv sync
-(cd frontend && npm ci)
-uv run python scripts/dev.py
+uv run --no-sync python -m scripts.workbench setup
+uv run python -m scripts.workbench dev
 ```
 
-Set the local identity, model, and Cosmos values in `.env` before starting. The
+Setup creates `.env` only when it is missing and never overwrites an existing file. Set the local
+identity, model, and Cosmos values there before starting. Azure CLI is needed only for deployment
+and the optional local Bicep check. The
 [local development guide](docs/guides/local-development.md) lists the required settings and shows
 how to run an isolated copy.
 

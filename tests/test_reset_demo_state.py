@@ -48,7 +48,7 @@ def test_workspace_packages_are_importable() -> None:
 def test_reset_guard_allows_only_the_dedicated_artifact_subtree() -> None:
     env = valid_env()
     env["ARTIFACTS_DIR"] = str(Path(__file__).resolve().parents[1] / ".mvp-artifacts" / "run-1")
-    assert reset_demo_state.reset_guard(env)["artifacts_dir"].endswith(".mvp-artifacts/run-1")
+    assert Path(reset_demo_state.reset_guard(env)["artifacts_dir"]).parts[-2:] == (".mvp-artifacts", "run-1")
 
 
 def test_reset_guard_accepts_only_the_exact_isolated_run_targets() -> None:
@@ -61,7 +61,7 @@ def test_reset_guard_accepts_only_the_exact_isolated_run_targets() -> None:
         "WORKSPACE": str(Path(__file__).resolve().parents[1] / ".local-runs" / "case-7" / "workspace"),
     })
     target = reset_demo_state.reset_guard(env)
-    assert target["workspace_dir"].endswith(".local-runs/case-7/workspace")
+    assert Path(target["workspace_dir"]).parts[-3:] == (".local-runs", "case-7", "workspace")
 
 
 @pytest.mark.parametrize(

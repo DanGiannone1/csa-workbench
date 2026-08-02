@@ -25,6 +25,7 @@ from typing import Mapping
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
+from scripts.host_commands import command_for_host
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_ROOT = ROOT / "frontend"
@@ -93,7 +94,7 @@ def _loopback_cosmos_endpoint(value: str) -> None:
 def build_config(env: Mapping[str, str]) -> LocalRunConfig:
     """Validate local safety constraints without touching files or processes."""
     if env.get("IDENTITY_MODE", "").strip().lower() != "demo":
-        raise ValueError("dev.py runs deterministic local stacks only; set IDENTITY_MODE=demo")
+        raise ValueError("the dev command runs deterministic local stacks only; set IDENTITY_MODE=demo")
     if not env.get("DEMO_PASSWORD", "").strip():
         raise ValueError("DEMO_PASSWORD is required for the demo identity mode")
 
@@ -152,7 +153,7 @@ def child_environment(config: LocalRunConfig, env: Mapping[str, str]) -> dict[st
     if config.artifacts is not None:
         child["ARTIFACTS_DIR"] = str(config.artifacts)
     if config.next_dist_dir is not None:
-        child["NEXT_DIST_DIR"] = str(config.next_dist_dir.relative_to(FRONTEND_ROOT))
+        child["NEXT_DIST_DIR"] = config.next_dist_dir.relative_to(FRONTEND_ROOT).as_posix()
     return child
 
 
@@ -203,20 +204,44 @@ def run(config: LocalRunConfig, env: Mapping[str, str]) -> int:
     child_env = child_environment(config, env)
     procs: list[subprocess.Popen[object]] = []
 
+    def stop_process_tree(process: subprocess.Popen[object]) -> None:
+        """Stop only the process tree created by this launcher."""
+        if process.poll() is not None:
+            return
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False, capture_output=True,
+            )
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                return
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                process.kill()
+            else:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=5)
+
     def cleanup() -> None:
         for process in procs:
-            if process.poll() is None:
-                process.terminate()
-        for process in procs:
-            if process.poll() is None:
-                process.wait()
+            stop_process_tree(process)
 
     previous_sigint = signal.signal(signal.SIGINT, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))
     previous_sigterm = signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))
     try:
         for name, command, cwd in commands(config):
             print(f"Starting {name} on {command[-1]}...")
-            procs.append(subprocess.Popen(command, cwd=cwd, env=child_env))
+            process_options = (
+                {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+                if os.name == "nt"
+                else {"start_new_session": True}
+            )
+            procs.append(subprocess.Popen(command_for_host(command), cwd=cwd, env=child_env, **process_options))
         print(f"\n  Frontend:  {config.frontend_url}\n  API:       {config.api_url}\n  Session:   {config.runtime_url}\n  Trace log: {trace_file}\n")
         while True:
             for process in procs:

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { buildMvpScorecard, hasCompleteCheckScore, WAZA_GATE_TASK_IDS } from "./mvp_scorecard.mjs";
 import { MVP_EVAL_MANIFEST, atomicScoringMode, expectedAtomicScoredCheckNames, expectedWorkflowCheckContract, expectedWorkflowScoredCheckNames } from "./mvp_eval_manifest.mjs";
@@ -415,7 +416,7 @@ export function validateWazaEvidence(waza) {
   if (!waza.tasks.every((task) => task && typeof task === "object" && typeof task.test_id === "string" && ["passed", "failed", "error", "skipped"].includes(task.status))) throw new Error("Waza evidence tasks are invalid");
   exactKeys(waza.csaMvpProvenance, ["runner", "wazaVersion", "sourceRevision", "sourceRevisionAfter", "sourceDirtyBefore", "sourceDirtyAfter", "tag", "skill", "eval", "recordedAt"], "Waza evidence provenance");
   const provenance = waza.csaMvpProvenance;
-  if (provenance.runner !== "scripts/waza_eval.sh" || provenance.wazaVersion !== "0.38.3" || provenance.eval !== "tests/evals/waza/engagement-meeting-prep/eval.yaml") throw new Error("Waza evidence provenance is invalid");
+  if (provenance.runner !== "scripts/workbench.py" || provenance.wazaVersion !== "0.38.3" || provenance.eval !== "tests/evals/waza/engagement-meeting-prep/eval.yaml") throw new Error("Waza evidence provenance is invalid");
   for (const key of ["sourceRevision", "sourceRevisionAfter"]) if (typeof provenance[key] !== "string" || !/^[a-f0-9]{7,64}$/.test(provenance[key])) throw new Error("Waza evidence source revision is invalid");
   if (typeof provenance.sourceDirtyBefore !== "boolean" || typeof provenance.sourceDirtyAfter !== "boolean") throw new Error("Waza evidence dirty-source binding is invalid");
   isOneOf(provenance.tag, ["gate", "advisory", "all"], "Waza evidence provenance.tag");
@@ -625,7 +626,7 @@ export function validateScorecardHistoryRecord(record) {
     && wazaGateProvenance.gateTaskIds.every((id, index) => id === WAZA_GATE_TASK_IDS[index]);
   const derivedWazaGate = record.gates.wazaStatus === "RECORDED" && waza.countsConsistent
     && wazaGateProvenance.schemaVersion === "1.2" && wazaGateProvenance.engine === "copilot-sdk"
-    && wazaGateProvenance.runner === "scripts/waza_eval.sh" && wazaGateProvenance.wazaVersion === "0.38.3" && exactWazaGateIds;
+    && wazaGateProvenance.runner === "scripts/workbench.py" && wazaGateProvenance.wazaVersion === "0.38.3" && exactWazaGateIds;
   if (record.gates.wazaGate !== derivedWazaGate) throw new Error("History record Waza gate is inconsistent");
   if ((record.gates.advisoryJudgeStatus === "NOT_SUPPLIED") !== (record.evidence.advisoryJudgeSha256 === null)) throw new Error("History record advisory evidence binding is inconsistent");
   const ready = isReadyForBaseline(record);
@@ -989,4 +990,4 @@ function main(argv) {
   usage();
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) main(process.argv.slice(2));
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) main(process.argv.slice(2));

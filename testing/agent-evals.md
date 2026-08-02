@@ -45,7 +45,7 @@ code and JSON say *case* (`mvp-cases.json`, `atomicCaseIds`, `evaluateCase`, `MV
 | Scorecard | `scripts/mvp_scorecard.mjs` (+ `mvp_scorecard_history.mjs`) | Aggregates evidence into the product hard gate, Waza lane, and advisory-judge lane |
 | Foundry upload | `scripts/foundry_evidence_rows.py`, `scripts/foundry_eval_upload.py` | Converts evidence to Foundry's agent-message schema and scores it server-side with the built-in agent evaluators |
 | Judge questions | `tests/evals/judge-rubrics.json`, checked by `scripts/mvp_judge.mjs` | The other half of layer 4: per-scenario questions a human answers by hand today (accuracy, leakage, tone), separate from the Foundry lane |
-| Skill laboratory | `scripts/waza_eval.sh`, `tests/evals/waza/**` | Separate lane: one skill tested in isolation with mocked product actions (not covered further here) |
+| Skill laboratory | `python -m scripts.workbench eval waza`, `tests/evals/waza/**` | Separate lane: one skill tested in isolation with mocked product actions (not covered further here) |
 
 ## Test identities
 
@@ -234,7 +234,7 @@ link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs 
 
 ```bash
 # 1. App up (terminal 1) — see docs/guides/local-development.md for the full env
-uv run python scripts/dev.py
+uv run python -m scripts.workbench dev
 
 # 2. Full suite (terminal 2; same env values as the app)
 export MVP_API_URL='http://127.0.0.1:8000'   # the port your app is serving on

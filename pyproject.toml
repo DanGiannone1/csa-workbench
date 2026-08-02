@@ -23,3 +23,6 @@ members = ["backend/api", "backend/assistant", "backend/core"]
 
 [dependency-groups]
 dev = ["pytest>=9.0.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

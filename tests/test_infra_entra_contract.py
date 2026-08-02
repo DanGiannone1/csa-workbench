@@ -14,6 +14,15 @@ from urllib.parse import unquote
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+VERIFIER_LAUNCHER = """
+import json, os, runpy, sys, tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory() as directory:
+    payload = Path(directory) / 'inventory.json'
+    payload.write_text(json.dumps(dict(os.environ)), encoding='utf-8')
+    sys.argv = ['infra/inventory_verifier.py', str(payload)]
+    runpy.run_path('infra/inventory_verifier.py', run_name='__main__')
+"""
 SPEC = importlib.util.spec_from_file_location("entra", ROOT / "infra" / "entra.py")
 assert SPEC and SPEC.loader
 entra = importlib.util.module_from_spec(SPEC)
@@ -120,60 +129,41 @@ def test_governance_nsg_is_instance_and_location_parameterized() -> None:
         helper.select_governance_nsgs(inventory, "sub", "csa-wb-other-rg", "westus3", "other")
 
 
-def _write_command_stubs(tmp_path: Path, recovery: bool = False, bad_recovery: bool = False, recovery_apps_order: str = 'expected', recovery_profile: str = 'incompatible') -> tuple[Path, Path]:
+def _write_command_stubs(tmp_path: Path) -> tuple[Path, Path]:
     bin_dir, log = tmp_path / "bin", tmp_path / "az.log"
     bin_dir.mkdir(parents=True)
-    (bin_dir / "git").write_text("""#!/usr/bin/env bash
-case "$1" in rev-parse) echo 0123456789abcdef0123456789abcdef01234567 ;; status) exit 0 ;; *) exit 1 ;; esac
-""")
-    mode = "recovery" if recovery else "absent"
-    recovery_apps = {
-        'expected': '[{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}}]',
-        'reordered': '[{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}}]',
-        'missing': '[]',
-        'extra': '[{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}},{"name":"unrelated","properties":{"managedEnvironmentId":"env-id"}}]',
-    }[recovery_apps_order]
-    if bad_recovery:
-        recovery_apps = '[{"name":42}]'
-    environment_properties = {
-        'incompatible': '"provisioningState":"Failed","staticIp":null,"vnetConfiguration":{},"workloadProfiles":[]',
-        'azure-enriched': '"provisioningState":"Succeeded","staticIp":"20.42.33.145","vnetConfiguration":{"infrastructureSubnetId":"/subscriptions/subscription/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Network/virtualNetworks/csa-wb-mvp1-vnet/subnets/aca-infrastructure"},"workloadProfiles":[{"enableFips":false,"name":"Consumption","workloadProfileType":"Consumption"}]',
-        'azure-shell': '"provisioningState":"Succeeded","staticIp":null,"vnetConfiguration":{"infrastructureSubnetId":"/subscriptions/subscription/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Network/virtualNetworks/csa-wb-mvp1-vnet/subnets/aca-infrastructure"},"workloadProfiles":[{"enableFips":false,"name":"Consumption","workloadProfileType":"Consumption"}]',
-    }[recovery_profile]
-    (bin_dir / "az").write_text(f"""#!/usr/bin/env bash
-set -eu
-echo "$*" >> "$AZ_LOG"
-case "$*" in
-  "account show --only-show-errors") echo '{{}}' ;;
-  "account show --query tenantId -o tsv") echo tenant ;;
-  "account show --query id -o tsv") echo subscription ;;
-  "bicep version"|"bicep build "*) exit 0 ;;
-  "group exists -n csa-wb-mvp1-rg -o tsv") echo {'true' if recovery else 'false'} ;;
-  "network nsg list "*) echo '[]' ;;
-  "containerapp env list "*) {'echo \'[{"name":"csa-wb-mvp1-env","id":"env-id"}]\'' if recovery else "echo '[]'"} ;;
-  "containerapp env show "*) echo '{{"name":"csa-wb-mvp1-env","properties":{{{environment_properties}}}}}' ;;
-  "containerapp list "*) echo '{recovery_apps}' ;;
-  "deployment sub create "*) exit 9 ;;
-  *) exit 0 ;;
-esac
-""")
-    for command in bin_dir.iterdir():
-        command.chmod(0o755)
+    helper = ROOT / "tests" / "fixtures" / "fake_deploy_cli.py"
+    for command in ("git", "az"):
+        if os.name == "nt":
+            (bin_dir / f"{command}.cmd").write_text(
+                f'@set FAKE_COMMAND={command}\n@"{sys.executable}" "{helper}" %*\n',
+                encoding="utf-8",
+            )
+        else:
+            launcher = bin_dir / command
+            launcher.write_text(
+                f'#!/usr/bin/env sh\nFAKE_COMMAND={command} exec "{sys.executable}" "{helper}" "$@"\n',
+                encoding="utf-8",
+            )
+            launcher.chmod(0o755)
     return bin_dir, log
 
 
 def _run_deploy(tmp_path: Path, *args: str, recovery: bool = False, bad_recovery: bool = False, recovery_apps_order: str = 'expected', recovery_profile: str = 'incompatible', overrides: dict[str, str] | None = None) -> tuple[subprocess.CompletedProcess[str], str]:
-    bin_dir, log = _write_command_stubs(tmp_path, recovery, bad_recovery, recovery_apps_order, recovery_profile)
+    bin_dir, log = _write_command_stubs(tmp_path)
     env = {
         **os.environ,
-        "PATH": f"{bin_dir}:{os.environ['PATH']}", "AZ_LOG": str(log), "INSTANCE_SLUG": "mvp1",
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "AZ_LOG": str(log), "INSTANCE_SLUG": "mvp1",
+        "FAKE_RECOVERY": "1" if recovery else "0", "FAKE_BAD_RECOVERY": "1" if bad_recovery else "0",
+        "FAKE_RECOVERY_APPS": recovery_apps_order, "FAKE_RECOVERY_PROFILE": recovery_profile,
         "MODEL_DEPLOYMENT_NAME": "deployment", "MODEL_NAME": "model", "MODEL_VERSION": "2026-01-01",
         "MODEL_SKU_NAME": "GlobalStandard", "MODEL_CAPACITY": "30",
         "LEGACY_MODEL_DEPLOYMENT_NAME": "legacy-deployment", "LEGACY_MODEL_NAME": "legacy-model",
         "LEGACY_MODEL_VERSION": "2025-01-01", "LEGACY_MODEL_SKU_NAME": "GlobalStandard", "LEGACY_MODEL_CAPACITY": "10",
+        "IDENTITY_MODE": "entra", "DEMO_PASSWORD": "",
         **(overrides or {}),
     }
-    result = subprocess.run(["bash", "infra/deploy.sh", *args], cwd=ROOT, env=env, text=True, capture_output=True)
+    result = subprocess.run([sys.executable, "-m", "scripts.workbench", "deploy", *args], cwd=ROOT, env=env, text=True, capture_output=True)
     return result, log.read_text() if log.exists() else ""
 
 
@@ -186,8 +176,8 @@ def test_plan_requires_explicit_inputs_and_never_mutates(tmp_path: Path) -> None
     for forbidden in ('deployment sub create', 'containerapp delete', 'containerapp env delete', 'acr build', 'rest --method POST', 'rest --method PATCH', 'deployment group create'):
         assert forbidden not in log
 
-    env = {**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}"}
-    missing = subprocess.run(["bash", "infra/deploy.sh"], cwd=ROOT, env=env, text=True, capture_output=True)
+    env = {**os.environ, "PATH": f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}"}
+    missing = subprocess.run([sys.executable, "-m", "scripts.workbench", "deploy"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert missing.returncode != 0 and 'INSTANCE_SLUG is required' in missing.stderr
     whitespace, whitespace_log = _run_deploy(tmp_path / 'whitespace', overrides={'MODEL_NAME': 'bad model'})
     assert whitespace.returncode != 0 and 'MODEL_NAME must not contain whitespace' in whitespace.stderr
@@ -208,10 +198,10 @@ def test_deployment_guidance_allows_an_explicitly_authorized_cli_agent_without_w
     assert "export MODEL_DEPLOYMENT_NAME='your-model-deployment-name'" in deployment
     assert "export IDENTITY_MODE='entra'" in deployment
     assert 'Demo mode also requires `DEMO_PASSWORD`' in deployment_text
-    assert 'MVP_ALLOW_REMOTE=1' in deployment
-    assert 'az account get-access-token --scope "api://${API_CLIENT_ID}/access_as_user"' in deployment
-    assert '"https://${API_FQDN}/auth/me"' in deployment
-    assert 'value.get("identity") == "entra"' in deployment
+    assert 'deploy verify --browser' in deployment
+    assert 'obtains a delegated token' in deployment_text
+    assert 'checks `/auth/me`' in deployment
+    assert 'creates a session through the API' in deployment_text
     assert 'An unexpected application-owned resource causes the deployment check to fail' in deployment_text
     assert 'Defender-for-Storage Event Grid topic' not in deployment
     assert 'agent may use the exact confirmation printed by that plan' in agent_setup_text
@@ -285,7 +275,7 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
     entra_source = (ROOT / 'infra' / 'entra.py').read_text()
     workload_auth = (ROOT / 'backend' / 'assistant' / 'src' / 'workbench_assistant' / 'workload_auth.py').read_text()
     session_manager = (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'session_manager.py').read_text()
-    deploy = (ROOT / 'infra' / 'deploy.sh').read_text()
+    deploy = (ROOT / 'infra' / 'deploy.py').read_text()
 
     requested_resource = "api://${runtimeClientId}"
     assert f"{{ name: 'POOL_AUTH_AUDIENCE', value: '{requested_resource}' }}" in apps
@@ -295,7 +285,7 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
     assert "name: 'mise-auth'" in apps
     assert "{ name: 'AzureAd__Audience', value: runtimeClientId }" in apps
     assert 'mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:' in deploy
-    assert 'miseSidecarImage="$MISE_SIDECAR_IMAGE"' in deploy
+    assert 'f"miseSidecarImage={MISE_SIDECAR_IMAGE}"' in deploy
     assert 'os.getenv("POOL_AUTH_AUDIENCE", "").strip().rstrip("/")' in session_manager
     assert 'return f"{audience}/.default"' in session_manager
 
@@ -321,22 +311,20 @@ def test_deployment_what_if_replaces_only_the_operation_token_and_preserves_crea
     assert 'azureOpenAiModelName=create' in foundation_preview
     assert 'azureOpenAiModelName=what-if' not in foundation_preview
 
-    deploy_source = (ROOT / 'infra' / 'deploy.sh').read_text()
-    assert 'command[3]=\'what-if\'' in deploy_source
-    assert 'deployment_what_if "${FOUNDATION[@]}"' in deploy_source
-    assert 'deployment_what_if "${APPS[@]}"' in deploy_source
-    assert '${FOUNDATION[@]/create/what-if}' not in deploy_source
-    assert '${APPS[@]/create/what-if}' not in deploy_source
+    deploy_source = (ROOT / 'infra' / 'deploy.py').read_text()
+    assert 'preview[3] = "what-if"' in deploy_source
+    assert 'self.deployment_what_if(foundation)' in deploy_source
+    assert 'self.deployment_what_if(apps)' in deploy_source
 
 
 def test_deployment_workflow_runs_the_canonical_host_suite_with_containerized_bicep() -> None:
     workflow = (ROOT / '.github' / 'workflows' / 'deploy.yml').read_text()
     package = json.loads((ROOT / 'package.json').read_text())
-    verifier = (ROOT / 'scripts' / 'verify.sh').read_text()
+    verifier = (ROOT / 'scripts' / 'workbench.py').read_text()
 
     assert 'actions/setup-node@v4' in workflow
     assert "node-version: '22'" in workflow
-    assert 'npm ci' in workflow and '(cd frontend && npm ci)' in workflow
+    assert 'npm ci' in workflow and 'npm ci --prefix frontend' in workflow
     assert 'astral-sh/setup-uv@v6' in workflow
     assert 'uv sync --locked' in workflow
     assert 'uv sync --locked' in workflow
@@ -345,16 +333,16 @@ def test_deployment_workflow_runs_the_canonical_host_suite_with_containerized_bi
     assert 'azure/cli@v2' in workflow and 'az bicep build --file infra/foundation.bicep' in workflow
     assert 'pytest' not in workflow
     assert 'pip install pytest' not in workflow
-    assert package['scripts']['verify:ci'] == 'CSA_VERIFY_SKIP_BICEP=1 bash scripts/verify.sh'
-    assert 'CSA_VERIFY_SKIP_BICEP must be exactly 0 or 1' in verifier
-    assert 'if [[ "${verify_skip_bicep}" == \'0\' ]]; then\n  require_command az' in verifier
+    assert package['scripts']['verify:ci'] == 'uv run python -m scripts.workbench verify --skip-bicep --skip-waza'
+    assert 'matrix:' in workflow and 'ubuntu-latest, windows-latest, macos-latest' in workflow
+    assert 'with tempfile.TemporaryDirectory' in verifier
 
 
-def test_ci_verifier_rejects_an_invalid_bicep_skip_value_before_running_checks() -> None:
-    result = subprocess.run(['bash', 'scripts/verify.sh'], cwd=ROOT, env={**os.environ, 'CSA_VERIFY_SKIP_BICEP': 'true'}, text=True, capture_output=True)
+def test_ci_verifier_rejects_an_invalid_bicep_option_before_running_checks() -> None:
+    result = subprocess.run([sys.executable, '-m', 'scripts.workbench', 'verify', '--skip-bicep=true'], cwd=ROOT, text=True, capture_output=True)
 
     assert result.returncode == 2
-    assert 'CSA_VERIFY_SKIP_BICEP must be exactly 0 or 1' in result.stderr
+    assert 'ignored explicit argument' in result.stderr
 
 
 def test_governance_nsg_rejects_extra_wrong_state_and_association() -> None:
@@ -472,9 +460,7 @@ def test_static_portable_contract_has_no_legacy_names_or_model_defaults() -> Non
 
 
 def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
-    script = (ROOT / 'infra' / 'deploy.sh').read_text()
-    start = script.index("import json, os\napps = json.loads")
-    verifier = script[start:script.index("\nPY\n}", start)]
+    verifier = VERIFIER_LAUNCHER
     slug = 'mvp1'
     sha = '0123456789abcdef0123456789abcdef01234567'
     apps = []
@@ -495,8 +481,7 @@ def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
 
 
 def _verifier_fixture() -> tuple[str, dict[str, str]]:
-    script = (ROOT / 'infra' / 'deploy.sh').read_text(); start = script.index("import json, os\napps = json.loads")
-    code = script[start:script.index("\nPY\n}", start)]; slug, sha, sub = 'mvp1', '0123456789abcdef0123456789abcdef01234567', 'sub'
+    code = VERIFIER_LAUNCHER; slug, sha, sub = 'mvp1', '0123456789abcdef0123456789abcdef01234567', 'sub'
     rg, base, vnet, cosmos, storage, acr, ai = f'csa-wb-{slug}-rg', f'csa-wb-{slug}', f'csa-wb-{slug}-vnet', 'cosmos', 'storage', 'acr', 'ai'
     root = f'/subscriptions/{sub}/resourceGroups/{rg}/providers'; ids = {k: f'{root}/Microsoft.ManagedIdentity/userAssignedIdentities/{base}-{k}-identity' for k in ('frontend','api','runtime')}
     principal = {'frontend':'frontend','api':'api','runtime':'runtime'}
@@ -796,7 +781,7 @@ def test_portable_verifier_accepts_only_the_optional_governance_nsg_resource_pai
 def test_browser_validation_runbook_uses_the_isolated_demo_parent_shell_values() -> None:
     development = (ROOT / 'docs' / 'guides' / 'local-development.md').read_text()
 
-    for value in ('## Run the browser journey', 'CSA_LOCAL_RUN_ID=demo1', 'WORKSPACE=.local-runs/demo1/workspace', 'ARTIFACTS_DIR=.mvp-artifacts/demo1', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'MVP_RESET_BEFORE_RUN=1', 'npm run playwright:mvp'):
+    for value in ('## Run the browser journey', 'CSA_LOCAL_RUN_ID=demo1', 'WORKSPACE=.local-runs/demo1/workspace', 'ARTIFACTS_DIR=.mvp-artifacts/demo1', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'MVP_RESET_BEFORE_RUN=1', 'uv run python -m scripts.workbench eval playwright'):
         assert value in development
 
 
