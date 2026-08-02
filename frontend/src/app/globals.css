@@ -3,15 +3,6 @@
 
 :root {
   /* CSA Workbench — Monday.com-style light palette */
-  --app-bg: #faf6f2;
-  --surface-1: #fffdfb;
-  --surface-2: #f3ece5;
-
-  --text-primary: #2b2420;
-  --text-secondary: #6b5f56;
-  --text-muted: #a3968c;
-
-  --border-subtle: #ece3da;
 
   --brand-primary: #0073ea;   /* Monday blue — primary action */
   --brand-accent: #6c6cff;    /* AI/agent accent — purple */
