@@ -9,6 +9,32 @@
   --text-secondary: #6b5f56;
   --text-muted: #a3968c;
   --border-subtle: #ece3da;
+  --text-on-brand: #fff;
+
+  /* Soft states keep the interface calm while preserving clear meaning. */
+  --surface-brand-subtle: oklch(.95 .025 45);
+  --surface-brand-strong: oklch(.89 .06 45);
+  --border-brand-subtle: oklch(.79 .08 45);
+  --brand-transparent: oklch(.56 .115 45 / 0%);
+  --brand-glow: oklch(.56 .115 45 / 45%);
+  --surface-danger: oklch(.95 .025 18);
+  --text-danger: oklch(.46 .16 18);
+  --border-danger: oklch(.68 .12 18);
+  --surface-warning: oklch(.96 .045 82);
+  --text-warning: oklch(.46 .11 82);
+  --border-warning: oklch(.72 .12 82);
+  --surface-neutral: oklch(.92 .01 60);
+  --text-neutral: oklch(.45 .015 60);
+  --border-neutral: oklch(.7 .015 60);
+
+  /* Shared depth and accessibility treatments. */
+  --shadow-resting: 0 1px 3px rgb(43 36 32 / 4%);
+  --shadow-raised: 0 8px 24px rgb(43 36 32 / 8%);
+  --shadow-brand: 0 8px 24px oklch(.56 .115 45 / 22%);
+  --shadow-drawer: 8px 0 24px rgb(43 36 32 / 14%);
+  --overlay-scrim: rgb(43 36 32 / 35%);
+  --scrollbar-thumb: oklch(.68 .015 60 / 55%);
+  --focus-ring: oklch(.8 .07 45);
 
   /* One warm brand, plus clear status colors. */
   --brand-primary: oklch(.56 .115 45);

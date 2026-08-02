@@ -12,8 +12,8 @@ const nextConfig: NextConfig = {
     : {}),
   output: "standalone",
   turbopack: {
-    // The frontend is its own Node project; the repository root also has a lockfile.
-    root: path.resolve(__dirname),
+    // Tokens live in the repository design-system package, one level above frontend.
+    root: path.resolve(__dirname, ".."),
   },
 };
 
