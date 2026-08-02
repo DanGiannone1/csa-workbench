@@ -710,12 +710,16 @@ button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
   .tw-nav-drawer-open { visibility: visible; pointer-events: auto; transform: translateX(0); }
   .tw-nav-mobile-head { display: flex; align-items: center; justify-content: space-between; padding: 0.1rem 0.25rem 0.6rem; color: var(--text-primary); font-size: .86rem; font-weight: 800; }
   .tw-nav-backdrop { display: block; position: absolute; z-index: 20; inset: 0; border: 0; background: var(--overlay-scrim); }
-  /* Clear the floating nav toggle and keep the FAB reachable below the fold. */
-  .tw-screen { padding: 3.6rem 1.75rem calc(1.25rem + 5.25rem); }
+  /* Clear the floating nav toggle and keep the FAB reachable below the fold.
+     The 20px content padding is part of the compact layout contract (MVP-P48). */
+  .tw-content { padding: 3.6rem 1.25rem calc(1.25rem + 5.25rem); }
+  .tw-screen { padding: 0; }
 }
 
 @media (max-width: 767px) {
-  .tw-screen { max-width: 100%; min-width: 0; padding: 3.6rem 1rem calc(1rem + 5.25rem); }
+  /* 16px content padding is part of the phone layout contract (MVP-P48). */
+  .tw-content { padding: 3.6rem 1rem calc(1rem + 5.25rem); }
+  .tw-screen { max-width: 100%; min-width: 0; padding: 0; }
   .tw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
   .tw-stat { padding: .75rem; }
   .tw-stat-value { font-size: 1.45rem; }

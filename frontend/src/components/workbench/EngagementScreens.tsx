@@ -306,7 +306,7 @@ export function EngagementPortfolioRow({
         aria-label={statusLabel[engagement.status]}
       />
       <span style={{ minWidth: 0, display: "block" }}>
-        <span className="tw-pf-name">{engagement.name}</span>
+        <span className="tw-pf-name tw-td-title">{engagement.name}</span>
         {engagement.customer && <span className="tw-pf-cust">{engagement.customer}</span>}
         <span className="tw-pf-why">
           {engagement.status !== "green" && engagement.statusNote
