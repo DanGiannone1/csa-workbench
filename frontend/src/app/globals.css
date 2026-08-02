@@ -2,28 +2,13 @@
 @import "tailwindcss";
 
 :root {
-  /* CSA Workbench — Monday.com-style light palette */
-
-  --brand-primary: #0073ea;   /* Monday blue — primary action */
-  --brand-accent: #6c6cff;    /* AI/agent accent — purple */
-  --brand-secondary: #6c6cff;
-  --brand-success: #00c875;   /* Done — green */
-  --brand-warning: #e2445c;   /* Blocked / overdue — red */
-
-  /* Status colors */
-  --status-done: #00c875;
-  --status-progress: #fdab3d;
-  --status-blocked: #e2445c;
-  --status-todo: #a3968c;
-
+  /* Aliases only; canonical palette lives in design-system/src/tokens.css. */
   --app-fg: var(--text-primary);
   --app-muted: var(--text-secondary);
   --app-muted-strong: var(--text-secondary);
   --brand: var(--brand-primary);
-  --brand-strong: #0060b9;
 
   --surface-sidebar: var(--surface-1);
-  --surface-canvas: #fffdfb;
   --type-body: clamp(1rem, 0.95rem + 0.25vw, 1.1rem);
 }
 
@@ -109,7 +94,7 @@ html, body {
   min-width: 1px;
   text-align: left;
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
-  background: linear-gradient(135deg, #0073ea 0%, #6c6cff 100%);
+  background: var(--surface-2);
   color: #FFFFFF;
   padding: 0.8rem 1.25rem;
   font-weight: 500;
@@ -198,7 +183,7 @@ html, body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(90deg, rgba(0, 115, 234, 0.08) 0%, transparent 100%);
+  background: var(--surface-2);
   transform-origin: left;
 }
 
@@ -261,7 +246,7 @@ html, body {
 .prose-message blockquote {
   border-left: 4px solid var(--brand-primary);
   margin: 1.5rem 0; padding: 1rem 1.5rem;
-  background: linear-gradient(90deg, rgba(0, 115, 234, 0.06) 0%, transparent 100%);
+  background: var(--surface-2);
   border-radius: 0 1rem 1rem 0;
 }
 .prose-message blockquote p { color: var(--text-secondary); font-size: 1.1rem; font-style: italic; }
@@ -309,7 +294,7 @@ html, body {
   padding: 1rem;
   border: 1px solid rgba(108, 108, 255, 0.2);
   border-radius: 1rem;
-  background: linear-gradient(180deg, rgba(108, 108, 255, 0.06) 0%, rgba(246, 247, 251, 0.4) 100%);
+  background: var(--surface-2);
 }
 .citation-panel-header {
   margin-bottom: 0.9rem;
@@ -408,7 +393,7 @@ html, body {
 .tw-logo {
   display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
   border-radius: 8px; color: #fff;
-  background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+  background: var(--surface-2);
 }
 .tw-appbar-title { font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); font-size: 0.95rem; }
 .tw-appbar-sub { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); }
