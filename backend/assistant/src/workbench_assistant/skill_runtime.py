@@ -65,7 +65,8 @@ def skill_name_for_read(arguments: Any) -> str | None:
     # ``limit`` source lines. Evidence therefore requires a first-page limit
     # that reaches this complete SKILL.md, rather than its generic 100-line
     # default alone.
-    return name if limit >= len(skill_path(name).read_text().splitlines(keepends=True)) else None
+    line_count = len(skill_path(name).read_text(encoding="utf-8").splitlines(keepends=True))
+    return name if limit >= line_count else None
 
 
 def deepagents_skill_config() -> dict[str, Any]:

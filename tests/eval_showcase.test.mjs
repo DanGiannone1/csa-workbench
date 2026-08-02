@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -66,7 +66,10 @@ test("latest evidence discovery chooses the newest matching artifact and ignores
     utimesSync(oldPath, old, old);
     writeFileSync(join(root, "evidence", "new", "results.json"), "{}\n");
     writeFileSync(join(root, "evidence", "new", "ignore.txt"), "ignored\n");
-    assert.equal(findLatestEvidence(root, "evidence", "results.json"), join(root, "evidence", "new", "results.json"));
+    assert.equal(
+      realpathSync(findLatestEvidence(root, "evidence", "results.json")),
+      realpathSync(join(root, "evidence", "new", "results.json")),
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
