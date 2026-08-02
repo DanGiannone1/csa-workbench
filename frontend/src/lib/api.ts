@@ -1,6 +1,6 @@
 import { notifyAuthExpired, withAppAuth } from "./appAuth";
 import { STARTUP_REQUEST_TIMEOUT_MS } from "./startupRequestPolicy";
-import type { AppState, FileInfo } from "./types";
+import type { AppState, Brief, FileInfo } from "./types";
 import { decodeAppState, decodeContextBundle, decodeEngagement, decodeEngagementList, decodeFileContent, decodeFilesPayload, decodeFileWrite, decodeSessionMetadata, decodeSessionUpload } from "./payload";
 
 const API_BASE =
@@ -29,6 +29,14 @@ export async function getAppState(sessionId: string): Promise<AppState> {
   });
   if (!res.ok) throw new Error(`Failed to load app state: ${res.status}`);
   return decodeAppState(await res.json());
+}
+
+export async function getBrief(sessionId: string): Promise<Brief> {
+  const res = await apiFetch(`/sessions/${sessionId}/brief`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Failed to load brief: ${res.status}`);
+  return (await res.json()) as Brief;
 }
 
 export async function getSession(sessionId: string): Promise<SessionMetadata | null> {

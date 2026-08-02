@@ -20,7 +20,7 @@ import { useSession } from "./SessionProvider";
 export default function AssistantPanel({ headerActions, onOpenWorkspace }: { headerActions?: React.ReactNode; onOpenWorkspace?: () => void }) {
   const {
     state, statusMessage, isChatUploading, chatUploadName,
-    handleSend, handleStop, handleChatUpload, doNewChat, startSession,
+    handleSend, handleStop, handleChatUpload, doNewChat, startSession, navigateView,
   } = useSession();
 
   const [confirmNewChat, setConfirmNewChat] = useState(false);
@@ -105,6 +105,8 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
             <MessageList
               messages={state.messages}
               onSuggestion={state.isStreaming || state.isInitializing ? undefined : handleSend}
+              brief={state.brief}
+              onOpenBriefItem={navigateView}
             />
             {statusMessage && <Toast className="mx-4 mb-1">{statusMessage}</Toast>}
             {onOpenWorkspace && artifacts.length > 0 && (

@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager, suppress
 
 from workbench_core import (
     EngagementService, Outcome, PersonalNotFound, PersonalWorkspaceError,
-    PersonalWorkspaceService,
+    PersonalWorkspaceService, compute_brief,
 )
 from workbench_core import appdb, reminder_dispatch
 from workbench_core.appdb_repository import AppdbEngagementRepository
@@ -407,6 +407,16 @@ async def delete_session(session_id: str, uid: str = Depends(current_user)):
     """Delete a session."""
     await _require_owned_session(session_id, uid)
     await session_manager.delete_session(session_id, uid)
+
+
+@app.get("/sessions/{session_id}/brief")
+async def get_session_brief(session_id: str, uid: str = Depends(current_user)) -> dict:
+    """The day's ranked brief — deterministic, computed from the user's visible
+    record. Fetched asynchronously after session start so it is already waiting
+    the first time the assistant panel opens (the app speaking, not a model)."""
+    await _require_owned_session(session_id, uid)
+    state = await asyncio.to_thread(appdb.supported_app_state_for, uid)
+    return compute_brief(state)
 
 
 @app.get("/sessions/{session_id}/trace")

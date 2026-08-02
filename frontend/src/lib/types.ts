@@ -190,6 +190,20 @@ export interface AppUserRecord {
   persona?: { role?: string; tone?: string; outputPrefs?: string; language?: string };
 }
 
+// The session-start brief: deterministic ranked items computed by the API from
+// the user's visible record — the app speaking, not a model turn.
+export interface BriefItem {
+  label: string;
+  tone: "red" | "yellow";
+  path: string;
+}
+
+export interface Brief {
+  message: string;
+  items: BriefItem[];
+  computedFor: string;
+}
+
 export interface AppState {
   currentRoute: string;
   personalTasks: Task[];

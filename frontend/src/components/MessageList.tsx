@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import { ChatMessage } from "@/lib/types";
+import { ArrowRight } from "lucide-react";
+import { Brief, ChatMessage } from "@/lib/types";
 import MessageBubble from "./MessageBubble";
 import Button from "./ui/Button";
 
 interface MessageListProps {
   messages: ChatMessage[];
   onSuggestion?: (text: string) => void;
+  brief?: Brief | null;
+  onOpenBriefItem?: (path: string) => void;
 }
 
 // Showcase the assistant's capabilities across the whole workbench — engagements, personal
@@ -20,7 +23,7 @@ const SUGGESTIONS = [
   { icon: "strategy", label: "Prep for a meeting", description: "Get a briefing for an engagement status meeting", prompt: "Prep me for one of my engagement meetings — ask me which engagement to focus on." },
 ];
 
-export default function MessageList({ messages, onSuggestion }: MessageListProps) {
+export default function MessageList({ messages, onSuggestion, brief, onOpenBriefItem }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
   const rafRef = useRef<number>(0);
@@ -56,8 +59,37 @@ export default function MessageList({ messages, onSuggestion }: MessageListProps
       <div className="mx-auto w-full max-w-3xl px-4 py-5 md:py-10">
         {messages.length === 0 ? (
           <div className="mx-auto flex min-h-[68vh] flex-col justify-center">
-            <h2 className="tw-empty-title">How can I help?</h2>
-            <p className="mt-3 text-[15px] text-text-secondary">Ask about your engagements, tasks, calendar, or prep for a meeting.</p>
+            {/* The session-start brief: the app speaking, ready before the first
+                question — no tool chrome, items route straight into the record. */}
+            {brief ? (
+              <div data-testid="session-brief">
+                <div className="tw-microcap">Today</div>
+                <h2 className="tw-empty-title">{brief.message}</h2>
+                {brief.items.length > 0 && (
+                  <div className="mt-4 flex flex-col gap-1.5">
+                    {brief.items.map((item, i) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        className="tw-qlink"
+                        style={{ margin: 0, maxWidth: "26rem" }}
+                        data-testid={`brief-item-${i}`}
+                        onClick={() => onOpenBriefItem?.(item.path)}
+                      >
+                        <span className={`tw-dot tw-dot-${item.tone}`} style={{ width: 7, height: 7 }} />
+                        <span className="min-w-0 truncate">{item.label}</span>
+                        <ArrowRight size={13} className="ml-auto shrink-0 text-text-muted" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <h2 className="tw-empty-title">How can I help?</h2>
+                <p className="mt-3 text-[15px] text-text-secondary">Ask about your engagements, tasks, calendar, or prep for a meeting.</p>
+              </>
+            )}
 
             {onSuggestion && (
               <div className="mt-6 flex flex-wrap gap-2">
