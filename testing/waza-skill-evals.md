@@ -60,6 +60,6 @@ Never call an advisory language grader proof. Never use a Waza result as Deep Ag
 
 ## Trials, evidence, and limits
 
-One run is one sample. If a task uses multiple trials, record the trial count and report pass@k as the number of passed attempts divided by the number of attempts. Store only evidence that names the skill version, source revision, mocks, model, runner, and time. Compare results only when those conditions are compatible.
+One run is one sample. If a task uses multiple trials, record the trial count. `pass@k` is the chance that at least one of *k* independent attempts succeeds; `pass^k` is the chance that every attempt succeeds. Store only evidence that names the skill version, source revision, mocks, model, runner, and time. Compare results only when those conditions are compatible.
 
 **Next:** For a real product behavior claim, use [product-runtime evaluation](agent-evals.md). For a client-readable explanation, return to [the eval introduction](../tests/evals/README.md).

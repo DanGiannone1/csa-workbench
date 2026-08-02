@@ -10,6 +10,7 @@
         {
           "id": "prepare",
           "prompt": "Prep me for my Acme Internal AI Chatbot check-in.",
+          "clientExpectedOutput": "A factual, read-only brief for the Acme Internal AI Chatbot Engagement.",
           "expectation": {
             "operation": "get",
             "status": "succeeded",
@@ -40,6 +41,7 @@
         {
           "id": "update",
           "prompt": "The data-privacy review slipped to August 12. Set it to Yellow with the exact reason 'Data-privacy review slipped to August 12'.",
+          "clientExpectedOutput": "The same Engagement is Yellow with that exact reason and no unrelated change.",
           "expectation": {
             "operation": "update",
             "status": "committed",
@@ -81,6 +83,7 @@
         {
           "id": "open",
           "prompt": "Open it.",
+          "clientExpectedOutput": "The same Acme Engagement opens.",
           "expectation": {
             "operation": "navigate",
             "status": "resolved",
@@ -117,6 +120,7 @@
         {
           "id": "capture",
           "prompt": "Add a task for me: send Dana the updated architecture diagram. High priority.",
+          "clientExpectedOutput": "One private High priority task is added for the requester.",
           "expectation": {
             "operation": "create_task",
             "status": "committed",

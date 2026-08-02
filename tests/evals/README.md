@@ -18,7 +18,7 @@ Write the expected output as an outcome, not as instructions for the assistant. 
 
 | Input prompt | Expected output |
 |---|---|
-| Prep me for my Acme Internal AI Chatbot check-in. | A short brief that correctly gives the current status, the slipped privacy-review date, and the important open task. It must not invent missing facts. |
+| Prep me for my Acme Internal AI Chatbot check-in. | A short brief that correctly gives the recorded status, target date, milestones, tasks, and risks. It must clearly distinguish missing facts from recorded facts. |
 
 This is the existing `ACME-3-meeting-prep` scenario. The engineer's check confirms that the assistant read the authorized Engagement, did not change anything, and based the brief on recorded facts.
 
@@ -93,7 +93,7 @@ Ask when the expected outcome depends on permissions, saved data, "nothing else 
 | Provenance | A record of where evidence came from: the source revision, starting data, skill text, runner, and time. |
 | Baseline | A reviewed earlier result used as a fair comparison point for later changes. |
 | Waza | Microsoft's open-source command-line tool for testing a skill in a small mocked laboratory. It is separate from the product runtime. |
-| pass@k | The share of successful attempts out of *k* independent attempts. It measures consistency, not a single pass. |
+| pass@k | The chance that at least one of *k* independent attempts succeeds. `pass^k` instead means every one of *k* attempts succeeds. |
 
 ## More detail, when you need it
 

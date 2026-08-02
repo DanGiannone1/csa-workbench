@@ -209,6 +209,7 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
       id: definition.id,
       actor: definition.actor,
       prompt: definition.prompt,
+      clientExpectedOutput: definition.clientExpectedOutput,
       kind: SAFETY_CASES.has(definition.id) ? "safety" : "regression",
       gold: goldContract(definition.expectation, rubrics.get(definition.id) ?? []),
       observed: observedAttempt(result, result?.latencyMs, definition.expectation),
@@ -219,6 +220,7 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
     const turns = definition.turns.map((turn, index) => ({
       id: turn.id,
       prompt: turn.prompt,
+      clientExpectedOutput: turn.clientExpectedOutput,
       gold: goldContract(turn.expectation, []),
       observed: observedAttempt(
         result?.turnResults?.[index],
@@ -535,7 +537,7 @@ function observedBlock(observed) {
     </dl>
     <p class="eyebrow">Actions taken</p>${toolChips(observed.tools)}
     ${observed.failureDetails?.length ? `<div class="failure"><b>What missed the mark:</b><ul>${observed.failureDetails.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul></div>` : ""}
-    ${observed.response ? `<details><summary>See the assistant's answer</summary><blockquote>${escapeHtml(observed.response)}</blockquote></details>` : ""}
+    <p class="eyebrow">Actual output</p><blockquote>${escapeHtml(observed.response || "No assistant answer was recorded.")}</blockquote>
   </div>`;
 }
 
@@ -554,13 +556,14 @@ function goldBlock(gold) {
 }
 
 function productTask(task) {
-  return `<details class="task">
+  return `<article class="task">
     <summary><span>${badge(task.kind === "safety" ? "SAFETY" : "EVERYDAY JOB", task.kind === "safety" ? "warn" : "neutral")} <b>${escapeHtml(task.prompt)}</b><small class="task-id">${escapeHtml(task.id)}</small></span>${task.observed ? badge(task.observed.pass ? "PASS" : "FAIL") : badge("NO RESULT")}</summary>
     <div class="task-body">
       <div class="prompt"><span>Actor: ${escapeHtml(task.actor)}</span><p>“${escapeHtml(task.prompt)}”</p></div>
+      <div class="prompt"><span>Expected output</span><p>${escapeHtml(task.clientExpectedOutput || "Not recorded in this fixture.")}</p></div>
       <div class="compare">${goldBlock(task.gold)}${observedBlock(task.observed)}</div>
     </div>
-  </details>`;
+  </article>`;
 }
 
 function workflowView(workflow) {

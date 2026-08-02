@@ -14,6 +14,19 @@ test("beginner eval guide keeps the client view and links the advanced paths", (
   assert.match(guide, /waza-skill-evals\.md/);
 });
 
+test("every executable gold fixture carries the client expected-output bridge", () => {
+  const cases = JSON.parse(read("./evals/mvp-cases.json"));
+  const workflows = JSON.parse(read("./evals/mvp-workflows.json"));
+  for (const item of [...cases.cases, ...workflows.workflows.flatMap((workflow) => workflow.turns)]) {
+    assert.equal(typeof item.clientExpectedOutput, "string");
+    assert.ok(item.clientExpectedOutput.trim());
+  }
+  const showcase = read("../scripts/eval_showcase.mjs");
+  assert.match(showcase, /clientExpectedOutput: definition\.clientExpectedOutput/);
+  assert.match(showcase, /Expected output/);
+  assert.match(showcase, /Actual output/);
+});
+
 test("Waza advisory suites cover every remaining shipped product skill", () => {
   const directTask = {
     tasks: "direct-create.yaml",
@@ -30,6 +43,7 @@ test("Waza advisory suites cover every remaining shipped product skill", () => {
   }
   const runner = read("../scripts/waza_eval.sh");
   assert.match(runner, /for skill in tasks calendar weekly-review/);
+  assert.match(runner, /for skill in engagement-meeting-prep tasks calendar weekly-review/);
   assert.match(runner, /run_eval advisory/);
 });
 
