@@ -480,7 +480,7 @@ html, body {
 /* In progress — orange */
 .tw-badge-orange { background: var(--surface-warning); color: var(--text-warning); }
 /* Done — green */
-.tw-badge-green { background: var(--surface-brand-subtle); color: var(--status-done); }
+.tw-badge-green { background: var(--surface-success); color: var(--text-success); }
 /* Blocked / overdue — red */
 .tw-badge-red { background: var(--surface-danger); color: var(--text-danger); }
 .tw-type { font-size: 0.66rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
