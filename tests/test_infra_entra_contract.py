@@ -778,14 +778,17 @@ def test_portable_verifier_accepts_only_the_optional_governance_nsg_resource_pai
         assert subprocess.run([sys.executable, '-c', code], env={**env, 'NETWORK_SECURITY_GROUPS': malformed}, text=True, capture_output=True).returncode != 0
 
 
-def test_browser_validation_runbook_uses_the_isolated_demo_parent_shell_values() -> None:
+def test_evaluator_runbooks_are_copyable_on_windows_macos_and_linux() -> None:
     development = (ROOT / 'docs' / 'guides' / 'local-development.md').read_text()
+    evaluator = (ROOT / 'testing' / 'agent-evals.md').read_text()
 
-    for value in ('## Run the browser journey', 'CSA_LOCAL_RUN_ID=demo1', 'WORKSPACE=.local-runs/demo1/workspace', 'ARTIFACTS_DIR=.mvp-artifacts/demo1', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'MVP_RESET_BEFORE_RUN=1', 'uv run python -m scripts.workbench eval playwright'):
+    for value in ('## Run the assistant evaluation', '## Run the browser journey', 'PowerShell on Windows', 'Terminal on macOS or Linux', '$env:CSA_LOCAL_RUN_ID', 'export CSA_LOCAL_RUN_ID', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'uv run python -m scripts.workbench eval mvp', 'uv run python -m scripts.workbench eval playwright'):
         assert value in development
+    for value in ('## Running it', 'PowerShell on Windows', 'Terminal on macOS or Linux', '$env:MVP_RESULTS', 'export MVP_RESULTS', 'uv run python -m scripts.workbench eval mvp', 'uv run python -m scripts.workbench eval foundry'):
+        assert value in evaluator
 
 
-def test_acr_build_context_rules_exclude_local_and_generated_content() -> None:
+def test_acr_build_context_rules_include_frontend_source_and_exclude_generated_content() -> None:
     root_rules = {
         line for line in (ROOT / '.dockerignore').read_text().splitlines()
         if line and not line.startswith('#')
@@ -794,7 +797,18 @@ def test_acr_build_context_rules_exclude_local_and_generated_content() -> None:
         line for line in (ROOT / 'frontend' / '.dockerignore').read_text().splitlines()
         if line and not line.startswith('#')
     }
+    dockerfile = (ROOT / 'frontend' / 'Dockerfile').read_text()
+    deployment = (ROOT / 'infra' / 'deploy.py').read_text()
 
-    assert {'frontend', 'evidence', '.local-runs', '.mvp-artifacts', 'incoming', '.claude', '.venv', 'node_modules'} <= root_rules
+    assert 'frontend' not in root_rules
+    assert {
+        'evidence', '.local-runs', '.mvp-artifacts', 'incoming', '.claude', '.venv',
+        'node_modules', 'frontend/node_modules', 'frontend/.next*', 'frontend/.env*',
+    } <= root_rules
     assert {'.next*', 'node_modules', '.env*'} <= frontend_rules
     assert not any(rule.endswith('/') for rule in root_rules | frontend_rules)
+    assert 'docker build -f frontend/Dockerfile .' in dockerfile
+    assert 'COPY frontend/package.json frontend/package-lock.json* ./' in dockerfile
+    assert 'COPY frontend/ ./' in dockerfile
+    assert 'COPY . .' not in dockerfile
+    assert '"-f", "frontend/Dockerfile", "."' in deployment

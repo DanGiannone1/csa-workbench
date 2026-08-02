@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Compatibility wrapper. Native Windows dispatches the Python command through WSL.
+# Compatibility wrapper. Native binaries are the default; pass --wsl on Windows to opt into WSL.
 set -eu
 repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repository_root"

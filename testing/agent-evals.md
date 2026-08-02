@@ -232,6 +232,28 @@ link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs 
 
 ## Running it
 
+PowerShell on Windows:
+
+```powershell
+# Terminal 1: start the app after setting the full environment from the local-development guide.
+uv run python -m scripts.workbench dev
+
+# Terminal 2: use the same isolated-app values for the full suite.
+$env:MVP_API_URL='http://127.0.0.1:8000'
+$env:MVP_RAW_TRACE_ROOT='<run logs>/sdk-events'
+$env:MVP_RESET_BEFORE_RUN='1'
+$env:MVP_EVAL_SCOPE='all' # all | atomic | workflow
+uv run python -m scripts.workbench eval mvp
+
+# Submit the finished evidence for advisory Foundry scoring.
+$env:MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
+$env:FOUNDRY_PROJECT_ENDPOINT='https://<account>.services.ai.azure.com/api/projects/<project>'
+$env:FOUNDRY_JUDGE_DEPLOYMENT='<judge-deployment>'
+uv run python -m scripts.workbench eval foundry
+```
+
+Terminal on macOS or Linux:
+
 ```bash
 # 1. App up (terminal 1) — see docs/guides/local-development.md for the full env
 uv run python -m scripts.workbench dev
@@ -241,13 +263,13 @@ export MVP_API_URL='http://127.0.0.1:8000'   # the port your app is serving on
 export MVP_RAW_TRACE_ROOT='<run logs>/sdk-events'
 export MVP_RESET_BEFORE_RUN=1
 export MVP_EVAL_SCOPE=all          # all | atomic | workflow
-npm run eval:mvp
+uv run python -m scripts.workbench eval mvp
 
 # 3. Advisory Foundry scoring of that evidence
 export MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
 export FOUNDRY_PROJECT_ENDPOINT='https://<account>.services.ai.azure.com/api/projects/<project>'
 export FOUNDRY_JUDGE_DEPLOYMENT='<judge-deployment>'
-npm run eval:foundry
+uv run python -m scripts.workbench eval foundry
 ```
 
 ## Authoring a new gold standard

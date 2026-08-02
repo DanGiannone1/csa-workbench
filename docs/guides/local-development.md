@@ -81,6 +81,25 @@ developer prefers WSL.
 This command calls the configured model and requires a running isolated application and the user's
 approval:
 
+PowerShell on Windows:
+
+```powershell
+$env:CSA_LOCAL_RUN_ID='demo1'
+$env:WORKSPACE='.local-runs/demo1/workspace'
+$env:ARTIFACTS_DIR='.mvp-artifacts/demo1'
+$env:IDENTITY_MODE='demo'
+$env:DEMO_PASSWORD='local-only-secret'
+$env:COSMOS_ENDPOINT='http://localhost:8081'
+$env:COSMOS_DATABASE='csa_workbench_demo1_local'
+$env:COSMOS_CONTAINER='appstate_demo1_local'
+$env:MVP_API_URL='http://localhost:18000'
+$env:MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'
+$env:MVP_RESET_BEFORE_RUN='1'
+uv run python -m scripts.workbench eval mvp
+```
+
+Terminal on macOS or Linux:
+
 ```bash
 export CSA_LOCAL_RUN_ID=demo1
 export WORKSPACE=.local-runs/demo1/workspace
@@ -102,6 +121,26 @@ uv run python -m scripts.workbench eval mvp
 
 This command calls the configured model and changes the isolated demo data. Run it only with the
 user's approval after the isolated application is ready:
+
+PowerShell on Windows:
+
+```powershell
+$env:CSA_LOCAL_RUN_ID='demo1'
+$env:WORKSPACE='.local-runs/demo1/workspace'
+$env:ARTIFACTS_DIR='.mvp-artifacts/demo1'
+$env:IDENTITY_MODE='demo'
+$env:DEMO_PASSWORD='local-only-secret'
+$env:COSMOS_ENDPOINT='http://localhost:8081'
+$env:COSMOS_DATABASE='csa_workbench_demo1_local'
+$env:COSMOS_CONTAINER='appstate_demo1_local'
+$env:MVP_APP_URL='http://localhost:13000'
+$env:MVP_API_URL='http://localhost:18000'
+$env:MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'
+$env:MVP_RESET_BEFORE_RUN='1'
+uv run python -m scripts.workbench eval playwright
+```
+
+Terminal on macOS or Linux:
 
 ```bash
 export CSA_LOCAL_RUN_ID=demo1
