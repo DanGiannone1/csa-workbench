@@ -8,42 +8,40 @@ import test from "node:test";
 
 const REPOSITORY_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
-function bashPath(path) {
-  return path.replaceAll("\\", "/");
-}
-
 function fakeWaza(root) {
-  const path = join(root, "fake-waza.sh");
-  writeFileSync(path, `#!/usr/bin/env bash
-set -u
-if [[ "\${1:-}" == "--version" ]]; then
-  echo "waza version 0.38.3"
-  exit 0
-fi
-if [[ "\${1:-}" != "run" ]]; then
-  exit 2
-fi
-eval_file="\${2}"
-skill="$(basename "$(dirname "\${eval_file}")")"
-printf '%s\\n' "\${skill}" >>"\${FAKE_WAZA_LOG}"
-output=""
-shift 2
-while (( \$# )); do
-  if [[ "\${1}" == "--output" ]]; then
-    output="\${2}"
-    shift 2
-  else
-    shift
-  fi
-done
-if [[ "\${FAKE_WAZA_MODE}" == "runtime-error" && "\${skill}" == "tasks" ]]; then
-  exit 2
-fi
-printf '{"schemaVersion":"1.2","eval_id":"fake-%s","summary":{"total_tests":0,"succeeded":0,"failed":0},"tasks":[]}\\n' "\${skill}" >"\${output}"
-if [[ "\${FAKE_WAZA_MODE}" == "test-failure" && "\${skill}" == "tasks" ]]; then
-  exit 1
-fi
-exit 0
+  const path = join(root, "fake-waza.py");
+  writeFileSync(path, `#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import sys
+
+arguments = sys.argv[1:]
+if arguments == ["--version"]:
+    print("waza version 0.38.3")
+    raise SystemExit(0)
+if len(arguments) < 2 or arguments[0] != "run":
+    raise SystemExit(2)
+
+skill = Path(arguments[1]).parent.name
+with Path(os.environ["FAKE_WAZA_LOG"]).open("a", encoding="utf-8") as log:
+    log.write(f"{skill}\\n")
+if os.environ["FAKE_WAZA_MODE"] == "runtime-error" and skill == "tasks":
+    raise SystemExit(2)
+
+try:
+    output = Path(arguments[arguments.index("--output") + 1])
+except (ValueError, IndexError):
+    raise SystemExit(2)
+report = {
+    "schemaVersion": "1.2",
+    "eval_id": f"fake-{skill}",
+    "summary": {"total_tests": 0, "succeeded": 0, "failed": 0},
+    "tasks": [],
+}
+output.write_text(json.dumps(report) + "\\n", encoding="utf-8")
+if os.environ["FAKE_WAZA_MODE"] == "test-failure" and skill == "tasks":
+    raise SystemExit(1)
 `, "utf8");
   chmodSync(path, 0o755);
   return path;
@@ -72,11 +70,11 @@ function runAdvisory(root, mode, trials = "") {
     encoding: "utf8",
     env: {
       ...process.env,
-      CSA_WAZA_BIN: bashPath(binary),
-      CSA_WAZA_RESULTS_ROOT: bashPath(results),
+      CSA_WAZA_BIN: binary,
+      CSA_WAZA_RESULTS_ROOT: results,
       CSA_WAZA_TEST_MODE: "1",
       CSA_WAZA_TRIALS: trials,
-      FAKE_WAZA_LOG: bashPath(log),
+      FAKE_WAZA_LOG: log,
       FAKE_WAZA_MODE: mode,
     },
   });

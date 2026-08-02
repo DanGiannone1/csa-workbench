@@ -110,16 +110,20 @@ def test_waza_has_pinned_native_windows_assets(
     assert len(checksum) == 64
 
 
-def test_windows_waza_shell_test_wrapper_uses_a_bash_readable_path() -> None:
-    wrapper = Path("C:/temporary test/fake-waza.sh")
+def test_waza_python_test_wrapper_uses_the_current_interpreter() -> None:
+    wrapper = Path("C:/temporary test/fake-waza.py")
 
-    assert workbench._waza_command(wrapper, ["--version"], windows=True) == [
-        "bash", "C:/temporary test/fake-waza.sh", "--version",
+    assert workbench._waza_command(wrapper, ["--version"], test_mode=True) == [
+        workbench.sys.executable, str(wrapper), "--version",
     ]
 
     native = Path("C:/tools/waza.exe")
-    assert workbench._waza_command(native, ["--version"], windows=True) == [
+    assert workbench._waza_command(native, ["--version"], test_mode=True) == [
         str(native), "--version",
+    ]
+
+    assert workbench._waza_command(wrapper, ["--version"], test_mode=False) == [
+        str(wrapper), "--version",
     ]
 
 
