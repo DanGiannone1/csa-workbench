@@ -190,15 +190,30 @@ html, body {
   align-items: center; justify-content: center;
 }
 
-/* Thinking / Tools (Intelligence Log) */
-.thinking-row {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  background: var(--surface-2); border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem; padding: 0.4rem 0.8rem;
-  box-shadow: var(--shadow-resting);
+/* Thinking indicator — quiet inline label + dots, per the design reference. */
+.thinking-row { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
+.thinking-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+.thinking-dots span { background: var(--text-muted); }
+
+/* Streaming cursor at the tip of an in-flight assistant reply. */
+.tw-cursor {
+  display: inline-block; width: 7px; height: 15px; background: var(--brand-primary);
+  vertical-align: -2px; margin-left: 2px; animation: tw-blink 0.9s steps(2) infinite;
 }
-.thinking-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--brand-accent); font-weight: 700; }
-.thinking-dots span { background: var(--brand-accent); }
+@keyframes tw-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Route links inside answers, per the design reference's `qlink`. */
+.tw-qlink {
+  display: flex; align-items: center; gap: 8px; width: 100%; max-width: 22rem;
+  margin: 0.3rem 0 0.2rem 1.6rem; padding: 8px 11px; text-align: left; cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; line-height: 1.3; color: var(--text-primary);
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: 9px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.tw-qlink:hover { border-color: var(--border-brand-subtle); background: var(--surface-brand-subtle); color: var(--brand-strong); }
+
+/* Empty-chat greeting in the display face. */
+.tw-empty-title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; color: var(--text-primary); }
 
 /* Visual Cell Formatting — priority pills */
 .cell-pill {
@@ -567,8 +582,12 @@ html, body {
 .tw-docitem:hover { border-color: var(--brand-primary); background: var(--surface-2); color: var(--text-primary); }
 .tw-doc-pending { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
 
-/* The assistant dock and floating launcher, per the design reference's rail + FAB. */
-.tw-dock { border-left: 1px solid var(--border-subtle); background: var(--surface-1); padding: 0.75rem; }
+/* The assistant dock and floating launcher, per the design reference's rail + FAB.
+   Inside the dock the panel reads as one flat rail: surfaces lose card chrome. */
+.tw-dock { border-left: 1px solid var(--border-subtle); background: var(--surface-1); }
+.tw-dock > * { gap: 0; }
+.tw-dock .ui-surface { border: 0; border-radius: 0; box-shadow: none; }
+.tw-dock .ui-surface:first-child { border-bottom: 1px solid var(--border-subtle); }
 .tw-fab { width: 44px; height: 44px; border-radius: 999px; box-shadow: var(--shadow-raised); }
 
 /* Portfolio rows, per the design reference's `pf-row`. */
