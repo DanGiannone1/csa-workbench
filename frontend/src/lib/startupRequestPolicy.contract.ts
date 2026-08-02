@@ -20,7 +20,7 @@ function functionRegion(sourceText: string, declaration: string, nextDeclaration
 const appAuthSource = source("src/lib/appAuth.ts");
 const apiSource = source("src/lib/api.ts");
 const hookSource = source("src/hooks/useAgentSession.ts");
-const sessionManagerSource = source("../session_manager.py");
+const sessionManagerSource = source("../backend/api/src/workbench_api/session_manager.py");
 
 const fetchMe = functionRegion(appAuthSource, "export async function fetchMe", "export async function login");
 const getSession = functionRegion(apiSource, "export async function getSession", "export async function createSession");
