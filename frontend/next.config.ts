@@ -4,6 +4,9 @@ import path from "node:path";
 const nextDistDir = process.env.NEXT_DIST_DIR;
 
 const nextConfig: NextConfig = {
+  // Local browser evidence must contain product UI only; the development indicator
+  // otherwise overlays narrow content and makes Axe unable to determine contrast.
+  devIndicators: false,
   ...(nextDistDir
     ? {
         distDir: nextDistDir,

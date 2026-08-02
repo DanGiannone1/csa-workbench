@@ -149,7 +149,7 @@ function SignIn({ mode, onSignedIn }: { mode: "demo" | "entra"; onSignedIn: (u: 
           className="w-full"
         >
           <Card className="p-10">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary/20 text-brand-primary">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary/20 text-text-brand-on-subtle">
             <KeyRound size={24} />
           </div>
           <h1 className="mt-6 text-center text-2xl font-bold uppercase tracking-[0.16em]">Sign In</h1>

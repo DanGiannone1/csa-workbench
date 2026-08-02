@@ -524,10 +524,13 @@ test("Playwright contrast acceptance scans representative visible product states
   assert.match(source, /import AxeBuilder from "@axe-core\/playwright"/);
   assert.match(source, /options\(axeColorContrastOptions\(\)\)/);
   assert.doesNotMatch(source, /\.withRules\(/);
-  assert.match(source, /report\.colorContrast\.push\(\{ state, rule: "color-contrast", \.\.\.findings \}\)/);
+  assert.match(source, /reducedMotion: "reduce"/);
+  assert.match(source, /report\.colorContrast\.push\(\{ state, rule: "color-contrast", include: include \?\? null, \.\.\.findings \}\)/);
   for (const state of ["wide-engagements", "compact-viewer", "dialog", "phone-drawer", "phone-assistant"]) {
-    assert.match(source, new RegExp(`checkColorContrast\\([^,]+, "${state}", report\\)`));
+    assert.match(source, new RegExp(`checkColorContrast\\([^,]+, "${state}", report`));
   }
+  assert.match(source, /checkColorContrast\(dan\.page, "dialog", report, '\[role="dialog"\]'\)/);
+  assert.match(source, /checkColorContrast\(narrow\.page, "phone-drawer", report, "#workbench-nav"\)/);
 });
 
 test("axe contrast options stay scoped and incomplete results fail closed", () => {

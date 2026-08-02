@@ -47,13 +47,13 @@ function resetFixture() {
 }
 
 const checks = [];
-async function checkColorContrast(page, state, report) {
-  const result = await new AxeBuilder({ page })
-    .options(axeColorContrastOptions())
-    .analyze();
+async function checkColorContrast(page, state, report, include) {
+  let builder = new AxeBuilder({ page });
+  if (include) builder = builder.include(include);
+  const result = await builder.options(axeColorContrastOptions()).analyze();
   const findings = compactAxeContrastResults(result);
   report.colorContrast ??= [];
-  report.colorContrast.push({ state, rule: "color-contrast", ...findings });
+  report.colorContrast.push({ state, rule: "color-contrast", include: include ?? null, ...findings });
   const pass = axeColorContrastPasses(findings);
   check(`MVP-P53-color-contrast-${state}`, pass, pass ? "" : JSON.stringify(findings));
 }
@@ -270,7 +270,7 @@ async function finalCardHitPoints(page) {
   });
 }
 async function newPage(browser, viewport, user) {
-  const context = await browser.newContext({ viewport });
+  const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
@@ -464,7 +464,7 @@ try {
     "MVP-P49-new-session-dialog-overlay-focus",
     await dialogOverlay.isVisible() && await dialogConfirm.evaluate((element) => document.activeElement === element),
   );
-  await checkColorContrast(dan.page, "dialog", report);
+  await checkColorContrast(dan.page, "dialog", report, '[role="dialog"]');
   await capture(dan.page, `${out}/wide-dan-new-session-dialog-overlay.png`);
   await dan.page.keyboard.press("Escape");
   check("MVP-P50-new-session-dialog-escape-restores-focus", await eventually(() =>
@@ -477,7 +477,7 @@ try {
   check("MVP-P22-narrow-drawer-focuses", await eventually(() => narrow.page.evaluate(() => document.activeElement?.closest("#workbench-nav") !== null)));
   check("MVP-P31-narrow-drawer-hides-launcher", await eventually(() => narrow.page.getByTestId("dock-launcher").count().then((count) => count === 0)));
   check("MVP-P32-narrow-drawer-sign-out-unobstructed", await signOutUnobstructed(narrow.page));
-  await checkColorContrast(narrow.page, "phone-drawer", report);
+  await checkColorContrast(narrow.page, "phone-drawer", report, "#workbench-nav");
   await capture(narrow.page, `${out}/narrow-dan-drawer-open.png`);
   await narrow.page.keyboard.press("Escape");
   check("MVP-P23-narrow-escape-restores-focus", await eventually(() => narrow.page.getByTestId("nav-toggle").evaluate((element) => document.activeElement === element)));

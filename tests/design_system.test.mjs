@@ -28,6 +28,27 @@ test("production CSS uses design tokens and excludes prototype effects", () => {
   assert.doesNotMatch(css, /reference\/claude-design|support\.js|\.dc\.html/);
 });
 
+test("brand text on pale brand surfaces uses the strong semantic token", () => {
+  const css = read("../frontend/src/app/globals.css");
+  const tokens = read("../design-system/src/tokens.css");
+  const auth = read("../frontend/src/components/AppAuthProvider.tsx");
+  const nav = read("../frontend/src/components/workbench/WorkbenchNav.tsx");
+
+  assert.match(tokens, /--text-brand-on-subtle:\s*var\(--brand-strong\);/);
+  for (const selector of ["citation-chip", "tw-addbar", "tw-nav-item-active", "tw-nav-wa-active", "tw-new", "tw-type-obligation"]) {
+    assert.match(css, new RegExp(`\\.${selector}[^}]*color: var\\(--text-brand-on-subtle\\);`));
+  }
+  assert.match(css, /\.prose-message a\[href\^="#source-"\][^}]*color: var\(--text-brand-on-subtle\);/);
+  assert.match(css, /\.tw-btn-ghost:hover:not\(:disabled\)[^}]*background: var\(--surface-brand-subtle\); color: var\(--text-brand-on-subtle\);/);
+  assert.match(auth, /bg-brand-primary\/20 text-text-brand-on-subtle/);
+  assert.match(nav, /bg-brand-primary\/20[^\"]*text-text-brand-on-subtle/);
+});
+
+test("the stacked assistant foreground expands around its complete artifact content", () => {
+  const workspace = read("../frontend/src/components/AssistantWorkspace.tsx");
+  assert.match(workspace, /stacked \? "h-fit min-h-full flex-col" : "h-full"/);
+});
+
 test("all production component and stylesheet sources exclude retired visual syntax", () => {
   const paletteUtility = /\b(?:bg|text|border|ring|outline|fill|stroke|from|via|to)-(?:white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?(?:\/\d+)?\b/i;
   const invalidTokenUtility = /\b(?:bg|text|border|from|to|ring|placeholder)-var\(/i;
@@ -71,4 +92,5 @@ test("frontend image builds from the repository root without reference assets", 
   assert.doesNotMatch(dockerignore, /^frontend$/m);
   assert.match(dockerignore, /^design-system\/reference$/m);
   assert.match(nextConfig, /outputFileTracingRoot: path\.resolve\(__dirname, "\.\."\)/);
+  assert.match(nextConfig, /devIndicators:\s*false/);
 });

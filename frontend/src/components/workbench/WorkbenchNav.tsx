@@ -183,7 +183,7 @@ export default function WorkbenchNav({
           className="flex items-center gap-2 px-2 py-1.5"
           data-testid="user-chip"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/20 text-[11px] font-bold uppercase text-brand-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/20 text-[11px] font-bold uppercase text-text-brand-on-subtle">
             {user.displayName.slice(0, 1)}
           </span>
           <span

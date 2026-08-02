@@ -15,6 +15,7 @@
   --surface-brand-subtle: oklch(.95 .025 45);
   --surface-brand-strong: oklch(.89 .06 45);
   --border-brand-subtle: oklch(.79 .08 45);
+  --text-brand-on-subtle: var(--brand-strong);
   --brand-transparent: oklch(.56 .115 45 / 0%);
   --surface-danger: oklch(.95 .025 18);
   --text-danger: oklch(.46 .16 18);
