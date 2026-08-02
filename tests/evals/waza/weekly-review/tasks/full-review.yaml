@@ -1,0 +1,21 @@
+id: WAZA-WR-1-full-review
+name: Weekly review workflow
+description: The weekly-review prompt loads the workflow skill and uses all four review actions.
+tags: [advisory, routing, workflow]
+inputs:
+  prompt: Run my weekly review and plan next week.
+expected:
+  behavior: { max_tool_calls: 12 }
+graders:
+  - type: skill_invocation
+    name: invokes_weekly_review
+    config: { mode: exact_match, required_skills: [weekly-review], allow_extra: false }
+  - type: tool_constraint
+    name: completes_review_steps
+    config:
+      expect_tools:
+        - { tool: ".*list_tasks$" }
+        - { tool: ".*update_task$" }
+        - { tool: ".*list_events$" }
+        - { tool: ".*create_event$" }
+      reject_tools: [{ tool: ".*create_task$" }]

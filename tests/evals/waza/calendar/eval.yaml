@@ -1,0 +1,49 @@
+name: calendar-skill-eval
+description: Advisory routing and safe private-calendar behavior for the CSA Workbench calendar skill.
+skill: calendar
+schemaVersion: "1.2"
+version: "1.0.0"
+
+config:
+  trials_per_task: 1
+  timeout_seconds: 300
+  parallel: false
+  workers: 1
+  fail_fast: false
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  inject_skill_body: false
+  required_skills: [calendar]
+  skill_directories:
+    - ../../../../session-container/product-skills/calendar
+
+mcp_mocks:
+  - name: csa
+    tools:
+      list_events:
+        description: List the bound user's private calendar events.
+        input_schema: { type: object, additionalProperties: false }
+        responses: [{ match: {}, return: { status: succeeded, events: [] } }]
+      create_event:
+        description: Create one private calendar event.
+        input_schema:
+          type: object
+          properties: { title: { type: string }, date: { type: string }, start: { type: string }, end: { type: string }, type: { type: string } }
+          required: [title, date]
+          additionalProperties: true
+        responses: [{ match_schema: { type: object, required: [title, date] }, return: { status: committed, resource: { kind: event, id: e-new } } }]
+      update_event:
+        description: Update a private calendar event by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      delete_event:
+        description: Delete a private calendar event by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      create_task:
+        description: Task work is outside this calendar-skill evaluation.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, error: Task actions are outside this skill evaluation. }]
+
+tasks:
+  - tasks/*.yaml

@@ -1,0 +1,16 @@
+id: WAZA-TSK-2-calendar-does-not-trigger
+name: Calendar request does not load task skill
+description: Scheduling an event is not a private task request.
+tags: [advisory, routing, negative]
+inputs:
+  prompt: Schedule a focus block tomorrow at 09:00.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    name: forbids_tasks
+    config: { forbidden_skills: [tasks] }
+  - type: tool_constraint
+    name: no_task_write
+    config:
+      reject_tools: [{ tool: ".*(create_task|update_task|delete_task|add_subtask)$" }]

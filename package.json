@@ -7,7 +7,7 @@
   "scripts": {
     "setup": "uv run --no-sync python -m scripts.workbench setup",
     "dev": "uv run python -m scripts.workbench dev",
-    "test:mvp-evidence": "node --test tests/mvp_evidence.test.mjs tests/mvp_workflow_evidence.test.mjs tests/mvp_scorecard_history.test.mjs tests/eval_showcase.test.mjs",
+    "test:mvp-evidence": "node --test tests/mvp_evidence.test.mjs tests/mvp_workflow_evidence.test.mjs tests/mvp_scorecard_history.test.mjs tests/eval_showcase.test.mjs tests/eval_docs.test.mjs",
     "verify": "uv run python -m scripts.workbench verify",
     "verify:ci": "uv run python -m scripts.workbench verify --skip-bicep --skip-waza",
     "eval:mvp": "uv run python -m scripts.workbench eval mvp",

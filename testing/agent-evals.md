@@ -1,5 +1,9 @@
 # Agent evaluation: how it runs
 
+New to evaluations? Begin with [Input prompt + Expected output](../tests/evals/README.md). This
+page is the engineering reference for the live product runner. For the separate skill laboratory,
+use [the Waza guide](waza-skill-evals.md).
+
 This guide explains the agent-eval pipeline end to end: where the scenarios live, how a run
 executes against the real product, what the deterministic grader checks, and how the same
 evidence is scored by Azure AI Foundry's evaluators as an advisory second opinion.
@@ -45,7 +49,7 @@ code and JSON say *case* (`mvp-cases.json`, `atomicCaseIds`, `evaluateCase`, `MV
 | Scorecard | `scripts/mvp_scorecard.mjs` (+ `mvp_scorecard_history.mjs`) | Aggregates evidence into the product hard gate, Waza lane, and advisory-judge lane |
 | Foundry upload | `scripts/foundry_evidence_rows.py`, `scripts/foundry_eval_upload.py` | Converts evidence to Foundry's agent-message schema and scores it server-side with the built-in agent evaluators |
 | Judge questions | `tests/evals/judge-rubrics.json`, checked by `scripts/mvp_judge.mjs` | The other half of layer 4: per-scenario questions a human answers by hand today (accuracy, leakage, tone), separate from the Foundry lane |
-| Skill laboratory | `python -m scripts.workbench eval waza`, `tests/evals/waza/**` | Separate lane: one skill tested in isolation with mocked product actions (not covered further here) |
+| Skill laboratory | `python -m scripts.workbench eval waza`, `tests/evals/waza/**` | Separate lane: skills tested in isolation with mocked product actions; see [the Waza guide](waza-skill-evals.md) |
 
 ## Test identities
 

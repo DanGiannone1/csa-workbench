@@ -1,0 +1,57 @@
+name: tasks-skill-eval
+description: Advisory routing and safe private-task behavior for the CSA Workbench tasks skill.
+skill: tasks
+schemaVersion: "1.2"
+version: "1.0.0"
+
+config:
+  trials_per_task: 1
+  timeout_seconds: 300
+  parallel: false
+  workers: 1
+  fail_fast: false
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  inject_skill_body: false
+  required_skills: [tasks]
+  skill_directories:
+    - ../../../../session-container/product-skills/tasks
+
+mcp_mocks:
+  - name: csa
+    tools:
+      list_tasks:
+        description: List the bound user's private tasks.
+        input_schema: { type: object, additionalProperties: false }
+        responses:
+          - match: {}
+            return: { status: succeeded, tasks: [{ id: t-1, title: Review proposal, status: To do, priority: Medium, overdue: false }] }
+      create_task:
+        description: Create one private task.
+        input_schema:
+          type: object
+          properties: { title: { type: string }, priority: { type: string } }
+          required: [title]
+          additionalProperties: true
+        responses:
+          - match_schema: { type: object, required: [title] }
+            return: { status: committed, resource: { kind: task, id: t-new } }
+      update_task:
+        description: Update a private task by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      delete_task:
+        description: Delete a private task by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      add_subtask:
+        description: Add a subtask to a private task by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      create_event:
+        description: Calendar work is outside this task-skill evaluation.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, error: Calendar actions are outside this skill evaluation. }]
+
+tasks:
+  - tasks/*.yaml

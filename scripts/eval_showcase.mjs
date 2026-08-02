@@ -379,7 +379,7 @@ function presentationRisks(product, waza, evidenceWarnings = []) {
     if (!waza.sourceClean) risks.push("The displayed Waza evidence was recorded from a dirty worktree and is demonstration-only.");
   }
   risks.push("The product suite is one trial per task; consistency, pass@k, and pass^k are not implemented.");
-  risks.push("Only engagement-meeting-prep has skill-isolation coverage; the other three product skills are not covered by Waza.");
+  risks.push("Tasks, calendar, and weekly-review have advisory Waza suites; only engagement-meeting-prep has recorded gate evidence.");
   risks.push("Product token/cost capture and automated judge calibration are not implemented.");
   return risks;
 }

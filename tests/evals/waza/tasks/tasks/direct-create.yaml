@@ -1,0 +1,17 @@
+id: WAZA-TSK-1-direct-create
+name: Direct private task request
+description: A direct task request loads the task skill and creates one private task.
+tags: [advisory, routing, positive]
+inputs:
+  prompt: Add a High priority task to review the proposal.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    name: invokes_tasks
+    config: { mode: exact_match, required_skills: [tasks], allow_extra: false }
+  - type: tool_constraint
+    name: private_task_only
+    config:
+      expect_tools: [{ tool: ".*create_task$" }]
+      reject_tools: [{ tool: ".*create_event$" }]

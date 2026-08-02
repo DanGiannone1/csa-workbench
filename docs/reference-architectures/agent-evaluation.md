@@ -85,10 +85,12 @@ tool list — a task that fails because a capability is missing is kept and repo
 
 In these terms, the seven atomic cases plus the four-turn workflow in
 [`tests/evals/`](../../tests/evals/) are a small regression+safety suite, covering both the
-Engagement and the personal-work pages. The separate Waza check evaluates only the
-`engagement-meeting-prep` skill's routing and read-only tool constraints through Copilot in a
-isolated test environment — the `tasks`, `calendar`, and `weekly-review` skills have no Waza
-coverage today. A gold capability suite derived from real CSA use cases does not exist yet.
+Engagement and the personal-work pages. The separate Waza laboratory evaluates
+`engagement-meeting-prep` as a recorded gate and has advisory routing suites for `tasks`,
+`calendar`, and `weekly-review`. All run through Copilot with mocked tools in an isolated test
+environment; none is evidence about Deep Agents product-runtime behavior. The three newer suites
+remain advisory until repeated clean-run stability evidence is reviewed. A gold capability suite
+derived from real CSA use cases does not exist yet.
 
 ## The judge, precisely
 
@@ -139,9 +141,9 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 - Four native product skills (`engagement-meeting-prep`, `tasks`, `calendar`, `weekly-review`) are
   versioned and available for progressive disclosure; the current versioned product suite asserts
   no skill routing (skill-routing evidence lives in the Waza lane alone).
-- Waza has an isolated skill-routing check for the `engagement-meeting-prep` skill only; its
-  pass/fail gate covers Copilot laboratory behavior rather than Deep Agents product behavior, and
-  it does not cover the other three skills.
+- Waza has an isolated skill-routing gate for `engagement-meeting-prep` and advisory routing suites
+  for the other three product skills. These cover Copilot laboratory behavior rather than Deep
+  Agents product behavior; promotion requires repeated clean-run stability evidence and review.
 - The checked-in judge rubric now has strict advisory-record validation and scorecard reporting for
   the canonical suite. Automated judging and judge calibration do not exist; records are supplied
   evidence and cannot override deterministic product-runtime or Waza gates.
