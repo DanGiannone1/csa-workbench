@@ -551,6 +551,56 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
     return code, env
 
 
+def test_inventory_verifier_reads_a_large_payload_from_file(tmp_path: Path) -> None:
+    _, inventory = _verifier_fixture()
+    apps = json.loads(inventory['APPS'])
+    apps[0]['padding'] = 'x' * 40_000
+    inventory['APPS'] = json.dumps(apps)
+    payload = tmp_path / 'inventory.json'
+    payload.write_text(json.dumps(inventory), encoding='utf-8')
+    child_env = {
+        name: os.environ[name]
+        for name in ('PATH', 'SYSTEMROOT')
+        if name in os.environ
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'infra' / 'inventory_verifier.py'), str(payload)],
+        cwd=ROOT,
+        env=child_env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert len(inventory['APPS']) > 32_767
+    assert result.returncode == 0, result.stderr
+
+
+def test_inventory_handoff_cleans_its_temp_file_after_verifier_failure() -> None:
+    from infra import deploy
+
+    deployment = object.__new__(deploy.Deployment)
+    inventory = {'APPS': 'x' * 40_000}
+    deployment._inventory = lambda _values: inventory
+    observed_payload: Path | None = None
+
+    def fail(command: list[str], **_kwargs: object) -> None:
+        nonlocal observed_payload
+        observed_payload = Path(command[-1])
+        assert command[:-1] == [sys.executable, 'infra/inventory_verifier.py']
+        assert observed_payload.exists()
+        assert json.loads(observed_payload.read_text(encoding='utf-8')) == inventory
+        raise subprocess.CalledProcessError(1, command)
+
+    deployment.execute = fail
+
+    with pytest.raises(subprocess.CalledProcessError):
+        deployment.verify_inventory({})
+
+    assert observed_payload is not None
+    assert not observed_payload.exists()
+
+
 def test_portable_verifier_accepts_complete_fixture_and_rejects_wiring_roles_and_inventory() -> None:
     code, env = _verifier_fixture()
     assert subprocess.run([sys.executable,'-c',code],env=env,text=True,capture_output=True).returncode == 0
