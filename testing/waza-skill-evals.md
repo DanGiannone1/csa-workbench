@@ -14,7 +14,7 @@ authority for the file format.
 
 ## Setup and authentication
 
-The repository wrapper downloads the pinned Linux or macOS binary, checks its SHA-256 digest, and
+The repository command downloads the pinned Windows, macOS, or Linux binary, checks its SHA-256 digest, and
 stores it under `evidence/mvp/local-synthetic/tools/waza/v0.38.3/`. Do not install an unpinned binary
 over that path.
 

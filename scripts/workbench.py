@@ -132,6 +132,7 @@ def verify(*, skip_bicep: bool, skip_waza: bool) -> int:
     run(["uv", "lock", "--check"])
     run(["uv", "run", "pytest", "-q"])
     run(["npm", "run", "test:mvp-evidence"])
+    run(["npm", "run", "test:design-system"])
     package_scripts = json.loads((ROOT / "package.json").read_text(encoding="utf-8")).get("scripts", {})
     if "eval:waza:validate" in package_scripts:
         run(["npm", "run", "eval:waza:validate"])

@@ -56,7 +56,7 @@ test("semantic React primitives are used by production surfaces", () => {
 
 test("frontend image builds from the repository root without reference assets", () => {
   const dockerfile = read("../frontend/Dockerfile");
-  const deploy = read("../infra/deploy.sh");
+  const deploy = read("../infra/deploy.py");
   const dockerignore = read("../.dockerignore");
   const nextConfig = read("../frontend/next.config.ts");
 
@@ -67,7 +67,7 @@ test("frontend image builds from the repository root without reference assets", 
   assert.doesNotMatch(dockerfile, /COPY design-system\/reference/);
   assert.match(dockerfile, /COPY --from=build --chown=nextjs:nodejs \/app\/frontend\/\.next\/standalone \.\//);
   assert.match(dockerfile, /WORKDIR \/app\/frontend\s+USER nextjs[\s\S]*CMD \["node", "server\.js"\]/);
-  assert.match(deploy, /-f frontend\/Dockerfile \. --build-arg/);
+  assert.match(deploy, /"-f", "frontend\/Dockerfile", "\."/);
   assert.doesNotMatch(dockerignore, /^frontend$/m);
   assert.match(dockerignore, /^design-system\/reference$/m);
   assert.match(nextConfig, /outputFileTracingRoot: path\.resolve\(__dirname, "\.\."\)/);

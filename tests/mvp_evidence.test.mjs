@@ -31,8 +31,8 @@ test("the semantic button uses the primary brand token for sign-in controls", ()
 
 test("the frontend pins the patched Next.js and PostCSS production baseline", () => {
   const manifest = JSON.parse(readFileSync(new URL("../frontend/package.json", import.meta.url), "utf8"));
-  assert.equal(manifest.dependencies.next, "16.2.10");
-  assert.equal(manifest.devDependencies["eslint-config-next"], "16.2.10");
+  assert.equal(manifest.dependencies.next, "16.2.12");
+  assert.equal(manifest.devDependencies["eslint-config-next"], "16.2.12");
   assert.equal(manifest.overrides.next.postcss, "8.5.20");
 });
 

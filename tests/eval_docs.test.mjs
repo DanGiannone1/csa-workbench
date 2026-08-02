@@ -53,10 +53,11 @@ test("Waza advisory suites cover every remaining shipped product skill", () => {
     assert.match(task, /type: skill_invocation/);
     assert.match(task, /type: tool_constraint/);
   }
-  const runner = read("../scripts/waza_eval.sh");
-  assert.match(runner, /for skill in tasks calendar weekly-review/);
-  assert.match(runner, /for skill in engagement-meeting-prep tasks calendar weekly-review/);
-  assert.match(runner, /run_eval advisory/);
+  const runner = read("../scripts/workbench.py");
+  for (const skill of ["engagement-meeting-prep", "tasks", "calendar", "weekly-review"]) {
+    assert.match(runner, new RegExp(`WazaSuite\\("${skill}"`));
+  }
+  assert.match(runner, /suite\.lane == "advisory"/);
 });
 
 test("technical references keep Waza separate from product-runtime evidence", () => {
@@ -65,7 +66,7 @@ test("technical references keep Waza separate from product-runtime evidence", ()
   for (const phrase of [
     "Setup and authentication", "Mocks and task anatomy", "Commands by operating system",
     "Evidence and a worked interpretation", "Repeated trials and promotion", "Linux Bash",
-    "macOS Terminal", "Windows using WSL", "CSA_WAZA_TRIALS=5", "wrapper limitation",
+    "macOS Terminal", "Windows PowerShell", "prefer WSL", "CSA_WAZA_TRIALS=5",
   ]) assert.ok(waza.includes(phrase), `missing Waza guide section or example: ${phrase}`);
   assert.match(waza, /github\.com\/microsoft\/waza\/blob\/v0\.38\.3\/schemas\/eval\.schema\.json/);
   assert.match(waza, /GITHUB_TOKEN/);
@@ -100,5 +101,5 @@ test("the deterministic Waza validator pins official schemas by URL and digest",
   assert.match(validator, /microsoft\/waza\/v0\.38\.3\/schemas\/eval\.schema\.json/);
   assert.match(validator, /microsoft\/waza\/v0\.38\.3\/schemas\/task\.schema\.json/);
   assert.match(validator, /sha256: "[a-f0-9]{64}"/);
-  assert.match(read("../scripts/verify.sh"), /npm run eval:waza:validate/);
+  assert.match(read("../scripts/workbench.py"), /"npm", "run", "eval:waza:validate"/);
 });
