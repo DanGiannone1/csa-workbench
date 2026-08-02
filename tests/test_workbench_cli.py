@@ -66,6 +66,18 @@ def test_what_if_changes_only_the_azure_operation_token(monkeypatch: pytest.Monk
     ]]
 
 
+def test_windows_azure_cli_uses_its_python_in_utf8_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scripts import host_commands
+
+    monkeypatch.setattr(host_commands.os, "name", "nt")
+    monkeypatch.setattr(host_commands.shutil, "which", lambda _name: "C:/AzureCLI/bin/az.cmd")
+    monkeypatch.setattr(host_commands.Path, "is_file", lambda _path: True)
+
+    command = host_commands.command_for_host(["az", "acr", "build"])
+
+    assert command[1:5] == ["-X", "utf8", "-IBm", "azure.cli"]
+
+
 @pytest.mark.parametrize(
     ("machine", "asset"),
     [("AMD64", "waza-windows-amd64.exe"), ("ARM64", "waza-windows-arm64.exe")],

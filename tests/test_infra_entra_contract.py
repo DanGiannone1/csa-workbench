@@ -293,7 +293,7 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
 def test_entra_graph_resolves_the_host_azure_cli(monkeypatch: pytest.MonkeyPatch) -> None:
     observed: list[str] = []
 
-    monkeypatch.setattr(entra.shutil, "which", lambda name: "C:/tools/az.cmd" if name == "az" else None)
+    monkeypatch.setattr(entra, "command_for_host", lambda command: ["C:/tools/az.cmd", *command[1:]])
     monkeypatch.setattr(
         entra.subprocess,
         "run",

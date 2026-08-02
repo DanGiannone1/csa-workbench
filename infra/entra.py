@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import subprocess
 import re
 import sys
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import quote, urlparse
+
+from scripts.host_commands import command_for_host
 
 INSTANCE_SLUG_RE = re.compile(r"^[a-z][a-z0-9]{2,9}$")
 AZURE_CLI_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
@@ -57,10 +58,7 @@ class AzureCliGraph:
     base_url = "https://graph.microsoft.com/v1.0/"
 
     def _run(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        azure_cli = shutil.which("az")
-        if azure_cli is None:
-            raise GraphError("Azure CLI is required")
-        command = [azure_cli, "rest", "--method", method, "--url", self.base_url + path]
+        command = command_for_host(["az", "rest", "--method", method, "--url", self.base_url + path])
         if body is not None:
             command.extend(["--body", json.dumps(body, separators=(",", ":"))])
         completed = subprocess.run(command, check=False, text=True, capture_output=True)

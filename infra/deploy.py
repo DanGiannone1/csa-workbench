@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from infra.governance_nsg import select_governance_nsgs
+from scripts.host_commands import command_for_host
 
 ROOT = Path(__file__).resolve().parent.parent
 MISE_SIDECAR_IMAGE = "mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871adfacf41a46b3ad9e8cf619e59d58b39bf5b00dfe9ff13c1de140dd6"
@@ -24,22 +25,6 @@ MISE_SIDECAR_IMAGE = "mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871ad
 
 class DeploymentError(RuntimeError):
     """A guarded deployment precondition failed."""
-
-
-def _command_for_host(command: Sequence[str]) -> list[str]:
-    values = list(command)
-    if os.name != "nt" or not values:
-        return values
-    shim = Path(shutil.which(values[0]) or values[0])
-    if values[0] == "az" and shim.suffix.lower() in {".cmd", ".bat"}:
-        azure_python = shim.parent.parent / "python.exe"
-        if azure_python.is_file():
-            return [str(azure_python), "-IBm", "azure.cli", *values[1:]]
-    if shim.suffix.lower() in {".cmd", ".bat"}:
-        return [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", subprocess.list2cmdline([str(shim), *values[1:]])]
-    if shim.is_file():
-        values[0] = str(shim)
-    return values
 
 
 def _required(env: Mapping[str, str], name: str) -> str:
@@ -148,7 +133,7 @@ class Deployment:
         capture: bool = False,
         quiet: bool = False,
     ) -> subprocess.CompletedProcess[str]:
-        values = _command_for_host(command)
+        values = command_for_host(command)
         return subprocess.run(
             values, cwd=ROOT, env=self.env, text=True, check=True,
             capture_output=capture,
@@ -505,7 +490,7 @@ class Deployment:
 
 def _azure_output(command: Sequence[str], env: Mapping[str, str]) -> str:
     return subprocess.run(
-        _command_for_host(command), cwd=ROOT, env=dict(env), text=True, check=True,
+        command_for_host(command), cwd=ROOT, env=dict(env), text=True, check=True,
         capture_output=True,
     ).stdout.strip()
 
@@ -555,7 +540,7 @@ def verify_deployment(env: Mapping[str, str] | None = None, *, browser: bool = F
     if shutil.which("az") is None:
         raise DeploymentError("required command not found: az")
     try:
-        subprocess.run(_command_for_host(["az", "account", "show", "--only-show-errors"]), cwd=ROOT, env=source, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(command_for_host(["az", "account", "show", "--only-show-errors"]), cwd=ROOT, env=source, check=True, stdout=subprocess.DEVNULL)
     except subprocess.CalledProcessError as exc:
         raise DeploymentError("sign in with az login before continuing") from exc
 
