@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="ds/styles.css">
+<link rel="stylesheet" href="ds/proto.css">
+</helmet>
+<div class="shell">
+  <nav class="lnav" data-screen-label="Navigation">
+    <div class="brand">
+      <span class="bmark">W</span>
+      <div>
+        <div style="font-weight:600;font-size:14px">CSA Workbench</div>
+        <div class="microcap" style="font-size:10px">Ready</div>
+      </div>
+    </div>
+    <div style="display:grid;gap:2px;margin-top:16px">
+      <button class="nitem {{ navHome }}" onClick="{{ goHome }}">Home</button>
+      <button class="nitem {{ navPortfolio }}" onClick="{{ goPortfolio }}">Engagements<span class="cnt">{{ engCount }}</span></button>
+      <button class="nitem {{ navWork }}" onClick="{{ goWork }}">My Work<span class="cnt">{{ myOpenCount }}</span></button>
+      <button class="nitem {{ navAI }}" onClick="{{ goAI }}">AI Mode</button>
+      <button class="nitem {{ navSettings }}" onClick="{{ goSettings }}">Settings</button>
+    </div>
+    <div style="margin-top:auto;padding-top:20px;display:grid;gap:9px">
+      <button class="btn-2 btn-sm" onClick="{{ toggleTheme }}">{{ themeLabel }}</button>
+      <div style="display:flex;align-items:center;gap:9px;padding:2px">
+        <span class="avatar" style="width:26px;height:26px;font-size:11px">DN</span>
+        <div style="font-weight:600;font-size:12.5px">Dan Novak</div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="maincol">
+    <sc-if value="{{ isHomeDigest }}" hint-placeholder-val="{{ true }}">
+      <div class="page" data-screen-label="Home — daily digest">
+        <div class="microcap">{{ todayLabel }}</div>
+        <h1 style="margin-top:5px">Morning, Dan.</h1>
+        <p style="color:var(--ink-2);margin-top:5px;max-width:62ch">{{ digestLine }}</p>
+        <div class="aggstrip" style="margin-top:20px">
+          <sc-for list="{{ homeAgg }}" as="a" hint-placeholder-count="4">
+            <div class="agg">
+              <span class="agg-v {{ a.cls }}">{{ a.v }}</span>
+              <span class="agg-l">{{ a.l }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ hasProposalWaiting }}" hint-placeholder-val="{{ true }}">
+          <div class="card" style="margin-top:22px;padding:14px 16px;display:flex;gap:14px;align-items:center;border-color:var(--brand-line);background:var(--brand-soft)">
+            <div style="min-width:0">
+              <div class="microcap" style="color:var(--brand)">Waiting on you</div>
+              <div style="font-weight:600;font-size:14px;margin-top:3px">4 updates proposed from last night's launch sync</div>
+              <div style="font-size:12.5px;color:var(--ink-2)">launch-sync-2026-07-31.vtt · Website Launch · nothing written yet</div>
+            </div>
+            <button class="btn" style="margin-left:auto;flex-shrink:0" onClick="{{ reviewProposal }}">Review</button>
+          </div>
+        </sc-if>
+
+        <div style="margin-top:26px">
+          <div class="microcap" style="margin-bottom:4px">Needs attention</div>
+          <sc-for list="{{ attention }}" as="a" hint-placeholder-count="4">
+            <button class="rowbtn attnrow" onClick="{{ a.onOpen }}">
+              <span class="dot {{ a.dotCls }}" style="margin-top:5px"></span>
+              <span style="min-width:0;display:block">
+                <span style="font-weight:600;font-size:14px">{{ a.name }}</span>
+                <span style="color:var(--ink-3);font-size:12.5px;margin-left:7px">{{ a.customer }}</span>
+                <span style="display:block;font-size:13px;color:var(--ink-2);margin-top:2px;max-width:58ch">{{ a.why }}</span>
+              </span>
+              <span style="text-align:right;font-size:12.5px;color:var(--ink-3);white-space:nowrap">{{ a.meta }}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;margin-top:30px">
+          <div>
+            <div class="microcap" style="margin-bottom:7px">Today</div>
+            <sc-for list="{{ schedule }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;gap:12px;align-items:baseline;padding:7px 0;border-bottom:1px solid var(--line)">
+                <span style="font:600 12px/1.4 var(--font-mono);color:var(--ink-3);width:44px;flex:none">{{ s.time }}</span>
+                <span style="min-width:0">
+                  <span style="font-size:13.5px;font-weight:600">{{ s.title }}</span>
+                  <span style="display:block;font-size:12px;color:var(--ink-3)">{{ s.meta }}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+          <div>
+            <div class="microcap" style="margin-bottom:7px">Your tasks</div>
+            <sc-for list="{{ homeTasks }}" as="t" hint-placeholder-count="3">
+              <div class="taskrow">
+                <button class="check {{ t.checkCls }}" onClick="{{ t.onToggle }}">{{ t.mark }}</button>
+                <span style="min-width:0">
+                  <span style="font-size:13.5px" class="{{ t.titleCls }}">{{ t.title }}</span>
+                  <span style="display:block;font-size:12px;color:var(--ink-3)">{{ t.where }}</span>
+                </span>
+                <span class="{{ t.dueCls }}" style="font-size:12px;white-space:nowrap">{{ t.due }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHomeChat }}" hint-placeholder-val="{{ false }}">
+      <div style="height:100%;display:flex;flex-direction:column;min-height:0" data-screen-label="Home — assistant first">
+        <div style="max-width:760px;width:100%;margin:0 auto;padding:34px 24px 6px;flex:none">
+          <div class="microcap">{{ todayLabel }}</div>
+          <h1 style="margin-top:5px">Morning, Dan.</h1>
+          <p style="color:var(--ink-2);margin-top:5px">{{ digestLine }} Ask, or drop a transcript — the record is one apply away.</p>
+        </div>
+        <div class="chatmount" style="max-width:760px;width:100%;margin:0 auto">
+          <dc-import name="WorkbenchChat" messages="{{ chatMsgs }}" inflight="{{ inflight }}" suggestions="{{ suggestions }}" onSend="{{ send }}" onAttach="{{ attach }}" style="flex:1;min-height:0;height:100%" hint-size="100%,100%"></dc-import>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPortfolio }}" hint-placeholder-val="{{ false }}">
+      <div class="page" data-screen-label="Engagements">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+          <div>
+            <h1>Engagements</h1>
+            <p style="color:var(--ink-2);margin-top:4px">Shared delivery records — status, decisions and tasks in one place.</p>
+          </div>
+          <button class="btn" style="flex-shrink:0" onClick="{{ openNew }}">+ New engagement</button>
+        </div>
+        <div class="aggstrip" style="margin-top:20px">
+          <sc-for list="{{ pfAgg }}" as="a" hint-placeholder-count="4">
+            <div class="agg">
+              <span class="agg-v {{ a.cls }}">{{ a.v }}</span>
+              <span class="agg-l">{{ a.l }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:22px">
+          <sc-for list="{{ pfRows }}" as="r" hint-placeholder-count="6">
+            <button class="rowbtn pf-row" onClick="{{ r.onOpen }}">
+              <span class="dot {{ r.dotCls }}" style="margin-top:5px"></span>
+              <span style="min-width:0;display:block">
+                <span class="pf-name">{{ r.name }}</span><span class="pf-cust">{{ r.customer }}</span>
+                <span class="pf-why" style="display:block">{{ r.why }}</span>
+              </span>
+              <span class="pf-right">{{ r.right }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEng }}" hint-placeholder-val="{{ false }}">
+      <div class="page" data-screen-label="Engagement">
+        <button class="btn-ghost btn-sm" style="margin:0 0 10px -8px" onClick="{{ goPortfolio }}">← All engagements</button>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:18px">
+          <div style="min-width:0">
+            <h1>{{ eng.name }}</h1>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
+              <span style="font-size:13.5px;color:var(--ink-2)">{{ eng.customer }}</span>
+              <span class="status-word"><span class="dot {{ eng.dotCls }}"></span>{{ eng.statusWord }}</span>
+              <span class="tag">{{ eng.valueLabel }}</span>
+            </div>
+          </div>
+          <button class="btn-2 btn-sm" style="flex-shrink:0" onClick="{{ askAboutEng }}">Ask assistant</button>
+        </div>
+        <div class="tabs" style="margin-top:20px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button class="tab {{ t.cls }}" onClick="{{ t.onClick }}">{{ t.label }}<span class="n">{{ t.n }}</span></button>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ tabOverview }}" hint-placeholder-val="{{ true }}">
+          <div class="ebody">
+            <div>
+              <div style="margin-bottom:22px">
+                <div class="microcap">What this is</div>
+                <p style="font-size:14px;line-height:1.55;margin-top:5px;max-width:62ch">{{ eng.description }}</p>
+                <sc-if value="{{ eng.hasBusinessValue }}" hint-placeholder-val="{{ true }}">
+                  <p style="font-size:13.5px;line-height:1.55;color:var(--ink-2);margin-top:6px;max-width:62ch">{{ eng.businessValue }}</p>
+                </sc-if>
+              </div>
+              <div class="microcap">Where it stands · {{ eng.stateDate }}</div>
+              <p style="font-size:14.5px;line-height:1.6;margin-top:6px;max-width:62ch">{{ eng.currentState }}</p>
+              <sc-if value="{{ eng.hasAttn }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:24px">
+                  <div class="microcap" style="margin-bottom:4px">Needs attention</div>
+                  <sc-for list="{{ eng.attn }}" as="a" hint-placeholder-count="2">
+                    <div class="attn-item">
+                      <span class="dot {{ a.dotCls }}"></span>
+                      <span style="min-width:0">{{ a.text }}</span>
+                      <span class="amt" style="margin-left:auto;white-space:nowrap">{{ a.meta }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-if>
+              <div style="margin-top:26px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between">
+                  <div class="microcap">Recent activity</div>
+                  <button class="btn-ghost btn-sm" onClick="{{ goTimeline }}">Full timeline →</button>
+                </div>
+                <div style="margin-top:4px">
+                  <sc-for list="{{ eng.recent }}" as="e" hint-placeholder-count="3">
+                    <div class="entry">
+                      <span class="mark {{ e.markCls }}"></span>
+                      <div style="min-width:0">
+                        <div class="e-top">
+                          <span class="e-title">{{ e.title }}</span>
+                          <span class="e-type {{ e.typeCls }}">{{ e.type }}</span>
+                          <span class="e-date">{{ e.date }}</span>
+                        </div>
+                        <div class="e-body">{{ e.summary }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div class="rail-r">
+              <section>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                  <span class="microcap">Objectives</span>
+                  <button class="btn-ghost btn-sm" style="padding:0" onClick="{{ toggleAddObj }}">{{ objAddLabel }}</button>
+                </div>
+                <sc-for list="{{ eng.objectives }}" as="o" hint-placeholder-count="2">
+                  <div class="obj">{{ o.text }}</div>
+                </sc-for>
+                <sc-if value="{{ objAdding }}" hint-placeholder-val="{{ false }}">
+                  <input class="input" style="margin-top:7px" placeholder="What does good look like?" value="{{ objDraft }}" onChange="{{ onObjDraft }}" onKeyDown="{{ onObjKey }}">
+                </sc-if>
+              </section>
+              <section>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                  <span class="microcap">Key dates</span>
+                  <button class="btn-ghost btn-sm" style="padding:0" onClick="{{ toggleAddKd }}">{{ kdAddLabel }}</button>
+                </div>
+                <sc-for list="{{ eng.keyDates }}" as="k" hint-placeholder-count="3">
+                  <button class="rowbtn kd {{ k.cls }}" onClick="{{ k.onToggle }}" title="Mark done">
+                    <span class="kd-date">{{ k.date }}</span>
+                    <span class="kd-t">{{ k.label }}</span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ kdAdding }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:6px;margin-top:7px">
+                    <input class="input" style="width:74px;flex:none" placeholder="Sep 15" value="{{ kdDate }}" onChange="{{ onKdDate }}" onKeyDown="{{ onKdKey }}">
+                    <input class="input" placeholder="Milestone" value="{{ kdLabel }}" onChange="{{ onKdLabel }}" onKeyDown="{{ onKdKey }}">
+                  </div>
+                </sc-if>
+              </section>
+              <section>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+                  <span class="microcap">Customer</span>
+                  <button class="btn-ghost btn-sm" style="padding:0" onClick="{{ toggleAddContact }}">{{ contactAddLabel }}</button>
+                </div>
+                <sc-for list="{{ eng.customerPeople }}" as="c" hint-placeholder-count="2">
+                  <div class="contact">
+                    <span class="avatar" style="width:24px;height:24px;font-size:10px;background:var(--surface-2);color:var(--ink-2)">{{ c.initials }}</span>
+                    <span><span class="c-n">{{ c.name }}</span><span class="c-r" style="display:block">{{ c.role }}</span></span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ eng.noContacts }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:12.5px;color:var(--ink-3)">No customer contacts yet.</div>
+                </sc-if>
+                <sc-if value="{{ contactAdding }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:6px;margin-top:7px">
+                    <input class="input" placeholder="Name" value="{{ contactName }}" onChange="{{ onContactName }}" onKeyDown="{{ onContactKey }}">
+                    <input class="input" placeholder="Their role, e.g. Digital sponsor" value="{{ contactRole }}" onChange="{{ onContactRole }}" onKeyDown="{{ onContactKey }}">
+                  </div>
+                </sc-if>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 5px">
+                  <span class="microcap">Our team</span>
+                  <button class="btn-ghost btn-sm" style="padding:0" onClick="{{ toggleAddTeam }}">{{ teamAddLabel }}</button>
+                </div>
+                <sc-for list="{{ eng.teamPeople }}" as="c" hint-placeholder-count="2">
+                  <div class="contact">
+                    <span class="avatar" style="width:24px;height:24px;font-size:10px">{{ c.initials }}</span>
+                    <span><span class="c-n">{{ c.name }}</span><span class="c-r" style="display:block">{{ c.role }}</span></span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ teamAdding }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:grid;gap:6px;margin-top:7px">
+                    <input class="input" placeholder="Name" value="{{ teamName }}" onChange="{{ onTeamName }}" onKeyDown="{{ onTeamKey }}">
+                    <input class="input" placeholder="Role, e.g. CSA" value="{{ teamRole }}" onChange="{{ onTeamRole }}" onKeyDown="{{ onTeamKey }}">
+                  </div>
+                </sc-if>
+              </section>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabTimeline }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:22px;max-width:680px">
+            <div style="display:flex;gap:7px;margin-bottom:14px">
+              <input class="input" placeholder="Log a note, decision or risk…" value="{{ noteDraft }}" onChange="{{ onNoteDraft }}" onKeyDown="{{ onNoteKey }}">
+              <button class="btn-2 btn-sm" style="flex-shrink:0" onClick="{{ addNote }}">Add note</button>
+            </div>
+            <sc-for list="{{ eng.months }}" as="mo" hint-placeholder-count="2">
+              <div style="margin-bottom:20px">
+                <div class="microcap" style="margin-bottom:4px">{{ mo.month }}</div>
+                <sc-for list="{{ mo.entries }}" as="e" hint-placeholder-count="3">
+                  <div class="entry">
+                    <span class="mark {{ e.markCls }}"></span>
+                    <div style="min-width:0">
+                      <div class="e-top">
+                        <span class="e-title">{{ e.title }}</span>
+                        <span class="e-type {{ e.typeCls }}">{{ e.type }}</span>
+                        <span class="e-date">{{ e.date }}</span>
+                      </div>
+                      <div class="e-body">{{ e.summary }}</div>
+                      <sc-if value="{{ e.hasBullets }}" hint-placeholder-val="{{ false }}">
+                        <ul class="e-body" style="margin-top:4px;padding-left:16px">
+                          <sc-for list="{{ e.bullets }}" as="b" hint-placeholder-count="2">
+                            <li>{{ b.text }}</li>
+                          </sc-for>
+                        </ul>
+                      </sc-if>
+                      <div style="font-size:11.5px;color:var(--ink-3);margin-top:5px">{{ e.byline }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabTasks }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:22px;max-width:680px">
+            <div style="display:flex;gap:7px;margin-bottom:12px">
+              <input class="input" placeholder="Add a shared task…" value="{{ taskDraft }}" onChange="{{ onTaskDraft }}" onKeyDown="{{ onTaskKey }}">
+              <button class="btn-2 btn-sm" style="flex-shrink:0" onClick="{{ addTask }}">Add task</button>
+            </div>
+            <sc-for list="{{ eng.taskRows }}" as="t" hint-placeholder-count="4">
+              <div class="taskrow">
+                <button class="check {{ t.checkCls }}" onClick="{{ t.onToggle }}">{{ t.mark }}</button>
+                <span style="min-width:0">
+                  <span class="{{ t.titleCls }}" style="font-size:13.5px">{{ t.title }}</span>
+                  <span class="tag" style="margin-left:8px">{{ t.assignee }}</span>
+                </span>
+                <span style="white-space:nowrap;font-size:12px" class="{{ t.dueCls }}">{{ t.dueLabel }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ tabDocs }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:22px;max-width:680px">
+            <sc-if value="{{ docOpen }}" hint-placeholder-val="{{ false }}">
+              <div class="card" style="padding:16px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="doc-ic">MD</span>
+                  <div style="min-width:0">
+                    <div style="font-weight:600;font-size:14px">{{ doc.name }}</div>
+                    <div style="font-size:11.5px;color:var(--ink-3)">{{ doc.meta }}</div>
+                  </div>
+                  <span style="margin-left:auto" class="saving">{{ docSaveState }}</span>
+                </div>
+                <textarea class="input" style="margin-top:12px;min-height:220px;font:13px/1.6 var(--font-mono);resize:vertical" value="{{ docDraft }}" onChange="{{ onDocDraft }}"></textarea>
+                <div style="display:flex;gap:7px;margin-top:11px">
+                  <button class="btn btn-sm" onClick="{{ saveDoc }}">Save</button>
+                  <button class="btn-2 btn-sm" onClick="{{ closeDoc }}">Close</button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ docList }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <sc-for list="{{ eng.docSections }}" as="sec" hint-placeholder-count="3">
+                  <div style="margin-bottom:26px">
+                    <div style="display:flex;align-items:baseline;gap:9px;margin-bottom:2px">
+                      <span class="microcap">{{ sec.label }}</span>
+                      <span style="font-size:12px;color:var(--ink-3)">{{ sec.help }}</span>
+                    </div>
+                    <sc-for list="{{ sec.rows }}" as="d" hint-placeholder-count="2">
+                      <div class="docrow">
+                        <span class="doc-ic">{{ d.ext }}</span>
+                        <span style="min-width:0">
+                          <span style="font-weight:600;font-size:13.5px">{{ d.name }}</span>
+                          <span style="display:block;font-size:12px;color:var(--ink-3)">{{ d.meta }}</span>
+                        </span>
+                        <span style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+                          <sc-if value="{{ d.canPromote }}" hint-placeholder-val="{{ false }}">
+                            <button class="btn-ghost btn-sm" onClick="{{ d.onPromote }}">Promote to gold</button>
+                          </sc-if>
+                          <sc-if value="{{ d.canOpen }}" hint-placeholder-val="{{ true }}">
+                            <button class="btn-2 btn-sm" onClick="{{ d.onOpen }}">Open</button>
+                          </sc-if>
+                          <sc-if value="{{ d.isSource }}" hint-placeholder-val="{{ false }}">
+                            <span style="font-size:11.5px;color:var(--ink-3)">{{ d.linked }}</span>
+                          </sc-if>
+                        </span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ sec.empty }}" hint-placeholder-val="{{ false }}">
+                      <div style="font-size:12.5px;color:var(--ink-3);padding:9px 2px">{{ sec.emptyText }}</div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+                <button class="btn-2 btn-sm" onClick="{{ attach }}">Upload a file</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+      <div class="page" data-screen-label="My Work">
+        <h1>My Work</h1>
+        <p style="color:var(--ink-2);margin-top:4px">Everything assigned to you, across every engagement — plus your own list.</p>
+        <div style="margin-top:24px">
+          <div class="microcap" style="margin-bottom:4px">Assigned to me</div>
+          <sc-for list="{{ workAssigned }}" as="t" hint-placeholder-count="4">
+            <div class="taskrow">
+              <button class="check {{ t.checkCls }}" onClick="{{ t.onToggle }}">{{ t.mark }}</button>
+              <span style="min-width:0">
+                <span class="{{ t.titleCls }}" style="font-size:13.5px">{{ t.title }}</span>
+                <button class="btn-ghost btn-sm" style="padding:0 0 0 8px;font-size:12px" onClick="{{ t.onOpen }}">{{ t.where }}</button>
+              </span>
+              <span style="white-space:nowrap;font-size:12px" class="{{ t.dueCls }}">{{ t.dueLabel }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;margin-top:30px">
+          <div>
+            <div class="microcap" style="margin-bottom:4px">My list</div>
+            <sc-for list="{{ personalTasks }}" as="t" hint-placeholder-count="3">
+              <div class="taskrow">
+                <button class="check {{ t.checkCls }}" onClick="{{ t.onToggle }}">{{ t.mark }}</button>
+                <span class="{{ t.titleCls }}" style="font-size:13.5px;min-width:0">{{ t.title }}</span>
+                <span style="white-space:nowrap;font-size:12px" class="{{ t.dueCls }}">{{ t.dueLabel }}</span>
+              </div>
+            </sc-for>
+            <div style="display:flex;gap:7px;margin-top:11px">
+              <input class="input" placeholder="Add to my list…" value="{{ myDraft }}" onChange="{{ onMyDraft }}" onKeyDown="{{ onMyKey }}">
+              <button class="btn-2 btn-sm" style="flex-shrink:0" onClick="{{ addMyTask }}">Add</button>
+            </div>
+          </div>
+          <div>
+            <div class="microcap" style="margin-bottom:4px">Next two weeks</div>
+            <sc-for list="{{ upcoming }}" as="u" hint-placeholder-count="4">
+              <div class="kd {{ u.cls }}" style="padding:6px 0;border-bottom:1px solid var(--line)">
+                <span class="kd-date">{{ u.date }}</span>
+                <span style="min-width:0">
+                  <span class="kd-t">{{ u.label }}</span>
+                  <span style="display:block;font-size:11.5px;color:var(--ink-3)">{{ u.where }}</span>
+                </span>
+              </div>
+            </sc-for>
+            <div class="microcap" style="margin:22px 0 4px">Reminders</div>
+            <sc-for list="{{ reminders }}" as="r" hint-placeholder-count="2">
+              <div style="font-size:13px;color:var(--ink-2);padding:5px 0;display:flex;gap:9px">
+                <span style="color:var(--ink-3)">◇</span>
+                <span>{{ r.text }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div class="page" data-screen-label="Settings">
+        <h1>Settings</h1>
+        <div style="margin-top:24px;max-width:620px">
+          <div class="microcap" style="margin-bottom:8px">Assistant</div>
+          <sc-for list="{{ prefs }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex;gap:16px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--line)">
+              <div style="min-width:0">
+                <div style="font-weight:600;font-size:13.5px">{{ p.label }}</div>
+                <div style="font-size:12.5px;color:var(--ink-2);margin-top:1px">{{ p.help }}</div>
+              </div>
+              <button class="{{ p.btnCls }}" style="margin-left:auto;flex-shrink:0;min-width:56px" onClick="{{ p.onToggle }}">{{ p.state }}</button>
+            </div>
+          </sc-for>
+          <div class="microcap" style="margin:26px 0 8px">Appearance</div>
+          <div style="display:flex;gap:9px;align-items:center">
+            <sc-for list="{{ palettes }}" as="p" hint-placeholder-count="4">
+              <button title="{{ p.label }}" onClick="{{ p.onPick }}" class="{{ p.cls }}" style="width:26px;height:26px;border-radius:7px;cursor:pointer;background:{{ p.color }}"></button>
+            </sc-for>
+            <button class="btn-2 btn-sm" style="margin-left:8px" onClick="{{ toggleTheme }}">{{ themeLabel }}</button>
+          </div>
+          <div class="microcap" style="margin:26px 0 8px">Account</div>
+          <div style="font-size:13px;color:var(--ink-2)">Dan Novak · signed in with Entra · CSA, Western Europe</div>
+          <div style="font-size:12.5px;color:var(--ink-3);margin-top:6px">The assistant runs with your permissions. It can read what you can read, and it can only write through an apply you press.</div>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+
+  <sc-if value="{{ railOpen }}" hint-placeholder-val="{{ true }}">
+    <div class="airail" data-screen-label="Assistant rail">
+      <div class="aihead">
+        <span style="color:var(--brand);font-size:14px">✦</span>
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:13.5px">Assistant</div>
+          <div style="font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ ctxLabel }}</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:4px;position:relative">
+          <button class="btn-2 btn-sm" onClick="{{ toggleSessions }}" title="Session history">⟳</button>
+          <button class="btn-2 btn-sm" onClick="{{ newSession }}">New</button>
+          <button class="btn-2 btn-sm" title="Expand to AI Mode" onClick="{{ goAI }}">⤢</button>
+          <button class="btn-2 btn-sm" title="Hide" onClick="{{ hideRail }}">×</button>
+          <sc-if value="{{ sessionMenu }}" hint-placeholder-val="{{ false }}">
+            <div class="card fadein" style="position:absolute;top:32px;right:0;width:250px;z-index:20;padding:6px">
+              <div class="microcap" style="padding:5px 8px">Recent sessions</div>
+              <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+                <button class="rowbtn {{ s.cls }}" style="padding:7px 8px;border-radius:8px" onClick="{{ s.onPick }}">
+                  <span style="font-size:12.5px;font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ s.title }}</span>
+                  <span style="font-size:11px;color:var(--ink-3)">{{ s.when }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div class="chatmount">
+        <dc-import name="WorkbenchChat" messages="{{ chatMsgs }}" inflight="{{ inflight }}" suggestions="{{ suggestions }}" onSend="{{ send }}" onAttach="{{ attach }}" style="flex:1;min-height:0;height:100%" hint-size="100%,100%"></dc-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ railClosed }}" hint-placeholder-val="{{ false }}">
+    <button class="fab" title="Open assistant" onClick="{{ showRail }}">✦</button>
+  </sc-if>
+
+  <sc-if value="{{ aiFull }}" hint-placeholder-val="{{ false }}">
+    <div class="aimode" data-screen-label="AI Mode">
+      <div class="aihead" style="background:var(--surface)">
+        <span style="color:var(--brand);font-size:15px">✦</span>
+        <span style="font-family:var(--font-display);font-weight:700;font-size:15px">AI Mode</span>
+        <span class="tag">{{ ctxLabel }}</span>
+        <button class="btn-2 btn-sm" style="margin-left:auto" onClick="{{ exitAI }}">⤡ Back to workspace</button>
+      </div>
+      <div class="chatmount" style="max-width:820px;width:100%;margin:0 auto">
+        <dc-import name="WorkbenchChat" messages="{{ chatMsgs }}" inflight="{{ inflight }}" suggestions="{{ suggestions }}" onSend="{{ send }}" onAttach="{{ attach }}" style="flex:1;min-height:0;height:100%" hint-size="100%,100%"></dc-import>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+    <div class="backdrop">
+      <div class="modal fadein" style="padding:20px" data-screen-label="New engagement dialog">
+        <h2>New engagement</h2>
+        <p style="font-size:13px;color:var(--ink-2);margin:4px 0 16px">Start the record now — upload a file and the assistant will propose the rest.</p>
+        <label class="field"><span>Engagement name</span>
+          <input class="input" placeholder="e.g. Fabric Adoption Program" value="{{ nf.name }}" onChange="{{ onNfName }}">
+        </label>
+        <label class="field"><span>Customer</span>
+          <input class="input" placeholder="e.g. Litware Inc" value="{{ nf.customer }}" onChange="{{ onNfCustomer }}">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <label class="field"><span>Value (USD)</span>
+            <input class="input" placeholder="150000" value="{{ nf.value }}" onChange="{{ onNfValue }}">
+          </label>
+          <label class="field"><span>Target milestone</span>
+            <input class="input" placeholder="Nov 30" value="{{ nf.target }}" onChange="{{ onNfTarget }}">
+          </label>
+        </div>
+        <label class="field"><span>What this is</span>
+          <input class="input" placeholder="One line: what the work is" value="{{ nf.description }}" onChange="{{ onNfDescription }}">
+        </label>
+        <label class="field"><span>Why it matters to the customer</span>
+          <input class="input" placeholder="The business outcome behind it" value="{{ nf.businessValue }}" onChange="{{ onNfBusinessValue }}">
+        </label>
+        <label class="field"><span>First objective</span>
+          <input class="input" placeholder="What does good look like?" value="{{ nf.objective }}" onChange="{{ onNfObjective }}">
+        </label>
+        <div style="display:flex;justify-content:flex-end;gap:7px;margin-top:8px">
+          <button class="btn-2 btn-sm" onClick="{{ closeDialog }}">Cancel</button>
+          <button class="btn btn-sm" onClick="{{ createEng }}">{{ createLabel }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div class="toast">{{ toast }}</div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;portfolio&quot;,&quot;work&quot;,&quot;settings&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;assistantFirst&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;showToolCalls&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;palette&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;clay&quot;,&quot;ink&quot;,&quot;harbor&quot;,&quot;oxide&quot;],&quot;default&quot;:&quot;ink&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Appearance&quot;}}">
+class Component extends DCLogic {
+  static seed() {
+    return [
+      { id: 'contoso', name: 'Website Launch', customer: 'Contoso Retail', value: 180000, status: 'yellow', role: 'Owner',
+        why: "CDN renewal is still unsigned; launch is at risk if it isn't resolved by Aug 1. Go-live locked for Sep 15.",
+        description: "Marketing site refresh and launch for Contoso Retail's fall campaign.",
+        currentState: 'Everything hinges on the CDN renewal: legal expects the countersignature by Aug 1, and go-live is locked for Sep 15 with a compressed five-day UAT. CMS migration finished Jul 28. Both overdue tasks sit on the renewal path — chase procurement first.',
+        stateDate: 'Jul 31',
+        objectives: ['Launch the refreshed site before the fall campaign.', 'Cut page-load p95 under 2 seconds on the new CDN.'],
+        keyDates: [{ date: 'Jul 1', label: 'Design sign-off', done: true }, { date: 'Aug 1', label: 'CDN renewal signed', next: true }, { date: 'Aug 18', label: 'Content freeze' }, { date: 'Sep 15', label: 'Go-live' }],
+        contacts: [{ name: 'Priya Raman', role: 'Digital sponsor' }, { name: 'Marcus Webb', role: 'Lead web architect' }],
+        businessValue: 'The fall campaign runs on this site — a slipped launch costs Contoso the campaign window, not just the date.',
+        team: [{ name: 'Dan Novak', role: 'CSA · lead' }, { name: 'Sofia Chen', role: 'CSA' }],
+        conventions: 'Weekly sync Tuesdays 10:00 CET. Status updated after every customer call. Decisions logged same-day.',
+        tasks: [
+          { id: 't1', title: 'Chase CDN procurement contact', assignee: 'Dan', due: 'Jul 14', done: false, overdue: true },
+          { id: 't2', title: 'Publish cutover runbook v2', assignee: 'Sofia', due: 'Jul 21', done: false, overdue: true },
+          { id: 't3', title: 'Confirm UAT test accounts', assignee: 'Sofia', due: 'Aug 6', done: false },
+          { id: 't4', title: 'Draft rollback plan', assignee: 'Dan', due: 'Aug 12', done: false },
+          { id: 't5', title: 'Schedule launch readiness review', assignee: 'Dan', due: 'Jul 2', done: true }],
+        docs: [
+          { id: 'd1', name: 'engagement-plan.md', tier: 'gold', updated: 'Jul 21', by: 'Dan', body: 'Phase 1 — CMS migration (done Jul 28).\nPhase 2 — CDN cutover, blocked on renewal.\nPhase 3 — UAT (compressed to 5 days) then go-live Sep 15.' },
+          { id: 'd2', name: 'edge-architecture.md', updated: 'Jul 15', by: 'Sofia', body: 'Front Door premium, origin in AKS (westeurope). Edge rules in repo /infra.\n\nOpen question: image optimization at edge vs origin.' },
+          { id: 'd3', name: 'cutover-runbook.md', updated: 'Jul 8', by: 'Sofia', body: 'v1 — cutover in 6 steps, rollback at each gate. v2 pending CDN renewal outcome.' }],
+        sources: [{ name: 'launch-sync-2026-07-29.vtt', kind: 'transcript', date: 'Jul 29', linked: '3 entries' }, { name: 'contoso-brand-guidelines.pdf', kind: 'client material', date: 'Jun 20', linked: '—' }],
+        timeline: [
+          { id: 'e1', type: 'meeting', title: 'Website Launch sync', date: 'Jul 29', month: 'July 2026', author: 'Dan', source: 'launch-sync-2026-07-29.vtt', bullets: ['CMS migration complete as of Jul 28', 'Go-live locked for Sep 15 (Contoso decision)', 'CDN renewal unsigned: must be done by Aug 1 or launch at risk'] },
+          { id: 'e2', type: 'risk', title: 'CDN contract renewal unsigned', date: 'Jul 10', month: 'July 2026', author: 'Dan', body: 'Procurement has not countersigned the CDN renewal; without it the new edge config cannot go live. Mitigation: legal review escalated.' },
+          { id: 'e3', type: 'decision', title: 'Keep the launch date, compress UAT', date: 'Jul 8', month: 'July 2026', author: 'Dan', body: 'Contoso prefers holding the launch window and shortening UAT to five days over slipping the campaign.' },
+          { id: 'e4', type: 'meeting', title: 'Launch readiness review', date: 'Jul 8', month: 'July 2026', author: 'Dan', body: 'Walked the cutover plan with Priya and Marcus. Content freeze moves to Jul 18.' }] },
+      { id: 'northwind', name: 'Data Platform Migration', customer: 'Northwind Traders', value: 520000, status: 'red', role: 'Editor',
+        why: 'Security review rejected the landing-zone design; migration is halted until a remediation plan is approved.',
+        description: 'Synapse-to-Fabric migration of the group data platform, 14 workloads.',
+        currentState: 'Migration is halted: the landing zone failed central security review on public storage endpoints and a missing customer-managed key. The remediation plan (leaning option A — private endpoints, +3 weeks) is due Aug 8 and the draft is already overdue. Re-review is possible within two weeks of submission.',
+        stateDate: 'Jul 31',
+        objectives: ['Migrate all 14 workloads with zero data loss.', 'Pass central security review before any production cutover.'],
+        keyDates: [{ date: 'Jul 25', label: 'Security review', done: true }, { date: 'Aug 8', label: 'Remediation plan due', next: true }, { date: 'Nov 15', label: 'First workload live' }],
+        contacts: [{ name: 'Jonas Weber', role: 'Head of data' }, { name: 'Amara Diallo', role: 'CISO office' }],
+        businessValue: 'Retires the legacy platform and unblocks group-wide analytics; every downstream workload waits on it.',
+        team: [{ name: 'Sofia Chen', role: 'CSA · lead' }, { name: 'Dan Novak', role: 'CSA' }],
+        conventions: 'All security findings tracked in the timeline as risks.',
+        tasks: [
+          { id: 'nw1', title: 'Draft landing-zone remediation plan', assignee: 'Dan', due: 'Jul 28', done: false, overdue: true },
+          { id: 'nw2', title: 'Book follow-up with CISO office', assignee: 'Sofia', due: 'Aug 4', done: false }],
+        docs: [
+          { id: 'nd1', name: 'landing-zone-design.md', tier: 'gold', updated: 'Jul 2', by: 'Dan', body: 'v3 — hub-spoke, shared services in hub. Failed review Jul 25: public endpoints, missing CMK.' },
+          { id: 'nd2', name: 'remediation-options.md', updated: 'Jul 28', by: 'Dan', body: 'Option A: private endpoints everywhere (+3 wks).\nOption B: hub-spoke redesign (+6 wks, cleaner).\nLeaning A for schedule.' }],
+        sources: [{ name: 'security-review-findings.pdf', kind: 'client material', date: 'Jul 25', linked: '1 risk' }],
+        timeline: [
+          { id: 'ne1', type: 'risk', title: 'Landing zone failed security review', date: 'Jul 25', month: 'July 2026', author: 'Sofia', body: 'Findings: public endpoints on storage, missing CMK on two workspaces. Remediation plan due Aug 8; migration halted meanwhile.' },
+          { id: 'ne2', type: 'meeting', title: 'Security review readout', date: 'Jul 25', month: 'July 2026', author: 'Sofia', body: 'Walked findings with Amara. Tone constructive; re-review possible within two weeks of plan submission.' }] },
+      { id: 'adventure', name: 'AI Landing Zone', customer: 'Adventure Works', value: 95000, status: 'yellow', role: 'Viewer',
+        why: 'Waiting on Adventure Works to name a data steward — the governance workshop cannot be scheduled without one.',
+        description: 'Foundation for Azure OpenAI workloads: networking, governance and a first RAG pattern.',
+        currentState: "Technically ready to start; blocked on the customer side. Two follow-ups sent since Jul 17 with no named data steward, so the governance workshop is unscheduled. You're a viewer here — Marcus owns it.",
+        stateDate: 'Jul 30',
+        objectives: ['Stand up a governed landing zone for AI workloads by end of Q1.'],
+        keyDates: [{ date: 'Jul 17', label: 'Kickoff', done: true }, { date: 'Aug 12', label: 'Governance workshop', next: true }],
+        contacts: [{ name: 'Lena Fischer', role: 'Enterprise architect' }],
+        businessValue: 'Nothing AI-related ships at Adventure Works until a governed foundation exists — this is the gate.',
+        team: [{ name: 'Marcus Lee', role: 'CSA · lead' }, { name: 'Dan Novak', role: 'CSA' }],
+        conventions: 'Customer prefers email over Teams. Fortnightly checkpoint.',
+        tasks: [{ id: 'aw1', title: 'Nudge Lena on data steward nomination', assignee: 'Marcus', due: 'Aug 1', done: false }],
+        docs: [{ id: 'ad1', name: 'governance-checklist.md', updated: 'Jul 18', by: 'Marcus', body: 'Data classification, retention, purview scan schedule, human-review policy for generative outputs.' }],
+        sources: [{ name: 'kickoff-2026-07-17.vtt', kind: 'transcript', date: 'Jul 17', linked: '2 entries' }],
+        timeline: [{ id: 'ae1', type: 'note', title: 'Second nudge sent, no steward named', date: 'Jul 30', month: 'July 2026', author: 'Marcus', body: 'If nothing by Aug 5, propose we run the workshop with IT only and confirm decisions afterwards.' },
+          { id: 'ae2', type: 'meeting', title: 'Kickoff', date: 'Jul 17', month: 'July 2026', author: 'Marcus', body: 'Scope agreed. Lena to nominate a data steward within the week.' }] },
+      { id: 'fabrikam', name: 'Copilot Rollout', customer: 'Fabrikam', value: 240000, status: 'green', role: 'Owner', why: '',
+        description: 'M365 Copilot deployment to 4,000 seats with an adoption program and security baseline.',
+        currentState: 'Pilot wrapped clean at 71% weekly active use — well over the 60% objective. Wave 2 (sales, 1,500 seats) lands Aug 28; the comms pack is the only open task. Board demo booked for September.',
+        stateDate: 'Jul 31',
+        objectives: ['Reach 60% weekly active use by end of Q4.', 'Zero data-boundary exceptions in security review.'],
+        keyDates: [{ date: 'Jul 22', label: 'Pilot complete', done: true }, { date: 'Aug 28', label: 'Wave 2 · 1,500 seats', next: true }, { date: 'Oct 30', label: 'Full rollout' }],
+        contacts: [{ name: 'Elena Ortiz', role: 'IT director' }],
+        businessValue: 'Adoption is the number the renewal is judged on — 4,000 seats only pay back if people use them.',
+        team: [{ name: 'Dan Novak', role: 'CSA · lead' }, { name: 'Marcus Lee', role: 'CSA' }],
+        conventions: 'Async by default; monthly steering call.',
+        tasks: [{ id: 'f1', title: 'Send wave-2 comms pack', assignee: 'Dan', due: 'Aug 14', done: false }],
+        docs: [{ id: 'fd1', name: 'adoption-playbook.md', tier: 'gold', updated: 'Jul 12', by: 'Dan', body: 'Champions network seeded in pilot. Usage nudges via Viva.' },
+          { id: 'fd2', name: 'wave-2-plan.md', updated: 'Jul 25', by: 'Dan', body: 'Sales org first for visible wins. 1,500 seats Aug 28; engineering wave in October.' }],
+        sources: [{ name: 'pilot-survey-results.xlsx', kind: 'client material', date: 'Jul 24', linked: '—' }],
+        timeline: [{ id: 'fe1', type: 'note', title: 'Pilot wave wrapped clean', date: 'Jul 22', month: 'July 2026', author: 'Dan', body: '500 seats, 71% WAU in week 3. Elena happy; board demo booked for September.' },
+          { id: 'fe2', type: 'decision', title: 'Wave 2 scoped to sales org', date: 'Jul 15', month: 'July 2026', author: 'Dan', body: 'Sales first for visible wins; engineering wave moves to October.' }] },
+      { id: 'tailspin', name: 'Sentinel Consolidation', customer: 'Tailspin Toys', value: 310000, status: 'green', role: 'Owner', why: '',
+        description: 'SIEM consolidation onto Microsoft Sentinel — 40 connectors, 3 regions.',
+        currentState: 'On plan. 31 of 40 connectors live, the SOC runbook review is booked for Aug 6, and cost is tracking 8% under the modelled ingest.',
+        stateDate: 'Jul 29',
+        objectives: ['Retire the legacy SIEM by Dec 31.', 'Keep ingest cost within the modelled envelope.'],
+        keyDates: [{ date: 'Aug 6', label: 'SOC runbook review', next: true }, { date: 'Dec 31', label: 'Legacy SIEM off' }],
+        contacts: [{ name: 'Ruth Okafor', role: 'SOC lead' }],
+        businessValue: 'Consolidating three regions onto one SIEM removes a licence renewal and a blind spot in detection.',
+        team: [{ name: 'Dan Novak', role: 'CSA · lead' }],
+        conventions: 'Connector status reviewed weekly against the tracker.',
+        tasks: [{ id: 'ts1', title: 'Review ingest cost model with Ruth', assignee: 'Dan', due: 'Aug 6', done: false }],
+        docs: [{ id: 'td1', name: 'connector-tracker.md', updated: 'Jul 29', by: 'Dan', body: '31/40 live. Remaining: 6 on-prem syslog, 3 SaaS pending API keys.' }],
+        sources: [],
+        timeline: [{ id: 'te1', type: 'note', title: '31 of 40 connectors live', date: 'Jul 29', month: 'July 2026', author: 'Dan', body: 'Remaining nine are on-prem syslog and three SaaS apps waiting on API keys.' }] },
+      { id: 'woodgrove', name: 'SAP on Azure Assessment', customer: 'Woodgrove Bank', value: 145000, status: 'green', role: 'Editor', why: '',
+        description: 'Migration assessment for a 12TB S/4HANA estate, including sizing and HA design.',
+        currentState: 'Assessment write-up is 80% done; sizing agreed with Woodgrove infrastructure. Readout with the CIO is Aug 20 and there are no open blockers.',
+        stateDate: 'Jul 28',
+        objectives: ['Deliver a costed migration option set the CIO can decide on.'],
+        keyDates: [{ date: 'Aug 20', label: 'CIO readout', next: true }],
+        contacts: [{ name: 'Henrik Sund', role: 'Head of infrastructure' }],
+        businessValue: 'Woodgrove must decide on the SAP estate before the hardware refresh — this is the costed basis for that call.',
+        team: [{ name: 'Sofia Chen', role: 'CSA · lead' }, { name: 'Dan Novak', role: 'CSA' }],
+        conventions: 'Findings reviewed with Henrik before anything reaches the CIO.',
+        tasks: [{ id: 'wg1', title: 'Finish HA/DR section of the assessment', assignee: 'Dan', due: 'Aug 11', done: false }],
+        docs: [{ id: 'wd1', name: 'assessment-draft.md', updated: 'Jul 28', by: 'Dan', body: 'Sizing agreed. Options: lift-and-shift, re-platform to HANA large instances, or phased hybrid.' }],
+        sources: [],
+        timeline: [{ id: 'we1', type: 'decision', title: 'Sizing baseline agreed', date: 'Jul 24', month: 'July 2026', author: 'Dan', body: 'Henrik signed off on the 12TB baseline and the 2-node HA target.' }] }
+    ];
+  }
+  static brief() {
+    return [{ id: 'm0', role: 'assistant', noTools: true,
+      text: 'Morning, Dan. Six engagements open, two need you today.',
+      links: [
+        { label: 'Contoso — CDN renewal closes Aug 1', tone: 'red', route: { view: 'engagement', engId: 'contoso', tab: 'overview' } },
+        { label: 'Northwind — remediation draft overdue', tone: 'red', route: { view: 'engagement', engId: 'northwind', tab: 'tasks' } },
+        { label: '2 overdue tasks on Website Launch', tone: 'yellow', route: { view: 'engagement', engId: 'contoso', tab: 'tasks' } },
+        { label: 'My Work — July time report overdue', tone: 'yellow', route: { view: 'work' } }],
+      after: "Contoso's renewal window closes Sunday and both overdue tasks sit on that path — I'd chase procurement first. Northwind's plan is due Aug 8 and the draft is late. Fabrikam, Tailspin and Woodgrove are coasting. Upload a file any time and I'll propose the record updates." }];
+  }
+  state = {
+    engs: Component.seed(),
+    view: this.props.startView || 'home', engId: null, tab: 'overview',
+    myTasks: [
+      { id: 'p1', title: 'Submit July time report', due: 'Jul 30', done: false, overdue: true },
+      { id: 'p2', title: 'Prep Contoso QBR deck', due: 'Aug 4', done: false },
+      { id: 'p3', title: 'Renew AZ-305 certification', due: 'Aug 20', done: false }],
+    sessions: [
+      { id: 's3', title: 'Today — morning brief', when: '09:04', msgs: [] },
+      { id: 's2', title: 'Northwind remediation options', when: 'Mon', msgs: [{ id: 'h1', role: 'user', text: 'Option A or B for the landing zone?' }, { id: 'h2', role: 'assistant', tools: [{ label: 'read_doc(remediation-options) · 0.5s' }], text: 'Option A holds the November date at the cost of some rework later; B is cleaner but +6 weeks. Given the re-review window, A is the schedule-safe answer — and worth logging as a decision with the trade-off written down.' }] },
+      { id: 's1', title: 'Contoso QBR outline', when: 'Jul 24', msgs: [{ id: 'g1', role: 'user', text: 'Outline the QBR' }, { id: 'g2', role: 'assistant', text: 'Lead with the p95 improvement, then the CDN risk and what you need from procurement, then the compressed-UAT decision and its trade-off. Close on the fall campaign date.' }] }],
+    sessionId: 's3',
+    inflight: null, streamText: '',
+    railOpen: true, aiFull: false, sessionMenu: false,
+    assistantFirst: !!this.props.assistantFirst, showTools: this.props.showToolCalls !== false, autoLog: false,
+    briefReady: false,
+    theme: 'light', palette: this.props.palette || 'clay',
+    dialog: null, proposalWaiting: true,
+    nf: { name: '', customer: '', value: '', target: '', objective: '', description: '', businessValue: '' },
+    addObj: false, objDraft: '', addKd: false, kdDate: '', kdLabel: '',
+    addContact: false, contactName: '', contactRole: '', addTeam: false, teamName: '', teamRole: '',
+    inviteDraft: '', inviteRole: 'Editor',
+    noteDraft: '', taskDraft: '', myDraft: '',
+    docId: null, docDraft: '', docSaveState: '',
+    whyOpen: {}, toast: null, savingTask: null
+  };
+  timers = [];
+  componentDidMount() {
+    this.applyTheme();
+    this.later(() => this.setState(s => ({ briefReady: true, sessions: s.sessions.map(x => x.id === 's3' ? { ...x, msgs: Component.brief() } : x) })), 2000);
+  }
+  componentDidUpdate() { this.applyTheme(); }
+  componentWillUnmount() { this.timers.forEach(clearTimeout); if (this.streamer) clearInterval(this.streamer); }
+  applyTheme() {
+    const r = document.documentElement;
+    if (r.getAttribute('data-theme') !== this.state.theme) r.setAttribute('data-theme', this.state.theme);
+    if (r.getAttribute('data-palette') !== this.state.palette) r.setAttribute('data-palette', this.state.palette);
+  }
+  later(fn, ms) { this.timers.push(setTimeout(fn, ms)); }
+  money(v) { return v >= 1000000 ? '$' + (v / 1000000).toFixed(1) + 'M' : '$' + Math.round(v / 1000) + 'K'; }
+  initials(n) { return n.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); }
+  flash(t) { this.setState({ toast: t }); this.later(() => this.setState({ toast: null }), 2200); }
+  session() { return this.state.sessions.find(s => s.id === this.state.sessionId) || this.state.sessions[0]; }
+  msgs() { return this.session().msgs; }
+  pushMsg(m) {
+    this.setState(s => ({ sessions: s.sessions.map(x => x.id === s.sessionId ? { ...x, msgs: [...x.msgs, { id: 'm' + Date.now() + Math.random(), ...m }] } : x) }));
+  }
+  mutEng(id, fn) { this.setState(s => ({ engs: s.engs.map(e => e.id === id ? fn(e) : e) })); }
+  nav(r) { this.setState({ view: r.view, engId: r.engId || null, tab: r.tab || 'overview', aiFull: false, docId: null, sessionMenu: false }); }
+
+  /* ---------- assistant ---------- */
+  reply(text) {
+    const t = text.toLowerCase();
+    const engs = this.state.engs;
+    const find = k => engs.find(e => e.id === k);
+    const overdue = engs.reduce((n, e) => n + e.tasks.filter(x => x.overdue && !x.done).length, 0);
+    const named = [['contoso', 'contoso|website|cdn'], ['northwind', 'northwind|data platform|landing zone'], ['fabrikam', 'fabrikam|copilot'], ['tailspin', 'tailspin|sentinel|siem'], ['woodgrove', 'woodgrove|sap'], ['adventure', 'adventure|ai landing']]
+      .find(([, re]) => new RegExp(re).test(t));
+    if (/take me|open |go to|show me|navigate/.test(t)) {
+      if (/my work|my tasks|tasks/.test(t) && !named) return { tools: ['navigate(my_work) · 0.2s'], text: 'Opened My Work. Your July time report is the overdue one; the Northwind draft is the one with a deadline attached.', nav: { view: 'work' } };
+      if (/setting/.test(t)) return { tools: ['navigate(settings) · 0.2s'], text: 'Settings are open.', nav: { view: 'settings' } };
+      if (named) { const e = find(named[0]); return { tools: ['navigate(engagement) · 0.3s'], text: `Opened ${e.name}. ${e.currentState.split('. ')[0]}.`, nav: { view: 'engagement', engId: e.id, tab: 'overview' } }; }
+      return { tools: ['navigate(engagements) · 0.2s'], text: 'Here is the portfolio. Two are off-track; the rest need nothing from you today.', nav: { view: 'portfolio' } };
+    }
+    if (/overdue|late|behind/.test(t)) return {
+      tools: ['list_engagements · 0.4s', 'list_tasks · 0.7s'],
+      text: `${overdue} shared tasks are overdue — the oldest is “Chase CDN procurement contact” on Website Launch, due Jul 14. Your own July time report is also late.`,
+      links: [{ label: 'Website Launch — tasks', tone: 'red', route: { view: 'engagement', engId: 'contoso', tab: 'tasks' } }, { label: 'Data Platform Migration — tasks', tone: 'red', route: { view: 'engagement', engId: 'northwind', tab: 'tasks' } }],
+      why: 'Overdue = due date before Jul 31 and not marked done. I checked the 14 shared tasks you can see plus your personal list; order is oldest first, then by whether the task blocks a dated milestone.'
+    };
+    if (/risk|at risk|worried|problem/.test(t)) return {
+      tools: ['list_engagements · 0.4s', 'search_timeline(type=risk) · 1.1s'],
+      text: 'Two records carry real risk. Northwind is Red — the landing zone failed security review and migration is halted until the Aug 8 plan lands. Contoso is Yellow on the unsigned CDN renewal, hard deadline Aug 1. Adventure Works is Yellow but it is a customer-side blocker: still no data steward, so the Aug 12 workshop is unscheduled.',
+      links: [{ label: 'Data Platform Migration', tone: 'red', route: { view: 'engagement', engId: 'northwind', tab: 'overview' } }, { label: 'Website Launch', tone: 'yellow', route: { view: 'engagement', engId: 'contoso', tab: 'overview' } }],
+      why: 'I read the status field and its stated reason on all six records, plus every open risk entry in the last 60 days. $700K of $1.49M in flight sits behind the two red/yellow records.'
+    };
+    if (named) {
+      const e = find(named[0]);
+      return {
+        tools: [`get_engagement(${e.id}) · 0.5s`, 'list_tasks · 0.4s'],
+        text: `${e.name} — ${e.customer} is ${e.status === 'green' ? 'Green' : e.status === 'yellow' ? 'Yellow' : 'Red'}. ${e.currentState}`,
+        links: [{ label: `Open ${e.name}`, tone: e.status, route: { view: 'engagement', engId: e.id, tab: 'overview' } }],
+        why: `Read from the record: status, its stated reason, ${e.tasks.length} tasks, ${e.timeline.length} timeline entries and the key dates. Your role here is ${e.role}.`
+      };
+    }
+    if (/draft|write|email|note/.test(t)) return {
+      tools: ['get_engagement(contoso) · 0.5s', 'read_doc(cutover-runbook) · 0.4s'],
+      text: 'Here is a chase note you can send to procurement:\n\n“Hi — the CDN renewal countersignature is the only item holding the Contoso go-live on Sep 15. Legal has cleared it; we need the signature by Aug 1 or we re-plan a locked launch window. Can you confirm today who is signing?”\n\nWant me to log it as a task due Aug 1 and add a timeline note?',
+      why: 'Drafted from the risk entry of Jul 10, the decision of Jul 8 and the two overdue tasks. This is prose only — nothing is written until you apply a proposal.'
+    };
+    if (/summar|brief|catch me up|what.*today/.test(t)) return {
+      tools: ['list_engagements · 0.4s', 'list_tasks · 0.6s', 'search_timeline · 0.9s'],
+      text: 'Today: chase the Contoso CDN countersignature before the Aug 1 window closes, then get the Northwind remediation draft out — it is late and the plan is due Aug 8. Fabrikam, Tailspin and Woodgrove need nothing from you. Adventure Works is waiting on the customer.',
+      links: [{ label: 'Website Launch', tone: 'yellow', route: { view: 'engagement', engId: 'contoso', tab: 'overview' } }, { label: 'Data Platform Migration', tone: 'red', route: { view: 'engagement', engId: 'northwind', tab: 'overview' } }],
+      why: 'Same ranking as the morning brief: hard deadlines first, then blockers on dated milestones, then anything untouched for more than two weeks.'
+    };
+    return { tools: ['list_engagements · 0.4s'], text: 'I can read the record and propose changes to it. Try “what’s overdue”, ask about an engagement by name, say “take me to my work”, or drop a meeting transcript with + VTT and I’ll propose the updates.' };
+  }
+  stream(full, done) {
+    const words = full.split(' ');
+    let i = 0;
+    this.setState({ streamText: '' });
+    this.streamer = setInterval(() => {
+      i += 2;
+      this.setState({ streamText: words.slice(0, i).join(' ') });
+      if (i >= words.length) { clearInterval(this.streamer); this.later(done, 120); }
+    }, 45);
+  }
+  send(text) {
+    if (this.state.inflight) return;
+    this.pushMsg({ role: 'user', text });
+    const r = this.reply(text);
+    this.setState({ inflight: { label: 'Thinking', tools: [] }, streamText: '' });
+    this.later(() => this.setState({ inflight: { label: 'Reading the record', tools: (r.tools || []).slice(0, 1).map(label => ({ label })) } }), 420);
+    this.later(() => this.setState({ inflight: { label: 'Drafting', tools: (r.tools || []).map(label => ({ label })) } }), 900);
+    this.later(() => this.stream(r.text, () => {
+      this.setState({ inflight: null, streamText: '' });
+      this.pushMsg({ role: 'assistant', tools: (r.tools || []).map(label => ({ label })), text: r.text, links: r.links, after: r.after, why: r.why });
+      if (r.nav) this.nav(r.nav);
+    }), 1250);
+  }
+  proposalFor(e) {
+    const src = `${e.id}-sync-2026-08-01.vtt`;
+    return {
+      source: src,
+      items: [
+        { id: 'i1', kind: 'timeline', label: 'Timeline · Meeting', tone: 'meeting', title: `${e.name} sync — ${e.status === 'green' ? 'progress check' : 'escalation'}`,
+          detail: 'Three points captured, attributed to you, dated Jul 31',
+          entry: { type: 'meeting', title: `${e.name} sync — Jul 31`, date: 'Jul 31', month: 'July 2026', author: 'Dan', source: src, bullets: ['Owner walked the current blocker and the date it threatens', 'Customer confirmed the next milestone is unchanged', 'Follow-ups agreed and assigned in the call'] } },
+        { id: 'i2', kind: 'task', label: 'Task', title: e.id === 'contoso' ? 'Confirm CDN countersignature with procurement' : `Send ${e.customer} the agreed follow-up`, detail: 'Due Aug 1 · assign to Dan',
+          task: { title: e.id === 'contoso' ? 'Confirm CDN countersignature with procurement' : `Send ${e.customer} the agreed follow-up`, assignee: 'Dan', due: 'Aug 1', done: false } },
+        { id: 'i3', kind: 'task', label: 'Task', title: 'Circulate the updated plan', detail: 'Due Aug 5 · assign to Sofia', task: { title: 'Circulate the updated plan', assignee: 'Sofia', due: 'Aug 5', done: false } },
+        { id: 'i4', kind: 'status', label: `Status · stays ${e.status === 'green' ? 'Green' : e.status === 'yellow' ? 'Yellow' : 'Red'}`, tone: 'risk', title: 'Update the stated reason',
+          detail: e.id === 'contoso' ? '“Countersignature promised for Aug 1 — yellow until confirmed. Go-live Sep 15 unchanged.”' : '“Reason refreshed from the Jul 31 call; next milestone unchanged.”',
+          status: e.status, why: e.id === 'contoso' ? 'Countersignature promised for Aug 1 — yellow until confirmed. Go-live Sep 15 unchanged.' : `Reason refreshed from the Jul 31 call with ${e.customer}; next milestone unchanged.` }
+      ]
+    };
+  }
+  attach(engId) {
+    const id = engId || this.state.engId;
+    if (!id) {
+      this.pushMsg({ role: 'assistant', text: 'Open the engagement the file belongs to first — proposals write into one specific record.' });
+      this.nav({ view: 'portfolio' });
+      return;
+    }
+    const e = this.state.engs.find(x => x.id === id);
+    const p = this.proposalFor(e);
+    this.pushMsg({ role: 'user', file: true, text: p.source });
+    this.mutEng(e.id, x => ({ ...x, sources: [{ name: p.source, kind: 'transcript', date: 'Aug 2', linked: '—' }, ...x.sources] }));
+    this.setState({ inflight: { label: 'Reading the file', tools: [{ label: 'read_file · 1.2s' }] }, proposalWaiting: false, railOpen: true });
+    this.later(() => this.setState({ inflight: { label: 'Comparing against the record', tools: [{ label: 'read_file · 1.2s' }, { label: `get_engagement(${e.id}) · 0.5s` }, { label: 'diff_record · 0.8s' }] } }), 900);
+    this.later(() => {
+      this.setState({ inflight: null });
+      this.pushMsg({ role: 'assistant', kind: 'proposal', engId: e.id, source: p.source, items: p.items.map(i => ({ ...i, state: null })) });
+    }, 2100);
+  }
+  applyItem(engId, it) {
+    if (it.kind === 'timeline') this.mutEng(engId, e => ({ ...e, timeline: [{ ...it.entry, id: 'x' + Date.now() + Math.random() }, ...e.timeline] }));
+    if (it.kind === 'task') this.mutEng(engId, e => ({ ...e, tasks: [...e.tasks, { ...it.task, id: 'x' + Date.now() + Math.random() }] }));
+    if (it.kind === 'status') this.mutEng(engId, e => ({ ...e, status: it.status, why: it.why, stateDate: 'Jul 31' }));
+  }
+  setItem(mid, iid, st) {
+    const match = i => (Array.isArray(iid) ? iid.indexOf(i.id) > -1 : i.id === iid);
+    this.setState(s => ({ sessions: s.sessions.map(x => x.id !== s.sessionId ? x : { ...x, msgs: x.msgs.map(m => m.id !== mid ? m : { ...m, items: m.items.map(i => match(i) ? { ...i, state: st } : i) }) }) }));
+  }
+  linkSource(engId, name) {
+    this.mutEng(engId, e => ({ ...e, sources: e.sources.map(s => s.name !== name ? s : { ...s, count: (s.count || 0) + 1, linked: ((s.count || 0) + 1) + (((s.count || 0) + 1) === 1 ? ' entry' : ' entries') }) }));
+  }
+  apply(m, iid) {
+    this.setItem(m.id, iid, 'applying');
+    const it = m.items.find(i => i.id === iid);
+    this.applyItem(m.engId, it);
+    this.linkSource(m.engId, m.source);
+    this.later(() => { this.setItem(m.id, iid, 'applied'); this.flash('Applied to the record as Dan'); }, 520);
+  }
+  applyAll(m) {
+    const pend = m.items.filter(i => !i.state);
+    const ids = pend.map(i => i.id);
+    this.setItem(m.id, ids, 'applying');
+    pend.forEach(i => { this.applyItem(m.engId, i); this.linkSource(m.engId, m.source); });
+    this.later(() => { this.setItem(m.id, ids, 'applied'); this.flash(`${pend.length} updates applied to the record`); }, 620);
+  }
+
+  /* ---------- prepared values ---------- */
+  prepMsgs() {
+    const out = [];
+    this.msgs().forEach(m => {
+      if (m.role === 'user') { out.push({ id: m.id, isUser: true, isFile: !!m.file, text: m.text }); return; }
+      if (m.kind === 'proposal') {
+        const pend = m.items.filter(i => !i.state);
+        out.push({
+          id: m.id, isProposal: true, source: m.source,
+          hasPending: pend.length > 1, applyAllLabel: `Apply all ${pend.length}`, onApplyAll: () => this.applyAll(m),
+          items: m.items.map(it => ({
+            id: it.id, label: it.label, title: it.title, detail: it.detail,
+            toneCls: it.tone === 'meeting' ? 't-meeting' : it.tone === 'risk' ? 't-risk' : 't-note',
+            rowCls: it.state === 'applied' ? 'prop-done' : it.state === 'dismissed' ? 'prop-dis' : '',
+            isPending: !it.state, hasState: !!it.state,
+            stateText: it.state === 'applying' ? 'Writing…' : it.state === 'applied' ? '✓ Applied — written as Dan' : it.state === 'dismissed' ? 'Dismissed' : '',
+            onApply: () => this.apply(m, it.id), onDismiss: () => this.setItem(m.id, it.id, 'dismissed')
+          }))
+        });
+        return;
+      }
+      out.push({
+        id: m.id, isAssistant: true, text: m.text,
+        tools: (m.tools || []), hasTools: this.state.showTools && !m.noTools && !!(m.tools && m.tools.length),
+        links: (m.links || []).map(l => ({ label: l.label, dotCls: 'dot-' + (l.tone || 'green'), onClick: () => this.nav(l.route) })),
+        hasLinks: !!(m.links && m.links.length),
+        after: m.after, hasAfter: !!m.after
+      });
+    });
+    return out;
+  }
+  prepTask(t, engId, where) {
+    const saving = this.state.savingTask === t.id;
+    return {
+      id: t.id, title: t.title, assignee: t.assignee || 'Dan',
+      mark: t.done ? '✓' : '', checkCls: t.done ? 'check-on' : '',
+      titleCls: t.done ? 'kd-done' : '',
+      dueLabel: saving ? 'saving…' : (t.overdue && !t.done ? 'overdue · ' + t.due : t.due),
+      due: saving ? 'saving…' : t.due,
+      dueCls: saving ? 'saving' : (t.overdue && !t.done ? 'alert' : ''),
+      where, onOpen: engId ? () => this.nav({ view: 'engagement', engId, tab: 'tasks' }) : null,
+      onToggle: () => {
+        this.setState({ savingTask: t.id });
+        if (engId) this.mutEng(engId, e => ({ ...e, tasks: e.tasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x) }));
+        else this.setState(s => ({ myTasks: s.myTasks.map(x => x.id === t.id ? { ...x, done: !x.done } : x) }));
+        this.later(() => this.setState({ savingTask: null }), 420);
+      }
+    };
+  }
+  prepDoc(engId, d, canPromote) {
+    return {
+      id: d.id, name: d.name, ext: d.name.split('.').pop().toUpperCase().slice(0, 4),
+      meta: `updated ${d.updated} by ${d.by}` + (d.promoted ? ` · promoted ${d.promoted}` : ''),
+      canOpen: true, canPromote,
+      onOpen: () => this.setState({ docId: d.id, docDraft: d.body, docSaveState: '' }),
+      onPromote: () => { this.mutEng(engId, e => ({ ...e, docs: e.docs.map(x => x.id === d.id ? { ...x, tier: 'gold', promoted: 'Aug 2 by Dan' } : x) })); this.flash(`${d.name} promoted to gold`); }
+    };
+  }
+  prepEntry(en) {
+    const summary = en.body || (en.bullets ? '' : '');
+    return {
+      id: en.id, title: en.title, type: en.type, date: en.date,
+      markCls: 'm-' + en.type, typeCls: 't-' + en.type,
+      summary, bullets: (en.bullets || []).map((b, i) => ({ id: i, text: b })), hasBullets: !!(en.bullets && en.bullets.length),
+      byline: en.source ? `${en.author} · from ${en.source}` : en.author
+    };
+  }
+  renderVals() {
+    const s = this.state;
+    const engs = s.engs;
+    const eng = engs.find(e => e.id === s.engId);
+    const dot = st => 'dot-' + st;
+    const overdueAll = engs.reduce((n, e) => n + e.tasks.filter(t => t.overdue && !t.done).length, 0) + s.myTasks.filter(t => t.overdue && !t.done).length;
+    const attnEngs = engs.filter(e => e.status !== 'green');
+    const atRisk = attnEngs.reduce((n, e) => n + e.value, 0);
+    const total = engs.reduce((n, e) => n + e.value, 0);
+    const openTasks = engs.reduce((n, e) => n + e.tasks.filter(t => !t.done).length, 0);
+    const isHome = s.view === 'home';
+    const v = {
+      /* nav */
+      navHome: isHome ? 'nitem-on' : '', navPortfolio: (s.view === 'portfolio' || s.view === 'engagement') ? 'nitem-on' : '',
+      navWork: s.view === 'work' ? 'nitem-on' : '', navAI: s.aiFull ? 'nitem-on' : '', navSettings: s.view === 'settings' ? 'nitem-on' : '',
+      engCount: engs.length, myOpenCount: s.myTasks.filter(t => !t.done).length + engs.reduce((n, e) => n + e.tasks.filter(t => !t.done && t.assignee === 'Dan').length, 0),
+      goHome: () => this.nav({ view: 'home' }), goPortfolio: () => this.nav({ view: 'portfolio' }), goWork: () => this.nav({ view: 'work' }),
+      goSettings: () => this.nav({ view: 'settings' }), goAI: () => this.setState({ aiFull: true, sessionMenu: false }), exitAI: () => this.setState({ aiFull: false }),
+      themeLabel: s.theme === 'light' ? '◐ Dark mode' : '◑ Light mode',
+      toggleTheme: () => this.setState({ theme: s.theme === 'light' ? 'dark' : 'light' }),
+      /* views */
+      isHomeDigest: isHome && !s.assistantFirst, isHomeChat: isHome && s.assistantFirst,
+      isPortfolio: s.view === 'portfolio', isEng: s.view === 'engagement' && !!eng, isWork: s.view === 'work', isSettings: s.view === 'settings',
+      todayLabel: 'Friday, Jul 31 2026',
+      digestLine: `${attnEngs.length} of ${engs.length} engagements need attention and ${overdueAll} things are overdue.`,
+      homeAgg: [
+        { v: String(attnEngs.length), l: 'need attention', cls: 'alert' },
+        { v: this.money(atRisk), l: `of ${this.money(total)} in flight`, cls: '' },
+        { v: String(overdueAll), l: 'overdue', cls: overdueAll ? 'alert' : '' },
+        { v: 'Aug 1', l: 'next hard date — CDN renewal', cls: '' }],
+      pfAgg: [
+        { v: String(engs.length), l: 'engagements', cls: '' },
+        { v: String(engs.filter(e => e.status === 'red').length), l: 'red', cls: engs.some(e => e.status === 'red') ? 'alert' : '' },
+        { v: String(engs.filter(e => e.status === 'yellow').length), l: 'yellow', cls: '' },
+        { v: String(openTasks), l: 'open tasks', cls: '' }],
+      hasProposalWaiting: s.proposalWaiting && s.briefReady,
+      reviewProposal: () => { this.setState({ view: 'engagement', engId: 'contoso', tab: 'timeline', railOpen: true }); this.later(() => this.attach('contoso'), 260); },
+      attention: attnEngs.map(e => ({
+        id: e.id, name: e.name, customer: e.customer, why: e.why, dotCls: dot(e.status),
+        meta: (e.tasks.filter(t => t.overdue && !t.done).length ? e.tasks.filter(t => t.overdue && !t.done).length + ' overdue · ' : '') + (e.keyDates.find(k => k.next) ? e.keyDates.find(k => k.next).label + ' ' + e.keyDates.find(k => k.next).date : ''),
+        onOpen: () => this.nav({ view: 'engagement', engId: e.id, tab: 'overview' })
+      })),
+      schedule: [
+        { id: 1, time: '10:00', title: 'Website Launch sync', meta: 'Contoso Retail · Priya, Marcus' },
+        { id: 2, time: '13:30', title: 'Northwind remediation working session', meta: 'with Sofia · agenda: option A vs B' },
+        { id: 3, time: '16:00', title: '1:1 with Sofia', meta: 'internal' }],
+      homeTasks: [...s.myTasks.filter(t => !t.done).map(t => this.prepTask(t, null, 'My list')),
+        ...engs.flatMap(e => e.tasks.filter(t => !t.done && t.assignee === 'Dan').map(t => this.prepTask(t, e.id, e.name)))].slice(0, 5),
+      pfRows: engs.map(e => ({
+        id: e.id, name: e.name, customer: e.customer, dotCls: dot(e.status),
+        why: e.why || e.currentState.split('. ')[0] + '.',
+        right: (e.tasks.filter(t => t.overdue && !t.done).length ? e.tasks.filter(t => t.overdue && !t.done).length + ' overdue · ' : '') + this.money(e.value) + (e.keyDates.find(k => k.next) ? ' · ' + e.keyDates.find(k => k.next).label.toLowerCase() + ' ' + e.keyDates.find(k => k.next).date : ''),
+        onOpen: () => this.nav({ view: 'engagement', engId: e.id, tab: 'overview' })
+      })),
+      openNew: () => this.setState({ dialog: 'new' }),
+      /* work */
+      workAssigned: engs.flatMap(e => e.tasks.filter(t => t.assignee === 'Dan').map(t => this.prepTask(t, e.id, e.name))),
+      personalTasks: s.myTasks.map(t => this.prepTask(t, null, 'My list')),
+      upcoming: engs.flatMap(e => e.keyDates.filter(k => !k.done).map((k, i) => ({ id: e.id + i, date: k.date, label: k.label, where: e.name, cls: k.next ? 'kd-next' : '' }))).slice(0, 7),
+      reminders: [{ id: 1, text: 'Follow up with Priya if there is no CDN news by Friday close.' }, { id: 2, text: 'Log Fabrikam pilot metrics before the September board demo.' }],
+      myDraft: s.myDraft, onMyDraft: e => this.setState({ myDraft: e.target.value }),
+      onMyKey: e => { if (e.key === 'Enter') v.addMyTask(); },
+      addMyTask: () => { const t = s.myDraft.trim(); if (!t) return; this.setState(st => ({ myTasks: [...st.myTasks, { id: 'my' + Date.now(), title: t, due: 'Aug 15', done: false }], myDraft: '' })); this.flash('Added to your list'); },
+      /* settings */
+      prefs: [
+        { id: 'tools', label: 'Show what the assistant read', help: 'Tool calls and timings appear above each answer.', state: s.showTools ? 'On' : 'Off', btnCls: s.showTools ? 'btn btn-sm' : 'btn-2 btn-sm', onToggle: () => this.setState({ showTools: !s.showTools }) },
+        { id: 'first', label: 'Assistant-first home', help: 'Home becomes the conversation; the digest arrives as an answer.', state: s.assistantFirst ? 'On' : 'Off', btnCls: s.assistantFirst ? 'btn btn-sm' : 'btn-2 btn-sm', onToggle: () => this.setState({ assistantFirst: !s.assistantFirst }) },
+        { id: 'auto', label: 'Auto-log meetings I attend', help: 'Transcripts arrive as proposals — still never written without your apply.', state: s.autoLog ? 'On' : 'Off', btnCls: s.autoLog ? 'btn btn-sm' : 'btn-2 btn-sm', onToggle: () => this.setState({ autoLog: !s.autoLog }) }],
+      palettes: [['clay', 'oklch(.56 .115 45)', 'Clay'], ['ink', 'oklch(.45 .14 268)', 'Ink'], ['harbor', 'oklch(.48 .09 205)', 'Harbor'], ['oxide', 'oklch(.52 .14 62)', 'Oxide']]
+        .map(([id, color, label]) => ({ id, color, label, cls: s.palette === id ? 'check-on' : '', onPick: () => this.setState({ palette: id }) })),
+      /* assistant */
+      railOpen: s.railOpen && !(isHome && s.assistantFirst), railClosed: !s.railOpen && !s.aiFull,
+      hideRail: () => this.setState({ railOpen: false }), showRail: () => this.setState({ railOpen: true }),
+      ctxLabel: eng ? `Working in ${eng.name}` : isHome ? 'Across your portfolio' : 'No engagement open',
+      chatMsgs: this.prepMsgs(),
+      inflight: s.inflight ? { label: s.inflight.label, tools: s.showTools ? s.inflight.tools : [], hasTools: s.showTools && !!s.inflight.tools.length, text: s.streamText, hasText: !!s.streamText }
+        : (!s.briefReady && s.sessionId === 's3' ? { label: 'Putting your brief together', tools: [], hasTools: false, text: '', hasText: false } : null),
+      send: t => this.send(t), attach: () => this.attach(),
+      suggestions: (eng ? [`How is ${eng.customer} doing?`, 'Draft a chase note', 'What’s overdue?'] : ['What’s overdue?', 'What’s at risk?', 'Take me to my work'])
+        .map((label, i) => ({ id: i, label, onClick: () => this.send(label) })),
+      sessionMenu: s.sessionMenu, toggleSessions: () => this.setState({ sessionMenu: !s.sessionMenu }),
+      sessions: s.sessions.map(x => ({ id: x.id, title: x.title, when: x.when, cls: x.id === s.sessionId ? 'nitem-on' : '', onPick: () => this.setState({ sessionId: x.id, sessionMenu: false }) })),
+      newSession: () => { const id = 'n' + Date.now(); this.setState(st => ({ sessions: [{ id, title: 'New session', when: 'now', msgs: [] }, ...st.sessions], sessionId: id, sessionMenu: false, inflight: null })); },
+      aiFull: s.aiFull,
+      /* dialogs */
+      newOpen: s.dialog === 'new',
+      closeDialog: () => this.setState({ dialog: null }),
+      askAboutEng: () => { this.setState({ railOpen: true }); this.send(`How is ${eng.customer} doing?`); },
+      nf: s.nf,
+      onNfName: e => this.setState({ nf: { ...s.nf, name: e.target.value } }),
+      onNfCustomer: e => this.setState({ nf: { ...s.nf, customer: e.target.value } }),
+      onNfValue: e => this.setState({ nf: { ...s.nf, value: e.target.value } }),
+      onNfTarget: e => this.setState({ nf: { ...s.nf, target: e.target.value } }),
+      onNfObjective: e => this.setState({ nf: { ...s.nf, objective: e.target.value } }),
+      onNfDescription: e => this.setState({ nf: { ...s.nf, description: e.target.value } }),
+      onNfBusinessValue: e => this.setState({ nf: { ...s.nf, businessValue: e.target.value } }),
+      createLabel: 'Create engagement',
+      createEng: () => {
+        const f = s.nf; const name = f.name.trim() || 'Untitled engagement';
+        const id = 'e' + Date.now();
+        const e = {
+          id, name, customer: f.customer.trim() || 'New customer', value: Number(String(f.value).replace(/[^0-9]/g, '')) || 0,
+          status: 'green', why: '',
+          description: f.description.trim() || `${name} for ${f.customer.trim() || 'the customer'}.`,
+          businessValue: f.businessValue.trim(),
+          currentState: 'Just created. Nothing logged yet — drop your kickoff transcript and the assistant will propose the first entries.', stateDate: 'Jul 31',
+          objectives: f.objective.trim() ? [f.objective.trim()] : [], keyDates: f.target.trim() ? [{ date: f.target.trim(), label: 'Target milestone', next: true }] : [],
+          contacts: [], team: [{ name: 'Dan Novak', role: 'CSA · lead' }],
+          tasks: [], docs: [], sources: [], timeline: []
+        };
+        this.setState(st => ({ engs: [...st.engs, e], dialog: null, nf: { name: '', customer: '', value: '', target: '', objective: '', description: '', businessValue: '' } }));
+        this.nav({ view: 'engagement', engId: id, tab: 'overview' });
+        this.flash('Engagement created — you are the owner');
+      },
+      hasToast: !!s.toast, toast: s.toast
+    };
+    if (eng) {
+      const attn = [];
+      eng.tasks.filter(t => t.overdue && !t.done).forEach(t => attn.push({ id: t.id, dotCls: 'dot-red', text: `Overdue: ${t.title}`, meta: `${t.assignee} · due ${t.due}` }));
+      const next = eng.keyDates.find(k => k.next);
+      if (next) attn.push({ id: 'nx', dotCls: 'dot-yellow', text: next.label, meta: next.date });
+      const months = [];
+      eng.timeline.forEach(en => {
+        let g = months.find(m => m.month === en.month);
+        if (!g) { g = { id: en.month, month: en.month, entries: [] }; months.push(g); }
+        g.entries.push(this.prepEntry(en));
+      });
+      const doc = eng.docs.find(d => d.id === s.docId);
+      v.eng = {
+        id: eng.id, name: eng.name, customer: eng.customer, dotCls: dot(eng.status),
+        statusWord: eng.status === 'green' ? 'Green' : eng.status === 'yellow' ? 'Yellow' : 'Red',
+        valueLabel: this.money(eng.value),
+        currentState: eng.currentState, stateDate: eng.stateDate,
+        objectives: eng.objectives.map((o, i) => ({ id: i, text: o })),
+        keyDates: eng.keyDates.map((k, i) => ({
+          id: i, date: k.date, label: k.label, cls: k.done ? 'kd-done' : k.next ? 'kd-next' : '',
+          onToggle: () => this.mutEng(eng.id, e => ({ ...e, keyDates: e.keyDates.map((x, j) => j === i ? { ...x, done: !x.done, next: x.done ? x.next : false } : x) }))
+        })),
+        description: eng.description, businessValue: eng.businessValue || '', hasBusinessValue: !!eng.businessValue,
+        noContacts: !eng.contacts.length,
+        customerPeople: eng.contacts.map((c, i) => ({ id: 'c' + i, name: c.name, role: c.role, initials: this.initials(c.name) })),
+        teamPeople: eng.team.map((c, i) => ({ id: 'w' + i, name: c.name, role: c.role, initials: this.initials(c.name) })),
+        attn, hasAttn: attn.length > 0,
+        recent: eng.timeline.slice(0, 3).map(en => this.prepEntry(en)),
+        months,
+        taskRows: [...eng.tasks.filter(t => !t.done), ...eng.tasks.filter(t => t.done)].map(t => this.prepTask(t, eng.id, eng.name)),
+        docSections: [
+          { id: 'bronze', label: 'Bronze', help: 'Raw sources — client files and transcripts, never edited',
+            rows: eng.sources.map((x, i) => ({ id: 'b' + i, name: x.name, ext: x.name.split('.').pop().toUpperCase().slice(0, 4), meta: `${x.kind} · added ${x.date}`, isSource: true, linked: (!x.linked || x.linked === '—') ? 'no entries yet' : x.linked })),
+            empty: !eng.sources.length, emptyText: 'Nothing uploaded yet.' },
+          { id: 'silver', label: 'Silver', help: 'Working artifacts — drafts and notes the team edits',
+            rows: eng.docs.filter(d => d.tier !== 'gold').map(d => this.prepDoc(eng.id, d, true)),
+            empty: !eng.docs.filter(d => d.tier !== 'gold').length, emptyText: 'No working documents yet.' },
+          { id: 'gold', label: 'Gold', help: 'Curated and vetted — safe to share or hand over',
+            rows: eng.docs.filter(d => d.tier === 'gold').map(d => this.prepDoc(eng.id, d, false)),
+            empty: !eng.docs.filter(d => d.tier === 'gold').length, emptyText: 'Nothing promoted yet.' }]
+      };
+      v.tabs = [['overview', 'Overview', ''], ['timeline', 'Timeline', String(eng.timeline.length)], ['tasks', 'Tasks', String(eng.tasks.filter(t => !t.done).length)], ['docs', 'Docs', String(eng.docs.length + eng.sources.length)]]
+        .map(([id, label, n]) => ({ id, label, n, cls: s.tab === id ? 'tab-on' : '', onClick: () => this.setState({ tab: id, docId: null }) }));
+      v.tabOverview = s.tab === 'overview'; v.tabTimeline = s.tab === 'timeline'; v.tabTasks = s.tab === 'tasks'; v.tabDocs = s.tab === 'docs';
+      v.goTimeline = () => this.setState({ tab: 'timeline' });
+      v.objAdding = s.addObj; v.objAddLabel = s.addObj ? 'Cancel' : '+ Add';
+      v.toggleAddObj = () => this.setState({ addObj: !s.addObj, objDraft: '' });
+      v.objDraft = s.objDraft; v.onObjDraft = e => this.setState({ objDraft: e.target.value });
+      v.onObjKey = e => {
+        if (e.key !== 'Enter') return;
+        const t = s.objDraft.trim(); if (!t) return;
+        this.mutEng(eng.id, x => ({ ...x, objectives: [...x.objectives, t] }));
+        this.setState({ objDraft: '', addObj: false }); this.flash('Objective added');
+      };
+      v.kdAdding = s.addKd; v.kdAddLabel = s.addKd ? 'Cancel' : '+ Add';
+      v.toggleAddKd = () => this.setState({ addKd: !s.addKd, kdDate: '', kdLabel: '' });
+      v.kdDate = s.kdDate; v.onKdDate = e => this.setState({ kdDate: e.target.value });
+      v.kdLabel = s.kdLabel; v.onKdLabel = e => this.setState({ kdLabel: e.target.value });
+      v.onKdKey = e => {
+        if (e.key !== 'Enter') return;
+        const d = s.kdDate.trim(), l = s.kdLabel.trim(); if (!d || !l) return;
+        this.mutEng(eng.id, x => ({ ...x, keyDates: [...x.keyDates, { date: d, label: l }] }));
+        this.setState({ kdDate: '', kdLabel: '', addKd: false }); this.flash('Key date added');
+      };
+      v.contactAdding = s.addContact; v.contactAddLabel = s.addContact ? 'Cancel' : '+ Add';
+      v.toggleAddContact = () => this.setState({ addContact: !s.addContact, contactName: '', contactRole: '' });
+      v.contactName = s.contactName; v.onContactName = e => this.setState({ contactName: e.target.value });
+      v.contactRole = s.contactRole; v.onContactRole = e => this.setState({ contactRole: e.target.value });
+      v.onContactKey = e => {
+        if (e.key !== 'Enter') return;
+        const n = s.contactName.trim(); if (!n) return;
+        this.mutEng(eng.id, x => ({ ...x, contacts: [...x.contacts, { name: n, role: s.contactRole.trim() || 'Contact' }] }));
+        this.setState({ contactName: '', contactRole: '', addContact: false }); this.flash(`${n} added as a customer contact`);
+      };
+      v.teamAdding = s.addTeam; v.teamAddLabel = s.addTeam ? 'Cancel' : '+ Add';
+      v.toggleAddTeam = () => this.setState({ addTeam: !s.addTeam, teamName: '', teamRole: '' });
+      v.teamName = s.teamName; v.onTeamName = e => this.setState({ teamName: e.target.value });
+      v.teamRole = s.teamRole; v.onTeamRole = e => this.setState({ teamRole: e.target.value });
+      v.onTeamKey = e => {
+        if (e.key !== 'Enter') return;
+        const n = s.teamName.trim(); if (!n) return;
+        this.mutEng(eng.id, x => ({ ...x, team: [...x.team, { name: n, role: s.teamRole.trim() || 'CSA' }] }));
+        this.setState({ teamName: '', teamRole: '', addTeam: false }); this.flash(`${n} added to the team`);
+      };
+      v.noteDraft = s.noteDraft; v.onNoteDraft = e => this.setState({ noteDraft: e.target.value });
+      v.addNote = () => {
+        const t = s.noteDraft.trim(); if (!t) return;
+        this.mutEng(eng.id, e => ({ ...e, timeline: [{ id: 'n' + Date.now(), type: 'note', title: t, date: 'Jul 31', month: 'July 2026', author: 'Dan', body: '' }, ...e.timeline] }));
+        this.setState({ noteDraft: '' }); this.flash('Note logged');
+      };
+      v.onNoteKey = e => { if (e.key === 'Enter') v.addNote(); };
+      v.taskDraft = s.taskDraft; v.onTaskDraft = e => this.setState({ taskDraft: e.target.value });
+      v.addTask = () => {
+        const t = s.taskDraft.trim(); if (!t) return;
+        this.mutEng(eng.id, e => ({ ...e, tasks: [...e.tasks, { id: 'nt' + Date.now(), title: t, assignee: 'Dan', due: 'Aug 15', done: false }] }));
+        this.setState({ taskDraft: '' }); this.flash('Task added');
+      };
+      v.onTaskKey = e => { if (e.key === 'Enter') v.addTask(); };
+      v.docOpen = !!doc; v.docList = !doc;
+      v.doc = doc ? { name: doc.name, meta: `updated ${doc.updated} by ${doc.by}` } : {};
+      v.docDraft = s.docDraft; v.onDocDraft = e => this.setState({ docDraft: e.target.value });
+      v.docSaveState = s.docSaveState;
+      v.saveDoc = () => {
+        this.setState({ docSaveState: 'Saving…' });
+        this.mutEng(eng.id, e => ({ ...e, docs: e.docs.map(d => d.id === s.docId ? { ...d, body: s.docDraft, updated: 'Jul 31', by: 'Dan' } : d) }));
+        this.later(() => { this.setState({ docSaveState: 'Saved · Jul 31' }); this.flash('Document saved'); }, 480);
+      };
+      v.closeDoc = () => this.setState({ docId: null, docSaveState: '' });
+    } else {
+      v.eng = { name: '' }; v.tabs = []; v.tabOverview = false; v.tabTimeline = false; v.tabTasks = false; v.tabDocs = false;
+      v.docOpen = false; v.docList = false; v.doc = {};
+    }
+    return v;
+  }
+}
+
+</script>
+</body>
+</html>

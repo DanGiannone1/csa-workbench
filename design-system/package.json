@@ -1,0 +1,1 @@
+{"name":"@csa-workbench/design-system","private":true,"version":"0.1.0","exports":{"./tokens.css":"./src/tokens.css"}}
