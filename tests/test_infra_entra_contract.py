@@ -290,6 +290,20 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
     assert 'return f"{audience}/.default"' in session_manager
 
 
+def test_entra_graph_resolves_the_host_azure_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: list[str] = []
+
+    monkeypatch.setattr(entra.shutil, "which", lambda name: "C:/tools/az.cmd" if name == "az" else None)
+    monkeypatch.setattr(
+        entra.subprocess,
+        "run",
+        lambda command, **_kwargs: observed.extend(command) or subprocess.CompletedProcess(command, 0, "{}", ""),
+    )
+
+    assert entra.AzureCliGraph().get("applications") == {}
+    assert observed[:2] == ["C:/tools/az.cmd", "rest"]
+
+
 def test_python_authentication_has_no_direct_jwt_or_jwks_validation_path() -> None:
     sources = [
         (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'api_auth.py').read_text(),

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import re
 import sys
@@ -56,7 +57,10 @@ class AzureCliGraph:
     base_url = "https://graph.microsoft.com/v1.0/"
 
     def _run(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        command = ["az", "rest", "--method", method, "--url", self.base_url + path]
+        azure_cli = shutil.which("az")
+        if azure_cli is None:
+            raise GraphError("Azure CLI is required")
+        command = [azure_cli, "rest", "--method", method, "--url", self.base_url + path]
         if body is not None:
             command.extend(["--body", json.dumps(body, separators=(",", ":"))])
         completed = subprocess.run(command, check=False, text=True, capture_output=True)
