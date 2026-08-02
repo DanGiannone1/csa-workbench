@@ -15,7 +15,7 @@ config:
   inject_skill_body: false
   required_skills: [tasks]
   skill_directories:
-    - ../../../../session-container/product-skills/tasks
+    - ../../../../backend/assistant/product-skills/tasks
 
 mcp_mocks:
   - name: csa

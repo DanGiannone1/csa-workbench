@@ -97,17 +97,17 @@ npm run eval:waza:gate
 npm run eval:waza:advisory
 ```
 
-Windows using WSL, from the repository directory mounted inside WSL:
+Windows PowerShell uses the checksum-pinned native Windows binary:
 
-```bash
+```powershell
 npm run eval:waza:gate
 npm run eval:waza:advisory
 ```
 
-The repository wrapper is Bash-only and intentionally supports Linux and macOS binaries. On a
-Windows workstation, use WSL for repository-bound provenance. Upstream Waza v0.38.3 also publishes
-[native Windows binaries](https://github.com/microsoft/waza/releases/tag/v0.38.3), but this wrapper
-does not install or bind evidence from them. That is a wrapper limitation, not a Waza limitation.
+The portable Python command installs and verifies the matching Waza v0.38.3 binary on Windows,
+macOS, or Linux and records the same provenance on every host. Windows developers who explicitly
+prefer WSL can add `--wsl`, for example
+`uv run python -m scripts.workbench eval waza advisory --wsl`.
 
 ## Gate, advisory, and exit status
 
@@ -156,11 +156,14 @@ Linux or macOS:
 CSA_WAZA_TRIALS=5 npm run eval:waza:advisory
 ```
 
-WSL uses the same command inside its Bash shell:
+Windows PowerShell:
 
-```bash
-CSA_WAZA_TRIALS=5 npm run eval:waza:advisory
+```powershell
+$env:CSA_WAZA_TRIALS='5'
+npm run eval:waza:advisory
 ```
+
+WSL is an optional fallback and uses the Linux command inside its shell.
 
 Record the trial count and every outcome. `pass@k` is the chance that at least one of *k*
 independent attempts succeeds; `pass^k` is the chance that all *k* attempts succeed. The fraction

@@ -15,7 +15,7 @@ config:
   inject_skill_body: false
   required_skills: [weekly-review]
   skill_directories:
-    - ../../../../session-container/product-skills/weekly-review
+    - ../../../../backend/assistant/product-skills/weekly-review
 
 mcp_mocks:
   - name: csa

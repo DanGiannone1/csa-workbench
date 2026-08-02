@@ -15,7 +15,7 @@ config:
   inject_skill_body: false
   required_skills: [calendar]
   skill_directories:
-    - ../../../../session-container/product-skills/calendar
+    - ../../../../backend/assistant/product-skills/calendar
 
 mcp_mocks:
   - name: csa
