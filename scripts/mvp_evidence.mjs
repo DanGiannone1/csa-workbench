@@ -59,6 +59,29 @@ export function assistantResponse(events) {
   return events.filter((event) => event.type === "TEXT_MESSAGE_CONTENT").map((event) => event.delta).join("");
 }
 
+// Browser code intentionally cancels its reader as soon as it receives a terminal
+// event. A separate API request is therefore the reliable place to retain a complete
+// stream for evidence. Keep the returned text in memory; callers decide what small,
+// safe summary belongs in their report.
+export function completedStreamEvidence(text) {
+  let events;
+  try {
+    events = parseSse(text);
+  } catch {
+    throw new Error("Direct assistant stream was malformed.");
+  }
+  const terminals = terminalEvents(events);
+  if (!validEventSequence(events) || terminals.length !== 1 || events.at(-1) !== terminals[0]) {
+    throw new Error("Direct assistant stream did not end with one valid terminal event.");
+  }
+  return {
+    events,
+    terminal: terminals[0],
+    assistantText: assistantResponse(events),
+    toolCalls: extractToolCalls(events),
+  };
+}
+
 export function extractToolCalls(events) {
   const open = new Map();
   const completed = [];

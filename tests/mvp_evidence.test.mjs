@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, exactEngagementUpdate, onlyEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
+import { completedStreamEvidence, evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, exactEngagementUpdate, onlyEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
 
 const start = { type: "RUN_STARTED", run_id: "run-1", thread_id: "thread-1" };
 const finish = { type: "RUN_FINISHED", run_id: "run-1", thread_id: "thread-1" };
@@ -42,27 +42,23 @@ test("parses only one JSON event per SSE frame", () => {
   assert.throws(() => parseSse("data: {}\ndata: {}\n\n"), /exactly one/);
 });
 
-test("browser evidence fails fast for one completed terminal RUN_ERROR without exposing stream details", () => {
-  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
-  const helper = source.match(/(function throwOnCompletedRunError\(sseBodies\) \{[\s\S]*?\r?\n\})\r?\n\r?\nmkdirSync/);
-  assert.ok(helper, "browser evidence must inspect completed SSE bodies before turn-meta succeeds");
-  const throwOnCompletedRunError = new Function("parseSse", "terminalEvents", "validEventSequence", `${helper[1]}\nreturn throwOnCompletedRunError;`)(parseSse, (events) => events.filter((event) => event.type === "RUN_FINISHED" || event.type === "RUN_ERROR"), validEventSequence);
-  const errorBody = 'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_ERROR","message":"authorization=test-secret"}\n\n';
+test("direct stream evidence requires one completed terminal and retains text and tool evidence", () => {
+  const body = [start, ...toolEvents("get", "succeeded", { kind: "engagement", id: "eng-1" }), ...assistantText("The engagement is Yellow."), finish]
+    .map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
+  const evidence = completedStreamEvidence(body);
+  assert.equal(evidence.terminal.type, "RUN_FINISHED");
+  assert.equal(evidence.assistantText, "The engagement is Yellow.");
+  assert.equal(evidence.toolCalls.length, 1);
+  assert.equal(evidence.toolCalls[0].name, "get_engagement");
+  assert.throws(() => completedStreamEvidence('data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\n'), /one valid terminal/);
+});
 
-  assert.throws(() => throwOnCompletedRunError([errorBody]), (error) => {
-    assert.match(error.message, /^Agent turn ended with RUN_ERROR;/);
-    assert.doesNotMatch(error.message, /test-secret|authorization/);
-    return true;
-  });
-  assert.doesNotThrow(() => throwOnCompletedRunError([
-    'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_FINISHED","run_id":"run-1","thread_id":"thread-1"}\n\n',
-    'data: {"type":"RUN_ERROR","message":"not-terminal"}\n\ndata: {"type":"TEXT_MESSAGE_START","message_id":"message-1","role":"assistant"}\n\n',
-    'data: {"type":"RUN_ERROR","message":"first"}\n\ndata: {"type":"RUN_ERROR","message":"second"}\n\n',
-    'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_ERROR","message":"unterminated"}',
-    'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_ERROR"}\n\n',
-    'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"UNKNOWN"}\n\ndata: {"type":"RUN_ERROR","message":"invalid sequence"}\n\n',
-  ]));
-  assert.match(source, /layoutsDuring\.push\(await wideLayout\(dan\.page\)\);\s*throwOnCompletedRunError\(sseBodies\);\s*return \(await dan\.page\.getByTestId\("turn-meta"\)\.count\(\)\) > turnMetaBefore;/);
+test("browser evidence uses the completed UI marker and a separate direct stream probe", () => {
+  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
+  assert.match(source, /function directStreamEvidence\(page, prompt\)/);
+  assert.match(source, /return \(await dan\.page\.getByTestId\("turn-meta"\)\.count\(\)\) > turnMetaBefore;/);
+  assert.match(source, /MVP-P52-direct-stream-terminal-and-evidence/);
+  assert.doesNotMatch(source, /throwOnCompletedRunError|sseBodies|page\.on\("response"/);
 });
 
 test("MVP eval scope defaults to all and selects only the requested versioned suite", () => {

@@ -11,7 +11,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { chromium } from "@playwright/test";
-import { evaluateCase, evidencePath, parseSse, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, terminalEvents, validEventSequence } from "./mvp_evidence.mjs";
+import { completedStreamEvidence, evidencePath, exactEngagementUpdate, onlyEngagementMayChange, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, stateFingerprint } from "./mvp_evidence.mjs";
 
 const startedAt = new Date().toISOString();
 const REMOTE = process.env.MVP_ALLOW_REMOTE === "1";
@@ -82,6 +82,40 @@ async function raw(page, path, method, body) {
 }
 async function noHorizontalOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth);
+}
+async function directStreamEvidence(page, prompt) {
+  // This uses a fresh owned session so the browser's real conversation remains the
+  // user journey under test. It is read-only: the prompt asks the model to retrieve
+  // the record that the browser turn already changed.
+  const response = await page.evaluate(async ({ api, prompt }) => {
+    const token = localStorage.getItem("pa_auth_token");
+    const headers = { "content-type": "application/json", ...(token ? { "X-Auth-Token": token } : {}) };
+    let probeSessionId = null;
+    try {
+      const created = await fetch(`${api}/sessions`, { method: "POST", headers, body: JSON.stringify({}) });
+      if (!created.ok) return { status: created.status, body: "" };
+      probeSessionId = (await created.json()).session_id;
+      const stream = await fetch(`${api}/sessions/${probeSessionId}/messages`, {
+        method: "POST", headers, body: JSON.stringify({ prompt, navigation_version: 0 }),
+      });
+      return { status: stream.status, body: await stream.text() };
+    } finally {
+      if (probeSessionId) await fetch(`${api}/sessions/${probeSessionId}`, { method: "DELETE", headers });
+    }
+  }, { api: API, prompt });
+  if (response.status !== 200) throw new Error(`Direct assistant stream returned HTTP ${response.status}.`);
+  const evidence = completedStreamEvidence(response.body);
+  return {
+    terminalType: evidence.terminal.type,
+    assistantTextPresent: evidence.assistantText.trim().length > 0,
+    assistantTextCharacters: evidence.assistantText.length,
+    toolCalls: evidence.toolCalls.map((call) => ({
+      name: call.name,
+      operation: call.result?.operation ?? null,
+      status: call.result?.status ?? null,
+      code: call.result?.code ?? null,
+    })),
+  };
 }
 async function responsiveLayout(page) {
   return page.evaluate(() => {
@@ -231,22 +265,6 @@ async function newPage(browser, viewport, user) {
   await signIn(page, user);
   return { context, page, errors };
 }
-function throwOnCompletedRunError(sseBodies) {
-  for (const body of sseBodies) {
-    // response.text() can expose an incomplete final frame if transport handling
-    // changes. Only a frame closed by the SSE blank-line delimiter is complete.
-    if (typeof body !== "string" || !/\r?\n\r?\n$/.test(body)) continue;
-    let events;
-    try { events = parseSse(body); } catch { continue; }
-    const terminals = terminalEvents(events);
-    if (validEventSequence(events) && terminals[0]?.type === "RUN_ERROR") {
-      // The typed terminal proves the turn failed, but its message may contain
-      // provider diagnostics. Keep evidence output free of stream details.
-      throw new Error("Agent turn ended with RUN_ERROR; typed error details intentionally omitted.");
-    }
-  }
-}
-
 mkdirSync(out, { recursive: true });
 const report = { schemaVersion: 1, kind: "mvp-playwright", runId, sourceRevision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), fixture: null, environment: EVIDENCE_ENVIRONMENT, harness: process.env.AGENT_BACKEND || "deepagents", model: process.env.AZURE_DEPLOYMENT || "UNSPECIFIED", app: APP, api: API, startedAt };
 let browser;
@@ -378,15 +396,10 @@ try {
   report.rejectedYellowValidation = { engagementId, before: beforeRejectedYellow, after: afterRejectedYellow };
   check("MVP-P17-validation-no-state-change", !!beforeRejectedYellow && sameCanonical(beforeRejectedYellow, afterRejectedYellow));
 
-  // Capture the real SSE payload from the browser turn, then require a structured
-  // committed result and the corresponding authoritative state.  The rendered label
-  // and assistant response are intentionally not examined as the oracle.
-  const sseBodies = [];
-  dan.page.on("response", async (response) => {
-    if (response.url().includes(`/sessions/`) && response.url().endsWith("/messages")) {
-      try { sseBodies.push(await response.text()); } catch { /* recorded as missing below */ }
-    }
-  });
+  // The completed turn marker is the browser proof: it is rendered only after the
+  // frontend receives RUN_FINISHED. Raw stream evidence comes from a fresh direct
+  // API probe below because the frontend correctly cancels its own reader at that
+  // terminal event, which makes passive network-body capture incomplete.
   const turnMetaBefore = await dan.page.getByTestId("turn-meta").count();
   const agentBefore = await state(dan.page);
   const layoutBefore = await wideLayout(dan.page);
@@ -396,30 +409,31 @@ try {
   const layoutsDuring = [await wideLayout(dan.page)];
   await eventually(async () => {
     layoutsDuring.push(await wideLayout(dan.page));
-    throwOnCompletedRunError(sseBodies);
     return (await dan.page.getByTestId("turn-meta").count()) > turnMetaBefore;
   }, 180_000);
   check("MVP-P28-wide-layout-during-agent", !!layoutBefore && layoutsDuring.length > 0 && layoutsDuring.every((layout) => stableWideLayout(layout, layoutBefore)));
-  const events = await eventually(() => {
-    for (const body of sseBodies) {
-      const candidate = parseSse(body);
-      if (terminalEvents(candidate).length === 1 && candidate.at(-1) === terminalEvents(candidate)[0]) return candidate;
-    }
-    return null;
-  }, 30_000);
   const agentState = await state(dan.page);
-  const agentOracle = evaluateCase({
-    expectation: {
-      operation: "update", status: "committed", resourceId: engagementId, stateChanged: true,
-      onlyEngagementMayChange: engagementId,
-      exactEngagementUpdate: { id: engagementId, actor: "dan", detail: "status, statusNote" },
-      engagementAfter: { id: engagementId, status: "yellow", statusNote: "Agent structured evidence refresh" },
-    },
-    before: agentBefore, after: agentState, events,
-  });
+  const agentTarget = engagementFrom(agentState, engagementId);
+  const agentOracle = { checks: {
+    stateChanged: stateFingerprint(agentBefore) !== stateFingerprint(agentState),
+    engagementAfter: agentTarget?.status === "yellow" && agentTarget?.statusNote === "Agent structured evidence refresh",
+    onlyEngagementMayChange: onlyEngagementMayChange(agentBefore, agentState, engagementId),
+    exactEngagementUpdate: exactEngagementUpdate(agentBefore, agentState, { id: engagementId, actor: "dan", detail: "status, statusNote" }),
+  } };
+  agentOracle.pass = Object.values(agentOracle.checks).every(Boolean);
   report.agentMutationOracle = agentOracle;
   check("MVP-P18-agent-e4-oracle", agentOracle.pass, JSON.stringify(agentOracle.checks));
   check("MVP-P20-agent-ui-refreshed", await dan.page.getByTestId("engagement-status-badge").innerText().then((value) => value.trim().toLowerCase() === "yellow"));
+  const directEvidence = await directStreamEvidence(
+    dan.page,
+    `Use the supported product tool to retrieve Engagement ${engagementId}. Do not make any changes. State its current status and status reason briefly.`,
+  );
+  report.directStreamValidation = directEvidence;
+  check(
+    "MVP-P52-direct-stream-terminal-and-evidence",
+    directEvidence.terminalType === "RUN_FINISHED" && directEvidence.assistantTextPresent && directEvidence.toolCalls.length > 0,
+    JSON.stringify({ terminalType: directEvidence.terminalType, assistantTextPresent: directEvidence.assistantTextPresent, toolCallCount: directEvidence.toolCalls.length }),
+  );
   const layoutAfter = await wideLayout(dan.page);
   check("MVP-P29-wide-layout-after-agent", !!layoutBefore && stableWideLayout(layoutAfter, layoutBefore));
   check("MVP-P30-wide-no-horizontal-overflow-after-agent", await noHorizontalOverflow(dan.page));
