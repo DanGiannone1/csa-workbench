@@ -154,7 +154,7 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
         <OverlayLayer className="z-50 flex items-center justify-center px-4">
           <Dialog aria-labelledby="new-session-title" aria-describedby="new-session-description" className="w-full max-w-sm p-8 relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-1 bg-brand-primary" />
-            <h2 id="new-session-title" className="text-lg font-bold text-text-primary uppercase tracking-wide">Start a new session?</h2>
+            <h2 id="new-session-title" className="text-lg font-bold text-text-primary" style={{ fontFamily: "var(--font-display)" }}>Start a new session?</h2>
             <p id="new-session-description" className="mt-3 text-sm text-text-muted leading-relaxed">This clears this conversation and its session files. Your Engagements and their durable artifacts stay available.</p>
             <div className="mt-8 flex flex-col gap-2">
               <Button ref={newSessionConfirmRef} variant="primary" disabled={newSessionPending} onClick={() => void confirmNewSession()} className="w-full">{newSessionPending ? "Starting…" : "Start new session"}</Button>

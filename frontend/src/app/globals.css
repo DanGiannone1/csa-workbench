@@ -64,23 +64,24 @@ html, body {
 .ui-surface-raised { box-shadow: var(--shadow-raised); }
 .ui-card { border-radius: 1.25rem; }
 
+/* Quiet, sentence-case controls per the design reference. */
 .ui-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid transparent;
-  border-radius: 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1;
-  text-transform: uppercase;
+  text-transform: none;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
-.ui-button-medium { min-height: 2.5rem; padding: 0.7rem 1rem; }
-.ui-button-small { min-height: 2rem; padding: 0.45rem 0.75rem; }
-.ui-button-icon { width: 2.5rem; min-width: 2.5rem; height: 2.5rem; padding: 0; }
+.ui-button-medium { min-height: 2.25rem; padding: 0.55rem 0.95rem; }
+.ui-button-small { min-height: 1.9rem; padding: 0.35rem 0.65rem; border-radius: 7px; }
+.ui-button-icon { width: 2.25rem; min-width: 2.25rem; height: 2.25rem; padding: 0; }
 .ui-button-primary { background: var(--brand-primary); color: var(--text-on-brand); }
 .ui-button-primary:hover { background: var(--brand-strong); }
 .ui-button-secondary { border-color: var(--border-subtle); background: var(--surface-2); color: var(--text-secondary); }
@@ -95,16 +96,17 @@ html, body {
 .ui-field-label { color: var(--text-muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .ui-input {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.4rem;
   border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  background: var(--surface-2);
+  border-radius: 9px;
+  background: var(--surface-1);
   color: var(--text-primary);
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 500;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
   outline: none;
 }
+.ui-input:focus { border-color: var(--border-brand-subtle); box-shadow: 0 0 0 3px var(--surface-brand-subtle); }
 .ui-field-hint { color: var(--text-muted); font-size: 0.75rem; }
 .ui-field-error { color: var(--text-danger); font-size: 0.75rem; }
 
@@ -438,8 +440,8 @@ html, body {
 .tw-app .tw-input:disabled { cursor: not-allowed; opacity: 0.62; background: var(--surface-2); }
 .tw-app .tw-btn, .tw-app .tw-btn-ghost, .tw-app .tw-addbar, .tw-app .tw-tab, .tw-nav .tw-btn-ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
-  min-height: 2.5rem; border-radius: 0.6rem; padding: 0.5rem 0.75rem;
-  font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  min-height: 2.25rem; border-radius: 9px; padding: 0.45rem 0.7rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
 }
 .tw-app .tw-btn { border: 1px solid var(--brand-primary); background: var(--brand-primary); color: var(--text-on-brand); }
 .tw-app .tw-btn:hover:not(:disabled) { background: var(--brand-strong); border-color: var(--brand-strong); }

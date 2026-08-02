@@ -90,7 +90,7 @@ export default function AssistantWorkspace() {
                   className="h-8 px-2.5"
                 >
                   <FileText size={14} strokeWidth={2.5} />
-                  <span className="text-[11px] font-bold uppercase tracking-widest">{showArtifacts ? "Hide" : "Artifacts"}</span>
+                  <span>{showArtifacts ? "Hide" : "Artifacts"}</span>
                   {!showArtifacts && artifacts.length > 0 && (
                     <span data-testid="artifacts-toggle-count" className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold text-text-on-brand">{artifacts.length}</span>
                   )}
