@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import AxeBuilder from "@axe-core/playwright";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { axeColorContrastOptions, axeColorContrastPasses, compactAxeContrastResults } from "../scripts/axe_contrast.mjs";
 import { completedStreamEvidence, evidencePath, evaluateCase, onlyEngagementAndPersonalAggregateMayChange, exactEngagementUpdate, onlyEngagementMayChange, parseMvpEvalScope, parseSse, requireCleanWorktree, requireLoopbackUrl, requireStableSourceRevision, requireTargetUrl, selectMvpEvalScope, stateFingerprint, validEventSequence } from "../scripts/mvp_evidence.mjs";
 
 const start = { type: "RUN_STARTED", run_id: "run-1", thread_id: "thread-1" };
@@ -520,11 +522,38 @@ test("Playwright contrast acceptance scans representative visible product states
   const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   assert.equal(packageJson.devDependencies["@axe-core/playwright"], "^4.12.1");
   assert.match(source, /import AxeBuilder from "@axe-core\/playwright"/);
-  assert.match(source, /withRules\(\["color-contrast"\]\)/);
-  assert.match(source, /report\.colorContrast\.push\(\{ state, rule: "color-contrast", violations \}\)/);
+  assert.match(source, /options\(axeColorContrastOptions\(\)\)/);
+  assert.doesNotMatch(source, /\.withRules\(/);
+  assert.match(source, /report\.colorContrast\.push\(\{ state, rule: "color-contrast", \.\.\.findings \}\)/);
   for (const state of ["wide-engagements", "compact-viewer", "dialog", "phone-drawer", "phone-assistant"]) {
     assert.match(source, new RegExp(`checkColorContrast\\([^,]+, "${state}", report\\)`));
   }
+});
+
+test("axe contrast options stay scoped and incomplete results fail closed", () => {
+  const options = axeColorContrastOptions();
+  assert.deepEqual(options, {
+    runOnly: { type: "rule", values: ["color-contrast"] },
+    resultTypes: ["violations", "incomplete"],
+  });
+  const builder = new AxeBuilder({ page: {} }).options(options);
+  assert.deepEqual(builder.option, options);
+
+  const incompleteNode = {
+    id: "color-contrast",
+    nodes: [{
+      target: [".uncertain"],
+      any: [{ message: "Needs review", data: { contrastRatio: 4 } }],
+      all: [],
+      none: [],
+      failureSummary: "Unable to determine contrast",
+    }],
+  };
+  const findings = compactAxeContrastResults({ violations: [], incomplete: [incompleteNode] });
+  assert.equal(findings.incomplete.length, 1);
+  assert.equal(axeColorContrastPasses(findings), false);
+  assert.equal(axeColorContrastPasses({ violations: [incompleteNode], incomplete: [] }), false);
+  assert.equal(axeColorContrastPasses({ violations: [], incomplete: [] }), true);
 });
 
 test("remote browser evidence is labeled and stored separately from local evidence", () => {

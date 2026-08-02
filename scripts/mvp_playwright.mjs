@@ -12,6 +12,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
+import { axeColorContrastOptions, axeColorContrastPasses, compactAxeContrastResults } from "./axe_contrast.mjs";
 import { completedStreamEvidence, evidencePath, exactEngagementUpdate, onlyEngagementMayChange, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, stateFingerprint } from "./mvp_evidence.mjs";
 
 const startedAt = new Date().toISOString();
@@ -48,20 +49,13 @@ function resetFixture() {
 const checks = [];
 async function checkColorContrast(page, state, report) {
   const result = await new AxeBuilder({ page })
-    .withRules(["color-contrast"])
-    .options({ resultTypes: ["violations"] })
+    .options(axeColorContrastOptions())
     .analyze();
-  const violations = result.violations.map(({ id, nodes }) => ({
-    id,
-    nodes: nodes.map(({ target, any, failureSummary }) => ({
-      target,
-      checks: any.map(({ message, data }) => ({ message, data })),
-      failureSummary,
-    })),
-  }));
+  const findings = compactAxeContrastResults(result);
   report.colorContrast ??= [];
-  report.colorContrast.push({ state, rule: "color-contrast", violations });
-  check(`MVP-P53-color-contrast-${state}`, violations.length === 0, violations.length ? JSON.stringify(violations) : "");
+  report.colorContrast.push({ state, rule: "color-contrast", ...findings });
+  const pass = axeColorContrastPasses(findings);
+  check(`MVP-P53-color-contrast-${state}`, pass, pass ? "" : JSON.stringify(findings));
 }
 function check(id, pass, detail = "") { checks.push({ id, pass: !!pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${id}${detail ? ` — ${detail}` : ""}`); }
 async function eventually(predicate, timeout = 15_000) {
