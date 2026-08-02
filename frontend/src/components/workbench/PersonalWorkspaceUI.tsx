@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import type { Task, TaskPriority, TaskStatus } from "@/lib/types";
 import { friendlyError } from "@/lib/utils";
+import Status from "@/components/ui/Status";
+import { Card } from "@/components/ui/Surface";
 
 export function isOverdue(task: Task, today: string): boolean {
   if (task.status === "Done") return false;
@@ -15,17 +17,17 @@ export function isOverdue(task: Task, today: string): boolean {
   return !!due && due < today;
 }
 
-function statusClass(status: TaskStatus): string {
+function statusTone(status: TaskStatus): "neutral" | "success" | "warning" | "danger" {
   switch (status) {
-    case "Done": return "tw-badge-green";
-    case "In progress": return "tw-badge-orange";
-    case "Blocked": return "tw-badge-red";
-    default: return "tw-badge-gray"; // To do
+    case "Done": return "success";
+    case "In progress": return "warning";
+    case "Blocked": return "danger";
+    default: return "neutral";
   }
 }
 
 export function StatusBadge({ status }: { status: TaskStatus }) {
-  return <span className={`tw-badge ${statusClass(status)}`}>{status}</span>;
+  return <Status tone={statusTone(status)}>{status}</Status>;
 }
 
 export function PriorityBadge({ priority }: { priority: TaskPriority }) {
@@ -34,15 +36,15 @@ export function PriorityBadge({ priority }: { priority: TaskPriority }) {
 }
 
 export function OverdueBadge() {
-  return <span className="tw-badge tw-badge-red"><AlertTriangle size={11} strokeWidth={2.5} />Overdue</span>;
+  return <Status tone="danger"><AlertTriangle size={11} strokeWidth={2.5} />Overdue</Status>;
 }
 
 export function Stat({ label, value, testid }: { label: string; value: number | string; testid?: string }) {
   return (
-    <div className="tw-stat" data-testid={testid}>
+    <Card className="tw-stat" data-testid={testid}>
       <div className="tw-stat-value">{value}</div>
       <div className="tw-stat-label">{label}</div>
-    </div>
+    </Card>
   );
 }
 

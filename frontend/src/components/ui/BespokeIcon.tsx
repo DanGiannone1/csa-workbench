@@ -7,35 +7,24 @@ interface BespokeIconProps {
   icon: LucideIcon;
   size?: number;
   className?: string;
-  glowColor?: string;
   strokeWidth?: number;
 }
 
 /**
- * Renders a Lucide icon with a branded glowing background layer
- * to create a bespoke, duo-tone identity.
+ * Keeps product icon sizing and stroke weight consistent without visual effects.
  */
 export default function BespokeIcon({
   icon: Icon,
   size = 18,
   className = "",
-  glowColor,
   strokeWidth = 2,
 }: BespokeIconProps) {
   return (
-    <div className={`icon-glow-container ${className}`}>
-      {/* Background Glow Layer */}
-      <div 
-        className="icon-glow-layer" 
-        style={{ color: glowColor || "currentColor" }}
-      />
-      
-      {/* Primary Icon */}
+    <span className={`inline-flex items-center justify-center ${className}`}>
       <Icon 
         size={size} 
         strokeWidth={strokeWidth} 
-        className="relative z-10" 
       />
-    </div>
+    </span>
   );
 }

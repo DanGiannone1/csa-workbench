@@ -10,6 +10,10 @@ import {
   signOut as entraSignOut,
 } from "@/lib/auth";
 import { clearSessionId } from "@/lib/session";
+import Button from "./ui/Button";
+import Field from "./ui/Field";
+import Status from "./ui/Status";
+import { Card } from "./ui/Surface";
 
 interface AppAuthValue {
   user: AppUser;
@@ -100,38 +104,39 @@ function SignIn({ mode, onSignedIn }: { mode: "demo" | "entra"; onSignedIn: (u: 
 
   const demoForm = mode === "demo" && (
     <>
-      <label className="mt-8 block text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">
-        Username
+      <Field label="Username" htmlFor="signin-username" className="mt-8">
         <input
+          id="signin-username"
           data-testid="signin-username"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoFocus
           autoComplete="username"
-          className="mt-2 w-full rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-[15px] font-medium normal-case tracking-normal text-text-primary outline-none focus:border-brand-primary"
+          className="ui-input"
         />
-      </label>
-      <label className="mt-4 block text-[11px] font-bold uppercase tracking-[0.14em] text-text-muted">
-        Password
+      </Field>
+      <Field label="Password" htmlFor="signin-password" className="mt-4">
         <input
+          id="signin-password"
           data-testid="signin-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="mt-2 w-full rounded-xl border border-border-subtle bg-surface-2 px-4 py-3 text-[15px] font-medium normal-case tracking-normal text-text-primary outline-none focus:border-brand-primary"
+          className="ui-input"
         />
-      </label>
+      </Field>
 
-      <button
+      <Button
         type="submit"
+        variant="primary"
         data-testid="signin-submit"
         disabled={busy || !username.trim() || !password}
-        className="interactive-control mt-6 inline-flex w-full items-center justify-center rounded-xl bg-brand-primary px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_12px_32px_rgba(0,115,234,0.3)] transition hover:bg-brand-strong disabled:opacity-50"
+        className="mt-6 w-full"
       >
         <LogIn size={14} strokeWidth={2.5} className="mr-2" />
         {busy ? "Signing in…" : "Sign in"}
-      </button>
+      </Button>
     </>
   );
 
@@ -141,8 +146,9 @@ function SignIn({ mode, onSignedIn }: { mode: "demo" | "entra"; onSignedIn: (u: 
         <form
           onSubmit={submit}
           data-testid="signin-form"
-          className="w-full rounded-[2rem] border border-border-subtle bg-surface-1/80 p-10 shadow-[0_24px_60px_rgba(0,0,0,0.1)] backdrop-blur-2xl"
+          className="w-full"
         >
+          <Card className="p-10">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary/20 text-brand-primary">
             <KeyRound size={24} />
           </div>
@@ -152,25 +158,27 @@ function SignIn({ mode, onSignedIn }: { mode: "demo" | "entra"; onSignedIn: (u: 
           </p>
 
           {mode === "entra" && (
-            <button
+            <Button
               type="button"
+              variant="primary"
               data-testid="signin-microsoft"
               onClick={microsoft}
               disabled={busy}
-              className="interactive-control mt-8 inline-flex w-full items-center justify-center rounded-xl bg-brand-primary px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-white shadow-[0_12px_32px_rgba(0,115,234,0.3)] transition hover:bg-brand-strong disabled:opacity-50"
+              className="mt-8 w-full"
             >
               <LogIn size={14} strokeWidth={2.5} className="mr-2" />
               {busy ? "Redirecting…" : "Sign in with Microsoft"}
-            </button>
+            </Button>
           )}
 
           {demoForm}
 
           {error && (
-            <p data-testid="signin-error" className="mt-4 rounded-xl border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm">
+            <Status data-testid="signin-error" tone="danger" pill={false} className="mt-4 block px-4 py-3 text-sm">
               {error}
-            </p>
+            </Status>
           )}
+          </Card>
         </form>
       </div>
     </div>

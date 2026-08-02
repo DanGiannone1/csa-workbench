@@ -69,8 +69,8 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <article className={`message-row ${isUser ? "message-row-user" : "message-row-assistant"}`}>
       {!isUser && (
-        <div className="message-avatar-assistant shadow-xl">
-          <BespokeIcon icon={Sparkles} size={16} glowColor="rgba(108, 108, 255, 0.5)" strokeWidth={2.5} />
+        <div className="message-avatar-assistant">
+          <BespokeIcon icon={Sparkles} size={16} strokeWidth={2.5} />
         </div>
       )}
 

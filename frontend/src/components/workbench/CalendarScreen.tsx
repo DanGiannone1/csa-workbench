@@ -60,7 +60,7 @@ export default function CalendarScreen({ appState, sessionId, onNavigate, onRefr
                     tabIndex={item.kind === "task" ? 0 : undefined}
                     style={item.kind === "event" ? { cursor: "default" } : undefined}
                   >
-                    {item.kind === "event" ? <Clock size={15} /> : <CheckCircle2 size={15} className="text-green-500" />}
+                    {item.kind === "event" ? <Clock size={15} /> : <CheckCircle2 size={15} className="text-brand-success" />}
                     <span className="flex flex-col min-w-0 flex-1">
                       <span className="tw-td-title">{item.title}</span>
                       <span className="tw-td-sub">{item.meta}</span>

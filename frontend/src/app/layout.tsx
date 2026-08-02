@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 // Serif for assistant narrative — the defining trait of the Claude-style reading surface.
-const serif = Source_Serif_4({
-  variable: "--font-serif",
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
   subsets: ["latin"],
 });
 
@@ -36,9 +36,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${serif.variable} font-sans antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${sourceSerif.variable} font-sans antialiased`}
       >
         <AppAuthProvider>
           <SessionProvider>{children}</SessionProvider>

@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FileText, Sparkles, Pencil, Check, X } from "lucide-react";
-import GlassPanel from "./ui/GlassPanel";
+import Button from "./ui/Button";
+import Status from "./ui/Status";
+import { Surface } from "./ui/Surface";
 import MarkdownRenderer from "./MarkdownRenderer";
 import { getFileContent, saveFileContent } from "@/lib/api";
 import { useSession } from "./SessionProvider";
@@ -64,27 +66,24 @@ export default function ArtifactCanvas() {
 
   return (
     <div className="flex h-full flex-col gap-3 min-w-0" data-testid="artifact-canvas">
-      <header className="h-14 flex items-center justify-between px-5 bg-surface-1/70 backdrop-blur-2xl rounded-2xl border border-border-subtle shrink-0">
+      <Surface className="h-14 flex items-center justify-between px-5 shrink-0">
         <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-text-muted">Artifacts</span>
         <div className="flex items-center gap-2">
           {editing ? (
             <>
-              <button type="button" data-testid="artifact-save" onClick={saveEdit} disabled={saving}
-                className="interactive-control inline-flex items-center gap-1.5 rounded-lg bg-brand-primary px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-white disabled:opacity-50">
+              <Button variant="primary" size="small" data-testid="artifact-save" onClick={saveEdit} disabled={saving}>
                 <Check size={13} strokeWidth={2.5} />{saving ? "Saving…" : "Save"}
-              </button>
-              <button type="button" data-testid="artifact-cancel" onClick={cancelEdit} disabled={saving}
-                className="interactive-control inline-flex items-center gap-1.5 rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-text-secondary">
+              </Button>
+              <Button size="small" data-testid="artifact-cancel" onClick={cancelEdit} disabled={saving}>
                 <X size={13} strokeWidth={2.5} />Cancel
-              </button>
+              </Button>
             </>
           ) : (
             <>
               {editable && (
-                <button type="button" data-testid="artifact-edit" onClick={startEdit}
-                  className="interactive-control inline-flex items-center gap-1.5 rounded-lg bg-surface-2 border border-border-subtle px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary hover:border-brand-primary">
+                <Button size="small" data-testid="artifact-edit" onClick={startEdit}>
                   <Pencil size={13} strokeWidth={2.5} />Edit
-                </button>
+                </Button>
               )}
               {artifacts.length > 0 && (
                 <span className="text-[11px] font-semibold text-text-muted">{artifacts.length} artifact{artifacts.length === 1 ? "" : "s"}</span>
@@ -92,9 +91,9 @@ export default function ArtifactCanvas() {
             </>
           )}
         </div>
-      </header>
+      </Surface>
 
-      <GlassPanel variant="light" className="flex-1 flex min-h-0 overflow-hidden">
+      <Surface level="raised" className="flex-1 flex min-h-0 overflow-hidden">
         {artifacts.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-10 text-center">
             <div className="p-3 rounded-2xl bg-surface-2 text-text-muted"><Sparkles size={22} /></div>
@@ -140,16 +139,16 @@ export default function ArtifactCanvas() {
                 </div>
               ) : (
                 <>
-                  <div data-testid="artifact-provenance" className="mb-4 flex items-center gap-2 rounded-lg border border-brand-warning/40 bg-brand-warning/10 px-3 py-2 text-[11px] font-semibold text-brand-warning">
+                  <Status data-testid="artifact-provenance" tone="warning" pill={false} className="mb-4 flex items-center gap-2 px-3 py-2 text-[11px] font-semibold">
                     <Sparkles size={13} /> AI-generated draft · unreviewed — verify before use
-                  </div>
+                  </Status>
                   <MarkdownRenderer content={content} />
                 </>
               )}
             </div>
           </div>
         )}
-      </GlassPanel>
+      </Surface>
     </div>
   );
 }

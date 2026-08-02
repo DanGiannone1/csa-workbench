@@ -16,7 +16,6 @@
   --surface-brand-strong: oklch(.89 .06 45);
   --border-brand-subtle: oklch(.79 .08 45);
   --brand-transparent: oklch(.56 .115 45 / 0%);
-  --brand-glow: oklch(.56 .115 45 / 45%);
   --surface-danger: oklch(.95 .025 18);
   --text-danger: oklch(.46 .16 18);
   --border-danger: oklch(.68 .12 18);
@@ -50,7 +49,9 @@
   --status-blocked: var(--brand-warning);
   --status-todo: #a3968c;
 
-  --font-display: Georgia, serif;
-  --font-body: "Segoe UI", Arial, sans-serif;
+  /* Application typography. Next/font supplies the leading faces at runtime. */
+  --font-display: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-geist-sans), "Segoe UI", Arial, sans-serif;
+  --font-code: var(--font-geist-mono), "Cascadia Mono", Consolas, monospace;
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }

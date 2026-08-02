@@ -24,6 +24,7 @@
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+  --color-text-on-brand: var(--text-on-brand);
 
   --color-border-subtle: var(--border-subtle);
 
@@ -35,29 +36,15 @@
   --color-brand-warning: var(--brand-warning);
   --color-brand-strong: var(--brand-strong);
 
-  --font-sans: 'Inter', var(--font-geist-sans), sans-serif;
-  --font-mono: 'JetBrains Mono', var(--font-geist-mono), monospace;
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
 
   --animate-fade-in: fade-in 0.28s ease-out both;
-  --animate-blob: blob 15s infinite alternate ease-in-out;
-  --animate-shimmer: shimmer 4s linear infinite;
 }
 
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes blob {
-  0% { transform: translate(0px, 0px) scale(1); }
-  33% { transform: translate(30px, -50px) scale(1.1); }
-  66% { transform: translate(-20px, 20px) scale(0.9); }
-  100% { transform: translate(0px, 0px) scale(1); }
-}
-
-@keyframes shimmer {
-  from { background-position: 200% center; }
-  to { background-position: -200% center; }
 }
 
 html, body {
@@ -66,19 +53,85 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Ambient blobs — very faint light-color washes (Monday-calm, not neon orbs) */
-.ambient-orb-1 {
-  position: absolute; top: -10%; left: -10%; width: 40%; height: 40%;
-  background: var(--surface-brand-subtle); border-radius: 9999px;
-  filter: blur(150px); pointer-events: none;
-  z-index: 0;
+/* Semantic component catalogue. React components in components/ui own these classes. */
+.ui-surface {
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  background: var(--surface-1);
+  color: var(--text-primary);
 }
-.ambient-orb-2 {
-  position: absolute; top: 20%; right: -10%; width: 30%; height: 50%;
-  background: var(--surface-brand-subtle); border-radius: 9999px;
-  filter: blur(150px); pointer-events: none;
-  z-index: 0;
+.ui-surface-subtle { background: var(--surface-2); }
+.ui-surface-raised { box-shadow: var(--shadow-raised); }
+.ui-card { border-radius: 1.25rem; }
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
+.ui-button-medium { min-height: 2.5rem; padding: 0.7rem 1rem; }
+.ui-button-small { min-height: 2rem; padding: 0.45rem 0.75rem; }
+.ui-button-icon { width: 2.5rem; min-width: 2.5rem; height: 2.5rem; padding: 0; }
+.ui-button-primary { background: var(--brand-primary); color: var(--text-on-brand); }
+.ui-button-primary:hover { background: var(--brand-strong); }
+.ui-button-secondary { border-color: var(--border-subtle); background: var(--surface-2); color: var(--text-secondary); }
+.ui-button-secondary:hover { border-color: var(--brand-primary); color: var(--text-primary); }
+.ui-button-ghost { background: transparent; color: var(--text-muted); }
+.ui-button-ghost:hover { background: var(--surface-2); color: var(--text-primary); }
+.ui-button-danger { border-color: var(--border-danger); background: var(--surface-danger); color: var(--text-danger); }
+.ui-button-danger:hover { border-color: var(--text-danger); }
+.ui-button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.ui-field { display: grid; gap: 0.45rem; }
+.ui-field-label { color: var(--text-muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.ui-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  outline: none;
+}
+.ui-field-hint { color: var(--text-muted); font-size: 0.75rem; }
+.ui-field-error { color: var(--text-danger); font-size: 0.75rem; }
+
+.ui-status { display: inline-flex; align-items: center; gap: 0.3rem; border: 1px solid transparent; font-size: 0.7rem; font-weight: 700; }
+.ui-status-pill { border-radius: 999px; padding: 0.15rem 0.5rem; white-space: nowrap; }
+.ui-status-neutral { border-color: var(--border-neutral); background: var(--surface-neutral); color: var(--text-neutral); }
+.ui-status-info { border-color: var(--border-brand-subtle); background: var(--surface-brand-subtle); color: var(--brand-strong); }
+.ui-status-success { background: var(--surface-success); color: var(--text-success); }
+.ui-status-warning { border-color: var(--border-warning); background: var(--surface-warning); color: var(--text-warning); }
+.ui-status-danger { border-color: var(--border-danger); background: var(--surface-danger); color: var(--text-danger); }
+
+.ui-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; border-bottom: 1px solid var(--border-subtle); }
+.ui-tab { margin-bottom: -1px; border: 1px solid transparent; border-bottom-width: 2px; border-radius: 0.6rem 0.6rem 0 0; background: transparent; color: var(--text-secondary); }
+.ui-tab:hover { background: var(--surface-2); color: var(--text-primary); }
+.ui-tab-active { border-bottom-color: var(--brand-primary); color: var(--brand-strong); }
+
+.ui-overlay { position: fixed; inset: 0; border: 0; background: var(--overlay-scrim); }
+.ui-overlay-layer { position: fixed; inset: 0; background: var(--overlay-scrim); }
+.ui-dialog { border: 1px solid var(--border-subtle); border-radius: 1.25rem; background: var(--surface-1); color: var(--text-primary); box-shadow: var(--shadow-raised); }
+.ui-drawer { min-width: 0; }
+.ui-toast { border: 1px solid var(--border-subtle); border-radius: 0.65rem; background: var(--surface-2); color: var(--text-secondary); padding: 0.45rem 0.65rem; font-size: 0.75rem; }
+.ui-toast-warning { border-color: var(--border-warning); background: var(--surface-warning); color: var(--text-warning); }
+.ui-toast-danger { border-color: var(--border-danger); background: var(--surface-danger); color: var(--text-danger); }
+.ui-toast-success { background: var(--surface-success); color: var(--text-success); }
+
+.ui-composer { border: 1px solid var(--border-subtle); border-radius: 1rem; background: var(--surface-1); box-shadow: var(--shadow-raised); transition: border-color 0.15s; }
+.ui-composer-focused { border-color: var(--brand-primary); }
 
 /* Chat structure */
 .message-body { min-width: 0; flex: 1; }
@@ -88,7 +141,7 @@ html, body {
 .message-body-assistant { max-width: min(78ch, 100%); }
 .message-body-user { max-width: min(60ch, 85%); margin-left: auto; flex: 0 1 auto; }
 
-/* User Message: blue → purple gradient bubble */
+/* User message */
 .message-body-user .prose-message {
   display: inline-block;
   min-width: 1px;
@@ -105,7 +158,7 @@ html, body {
 
 /* Assistant Message: serif narrative on plain canvas (Claude-style reading surface) */
 .message-body-assistant .prose-message {
-  font-family: var(--font-serif), Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: 1.12rem;
   line-height: 1.75;
   letter-spacing: -0.003em;
@@ -118,7 +171,7 @@ html, body {
 
 /* Inline code rendered as pink monospace chips (like the reference UI) */
 .prose-message :not(pre) > code {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-family: var(--font-code);
   font-size: 0.82em;
   background: var(--surface-danger);
   color: var(--text-danger);
@@ -146,23 +199,6 @@ html, body {
 }
 .thinking-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--brand-accent); font-weight: 700; }
 .thinking-dots span { background: var(--brand-accent); }
-
-/* Bespoke Iconography Glows */
-.icon-glow-container {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.icon-glow-layer {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  filter: blur(8px);
-  opacity: 0.3;
-  z-index: 0;
-  background: currentColor;
-}
 
 /* Visual Cell Formatting — priority pills */
 .cell-pill {
@@ -209,8 +245,8 @@ html, body {
 /* The assistant icon (in the header and the collapsed launcher pill) pulses while the
    agent is working, so there's an ambient "thinking" signal even when the dock is collapsed. */
 @keyframes agent-working-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--brand-glow); }
-  50% { box-shadow: 0 0 0 6px var(--brand-transparent); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.58; }
 }
 .agent-working { animation: agent-working-pulse 1.4s ease-in-out infinite; }
 
@@ -540,7 +576,7 @@ html, body {
 .reasoning-header:hover { color: var(--text-secondary); }
 .reasoning-body { border-left: 2px solid var(--border-subtle); padding-left: 0.85rem; margin: 0.15rem 0 0.4rem 0.25rem; }
 .reasoning-body .prose-message {
-  font-family: var(--font-geist-sans), system-ui, sans-serif !important;
+  font-family: var(--font-body) !important;
   font-size: 0.88rem; line-height: 1.6; color: var(--text-secondary);
 }
 .reasoning-body .prose-message p, .reasoning-body .prose-message li { color: var(--text-secondary); }
@@ -647,7 +683,7 @@ html, body {
 
 /* Shared production surfaces. Keep existing selectors so behavior and test hooks do not change. */
 .tw-app, .tw-screen, [data-testid="host-shell"], [data-testid="assistant-workspace"] { background: var(--app-bg) !important; color: var(--text-primary); }
-.tw-card, .tw-section, .tw-empty-card, .tw-addform, .tw-modal, [role="dialog"] { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
+.tw-card, .tw-section, .tw-empty-card, .tw-addform { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
 .tw-btn, .tw-btn-primary, .message-body-user { background: var(--brand-primary) !important; color: var(--text-on-brand) !important; background-image: none !important; }
 .tw-btn:hover, .tw-btn-primary:hover { background: var(--brand-strong) !important; }
 .tw-tabs { border-color: var(--border-subtle); }

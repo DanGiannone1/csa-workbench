@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { ChatMessage } from "@/lib/types";
 import MessageBubble from "./MessageBubble";
+import Button from "./ui/Button";
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -89,7 +90,7 @@ export default function MessageList({ messages, onSuggestion }: MessageListProps
                     style={{ animationDelay: `${i * 40}ms` }}
                     className="interactive-chip animate-fade-in group flex flex-col items-start gap-3 rounded-2xl border border-border-subtle bg-surface-1 p-5 text-left transition hover:border-brand-primary hover:bg-surface-2"
                   >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-text-primary group-hover:bg-brand-primary group-hover:text-white transition-colors">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-2 text-text-primary group-hover:bg-brand-primary group-hover:text-text-on-brand transition-colors">
                       <SuggestionIcon icon={s.icon} />
                     </div>
                     <div>
@@ -118,7 +119,7 @@ export default function MessageList({ messages, onSuggestion }: MessageListProps
       </div>
 
       {showJumpToLatest && (
-        <button
+        <Button
           type="button"
           data-testid="jump-latest-button"
           onClick={() => {
@@ -126,11 +127,11 @@ export default function MessageList({ messages, onSuggestion }: MessageListProps
             containerRef.current?.scrollTo({ top: containerRef.current.scrollHeight, behavior: "smooth" });
             setShowJumpToLatest(false);
           }}
-          className="interactive-control animate-fade-in fixed bottom-28 left-1/2 z-20 -translate-x-1/2 flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-2/95 px-3 py-2 text-xs text-text-primary shadow-[0_10px_30px_rgba(0,0,0,.12)] backdrop-blur md:bottom-32 md:left-auto md:right-8 md:translate-x-0"
+          className="animate-fade-in fixed bottom-28 left-1/2 z-20 -translate-x-1/2 gap-1.5 rounded-full px-3 py-2 text-xs md:bottom-32 md:left-auto md:right-8 md:translate-x-0"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           Jump to latest
-        </button>
+        </Button>
       )}
     </div>
   );

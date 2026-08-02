@@ -20,11 +20,13 @@ const assistantText = (delta, messageId = "message-1") => [
   { type: "TEXT_MESSAGE_END", message_id: messageId },
 ];
 
-test("the Tailwind theme exports the primary brand utilities used by sign-in controls", () => {
+test("the semantic button uses the primary brand token for sign-in controls", () => {
   const theme = readFileSync(new URL("../frontend/src/app/globals.css", import.meta.url), "utf8");
   const auth = readFileSync(new URL("../frontend/src/components/AppAuthProvider.tsx", import.meta.url), "utf8");
-  assert.match(auth, /data-testid="signin-microsoft"[\s\S]*?bg-brand-primary/);
-  assert.match(theme, /--color-brand-primary:\s*var\(--brand-primary\);/);
+  const button = readFileSync(new URL("../frontend/src/components/ui/Button.tsx", import.meta.url), "utf8");
+  assert.match(auth, /<Button[\s\S]*?variant="primary"[\s\S]*?data-testid="signin-microsoft"/);
+  assert.match(button, /primary:\s*"ui-button-primary"/);
+  assert.match(theme, /\.ui-button-primary\s*\{\s*background:\s*var\(--brand-primary\);/);
 });
 
 test("the frontend pins the patched Next.js and PostCSS production baseline", () => {
@@ -41,10 +43,10 @@ test("parses only one JSON event per SSE frame", () => {
 });
 
 test("browser evidence fails fast for one completed terminal RUN_ERROR without exposing stream details", () => {
-  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8").replace(/\r\n/g, "\n");
-  const helper = source.match(/function throwOnCompletedRunError\(sseBodies\) \{[\s\S]*?\n\}\n\nmkdirSync/);
+  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
+  const helper = source.match(/(function throwOnCompletedRunError\(sseBodies\) \{[\s\S]*?\r?\n\})\r?\n\r?\nmkdirSync/);
   assert.ok(helper, "browser evidence must inspect completed SSE bodies before turn-meta succeeds");
-  const throwOnCompletedRunError = new Function("parseSse", "terminalEvents", "validEventSequence", `${helper[0].slice(0, -"\n\nmkdirSync".length)}\nreturn throwOnCompletedRunError;`)(parseSse, (events) => events.filter((event) => event.type === "RUN_FINISHED" || event.type === "RUN_ERROR"), validEventSequence);
+  const throwOnCompletedRunError = new Function("parseSse", "terminalEvents", "validEventSequence", `${helper[1]}\nreturn throwOnCompletedRunError;`)(parseSse, (events) => events.filter((event) => event.type === "RUN_FINISHED" || event.type === "RUN_ERROR"), validEventSequence);
   const errorBody = 'data: {"type":"RUN_STARTED","run_id":"run-1","thread_id":"thread-1"}\n\ndata: {"type":"RUN_ERROR","message":"authorization=test-secret"}\n\n';
 
   assert.throws(() => throwOnCompletedRunError([errorBody]), (error) => {
