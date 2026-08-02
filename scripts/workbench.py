@@ -173,10 +173,15 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _waza_process(binary: Path, arguments: Sequence[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+def _waza_command(binary: Path, arguments: Sequence[str], *, windows: bool) -> list[str]:
     command = [str(binary), *arguments]
-    if os.name == "nt" and binary.suffix.lower() == ".sh":
-        command = ["bash", str(binary), *arguments]
+    if windows and binary.suffix.lower() == ".sh":
+        command = ["bash", binary.as_posix(), *arguments]
+    return command
+
+
+def _waza_process(binary: Path, arguments: Sequence[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+    command = _waza_command(binary, arguments, windows=os.name == "nt")
     print(f"+ {' '.join(command)}", flush=True)
     return subprocess.run(
         command, cwd=ROOT, env={**os.environ, "WAZA_NO_UPDATE_CHECK": "1"},
