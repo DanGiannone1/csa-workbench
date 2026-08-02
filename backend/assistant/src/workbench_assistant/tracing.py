@@ -111,7 +111,7 @@ def setup_tracing(app: Optional[FastAPI] = None) -> None:
             FastAPIInstrumentor.instrument_app(app)
 
         # 3. Initialize global tracer
-        _tracer = trace.get_tracer("csa-workbench.session-container")
+        _tracer = trace.get_tracer("csa-workbench.assistant")
         _enabled = True
         logger.info(
             "Tracing enabled: service=%s version=%s env=%s",

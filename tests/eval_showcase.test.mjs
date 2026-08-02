@@ -207,7 +207,7 @@ test("product evidence retains the exact skill name, version, and hash", () => {
   assert.deepEqual(projectProductSkill({
     name: "engagement-meeting-prep",
     version: "1.0.0",
-    path: "session-container/product-skills/engagement-meeting-prep/SKILL.md",
+    path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md",
     sha256: "f27459ac7c7377b5f53d6fe889080967a62e40d4d4430764f51c8419a046348c",
     ignoredExtraField: "not presenter-visible",
   }), {

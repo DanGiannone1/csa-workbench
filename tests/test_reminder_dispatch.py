@@ -206,6 +206,9 @@ def test_dispatch_mode_resolution_fails_loud(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_dispatch_never_runs_agent_turns_or_stored_prompts() -> None:
     """The excluded unattended-agent design must not silently return (issue #18)."""
-    source = (Path(__file__).resolve().parent.parent / "workbench_core" / "reminder_dispatch.py").read_text()
+    source = (
+        Path(__file__).resolve().parent.parent
+        / "backend" / "core" / "src" / "workbench_core" / "reminder_dispatch.py"
+    ).read_text()
     for forbidden in ("SessionManager", "session_manager", "create_session", "send_message", '"prompt"'):
         assert forbidden not in source, f"reminder dispatch must not reference {forbidden}"

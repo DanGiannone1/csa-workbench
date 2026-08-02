@@ -4,18 +4,13 @@ from __future__ import annotations
 
 import os
 import secrets
-import sys
 import threading
 import time
-from pathlib import Path
 
 from fastapi import HTTPException, Request
+from workbench_core import appdb
 
-_SC = Path(__file__).resolve().parent / "session-container"
-if str(_SC) not in sys.path:
-    sys.path.insert(0, str(_SC))
-import appdb  # noqa: E402
-from identity_config import IdentityConfig
+from .identity_config import IdentityConfig
 
 _LOCK = threading.Lock()
 _TOKENS: dict[str, dict] = {}  # token -> {"userId": str, "issuedAt": float}

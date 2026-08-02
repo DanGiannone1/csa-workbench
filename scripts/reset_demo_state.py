@@ -25,7 +25,6 @@ import json
 import os
 import re
 import shutil
-import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -49,14 +48,6 @@ def load_local_env(path: Path) -> None:
         key = key.strip()
         if key and key not in os.environ:
             os.environ[key] = value.strip().strip('"').strip("'")
-
-
-def configure_import_paths() -> None:
-    """Make root and session modules importable when Python executes scripts/ directly."""
-    for path in (ROOT, ROOT / "session-container"):
-        value = str(path)
-        if value not in sys.path:
-            sys.path.insert(0, value)
 
 
 def _endpoint_host(endpoint: str) -> str:
@@ -178,8 +169,7 @@ def fixture_summary(appdb) -> dict:
 def reset() -> dict:
     load_local_env(ROOT / ".env")
     target = reset_guard(dict(os.environ))
-    configure_import_paths()
-    import appdb  # noqa: PLC0415
+    from workbench_core import appdb
 
     # The target is already guarded above.  Delete all documents from exactly this
     # emulator container, then reseed through the production demo-only path.
@@ -198,7 +188,7 @@ def reset() -> dict:
     appdb.ensure_seeded(os.environ["DEMO_PASSWORD"])
     # Seed artifacts use the same code path as the application, without importing
     # the FastAPI lifespan or touching an Azure blob backend (guarded above).
-    import app as orchestrator  # noqa: PLC0415
+    from workbench_api import app as orchestrator
     orchestrator._seed_engagement_artifacts()
     return {"target": target, **fixture_summary(appdb)}
 

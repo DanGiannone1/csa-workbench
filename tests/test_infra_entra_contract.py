@@ -283,8 +283,8 @@ def test_entra_shape_redirect_and_runtime_assignment_contracts_are_idempotent_an
 def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_claims() -> None:
     apps = (ROOT / 'infra' / 'apps.bicep').read_text()
     entra_source = (ROOT / 'infra' / 'entra.py').read_text()
-    workload_auth = (ROOT / 'session-container' / 'workload_auth.py').read_text()
-    session_manager = (ROOT / 'session_manager.py').read_text()
+    workload_auth = (ROOT / 'backend' / 'assistant' / 'src' / 'workbench_assistant' / 'workload_auth.py').read_text()
+    session_manager = (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'session_manager.py').read_text()
     deploy = (ROOT / 'infra' / 'deploy.sh').read_text()
 
     requested_resource = "api://${runtimeClientId}"
@@ -302,10 +302,10 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
 
 def test_python_authentication_has_no_direct_jwt_or_jwks_validation_path() -> None:
     sources = [
-        (ROOT / 'api_auth.py').read_text(),
-        (ROOT / 'session-container' / 'workload_auth.py').read_text(),
-        (ROOT / 'pyproject.toml').read_text(),
-        (ROOT / 'session-container' / 'pyproject.toml').read_text(),
+        (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'api_auth.py').read_text(),
+        (ROOT / 'backend' / 'assistant' / 'src' / 'workbench_assistant' / 'workload_auth.py').read_text(),
+        (ROOT / 'backend' / 'api' / 'pyproject.toml').read_text(),
+        (ROOT / 'backend' / 'assistant' / 'pyproject.toml').read_text(),
     ]
     combined = '\n'.join(sources).lower()
     assert 'pyjwkclient' not in combined
@@ -339,7 +339,8 @@ def test_deployment_workflow_runs_the_canonical_host_suite_with_containerized_bi
     assert 'npm ci' in workflow and '(cd frontend && npm ci)' in workflow
     assert 'astral-sh/setup-uv@v6' in workflow
     assert 'uv sync --locked' in workflow
-    assert '(cd session-container && uv sync --locked)' in workflow
+    assert 'uv sync --locked' in workflow
+    assert 'session-container' not in workflow
     assert 'npm run verify:ci' in workflow
     assert 'azure/cli@v2' in workflow and 'az bicep build --file infra/foundation.bicep' in workflow
     assert 'pytest' not in workflow

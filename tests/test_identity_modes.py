@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 from pathlib import Path
 
 import pytest
@@ -9,13 +8,10 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "session-container"))
 
-import api_auth
-import auth_users
-from identity_config import IdentityConfig
-from mise_validation import TokenRejected, ValidationUnavailable
+from workbench_api import api_auth, auth_users
+from workbench_api.identity_config import IdentityConfig
+from workbench_core.mise_validation import TokenRejected, ValidationUnavailable
 
 
 def request(headers: dict[str, str] | None = None, query: str = "") -> Request:
@@ -186,7 +182,7 @@ def test_demo_and_entra_actor_resolution_rejects_dual_and_requires_tid_oid(monke
 
 
 def test_clean_entra_registry_starts_without_demo_actors(monkeypatch: pytest.MonkeyPatch) -> None:
-    import appdb
+    from workbench_core import appdb
     from azure.cosmos import exceptions as cosmos_exceptions
 
     class Container:
@@ -207,7 +203,7 @@ def test_clean_entra_registry_starts_without_demo_actors(monkeypatch: pytest.Mon
 
 
 def test_demo_seeding_creates_actors_private_workspaces_and_shared_engagement_records(monkeypatch: pytest.MonkeyPatch) -> None:
-    import appdb
+    from workbench_core import appdb
     from azure.cosmos import exceptions as cosmos_exceptions
 
     class Container:
@@ -237,7 +233,7 @@ def test_demo_seeding_creates_actors_private_workspaces_and_shared_engagement_re
 
 
 def test_identity_registry_rejects_mixed_mode_actor_stores(monkeypatch: pytest.MonkeyPatch) -> None:
-    import appdb
+    from workbench_core import appdb
 
     registry = {"id": "users", "sessionId": "users", "users": [{"id": "u-object", "identity": "entra"}]}
     monkeypatch.setattr(appdb, "_ensure_user_registry", lambda: registry)
@@ -256,7 +252,7 @@ def test_identity_registry_rejects_mixed_mode_actor_stores(monkeypatch: pytest.M
 
 
 def test_entra_registry_requires_the_configured_tenant_subject(monkeypatch: pytest.MonkeyPatch) -> None:
-    import appdb
+    from workbench_core import appdb
 
     registry = {"id": "users", "sessionId": "users", "users": [{
         "id": "u-object", "identity": "entra", "identitySubject": "tenant:object",
@@ -275,7 +271,7 @@ def test_entra_registry_requires_the_configured_tenant_subject(monkeypatch: pyte
 
 
 def test_runtime_session_binding_is_write_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    import server
+    from workbench_assistant import server
 
     monkeypatch.setattr(server, "WORKSPACE", str(tmp_path))
     server._session_users.clear()
@@ -290,7 +286,7 @@ def test_runtime_session_binding_is_write_once(monkeypatch: pytest.MonkeyPatch, 
 
 
 def test_actor_mismatch_keeps_original_runtime_session(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    import server
+    from workbench_assistant import server
 
     class OriginalSession:
         user_id = "dan"
@@ -314,7 +310,7 @@ def test_actor_mismatch_keeps_original_runtime_session(monkeypatch: pytest.Monke
 
 def test_unbound_preexisting_workspace_cannot_be_claimed(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     monkeypatch.setattr(server, "WORKSPACE", str(tmp_path))
@@ -328,7 +324,7 @@ def test_unbound_preexisting_workspace_cannot_be_claimed(monkeypatch: pytest.Mon
 
 def test_bound_workspace_file_endpoints_reject_another_actor(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     workspace = tmp_path / sid
@@ -357,7 +353,7 @@ def test_bound_workspace_file_endpoints_reject_another_actor(monkeypatch: pytest
 
 def test_chat_actor_mismatch_rejects_before_acquiring_owner_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     (tmp_path / sid).mkdir()

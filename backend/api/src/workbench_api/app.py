@@ -9,30 +9,23 @@ import logging
 import os
 import re
 import secrets
-import sys
 import time
 from contextlib import asynccontextmanager, suppress
-from pathlib import Path
 
-# Reuse the session-container's Cosmos adapter.
-_SC = Path(__file__).resolve().parent / "session-container"
-if str(_SC) not in sys.path:
-    sys.path.insert(0, str(_SC))
-import appdb  # noqa: E402
-from workbench_core import (  # noqa: E402
+from workbench_core import (
     EngagementService, Outcome, PersonalNotFound, PersonalWorkspaceError,
     PersonalWorkspaceService,
 )
-from workbench_core.appdb_repository import AppdbEngagementRepository  # noqa: E402
-from workbench_core.personal_repository import AppdbPersonalWorkspaceRepository  # noqa: E402
-from workbench_core import reminder_dispatch  # noqa: E402
-from workbench_core.request_limits import (  # noqa: E402
+from workbench_core import appdb, reminder_dispatch
+from workbench_core.appdb_repository import AppdbEngagementRepository
+from workbench_core.personal_repository import AppdbPersonalWorkspaceRepository
+from workbench_core.request_limits import (
     MAX_EDIT_CONTENT_BYTES,
     MAX_EDIT_FILENAME_CHARS,
     JsonRequestBodyLimitMiddleware,
 )
 
-import artifact_store
+from . import artifact_store, auth_users
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, UploadFile
@@ -42,11 +35,10 @@ from fastapi.responses import Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-import auth_users
-from api_auth import APIAuthenticator, AuthConfig
-from auth_users import current_user
-from identity_config import IdentityConfig
-from session_manager import SessionManager
+from .api_auth import APIAuthenticator, AuthConfig
+from .auth_users import current_user
+from .identity_config import IdentityConfig
+from .session_manager import SessionManager
 from workbench_core.otel_tracing import setup_tracing
 from workbench_core.trace_logging import setup_trace_logging, trace_event
 

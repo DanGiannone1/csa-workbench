@@ -166,7 +166,7 @@ function authoritativeEngagements(before) {
 }
 
 // The renderers below deliberately re-implement the product's tool-output formatting
-// (session-container/agent.py and agent_deepagents.py) rather than importing it: a grounding
+// (the two workbench_assistant adapters) rather than importing it: a grounding
 // oracle that shared code with the thing it checks would agree with any bug. They must be
 // updated together when the product's wording changes.
 function renderAuthorizedEngagementList(before) {

@@ -653,8 +653,8 @@ API_CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["api_cl
 WEB_CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["web_client_id"])' <<<"$ENTRA_JSON")"
 RUNTIME_CLIENT_ID="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["runtime_client_id"])' <<<"$ENTRA_JSON")"
 
-az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-api:$SHA" -f Dockerfile . --only-show-errors
-az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-runtime:$SHA" -f session-container/Dockerfile . --only-show-errors
+az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-api:$SHA" -f backend/api/Dockerfile . --only-show-errors
+az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-runtime:$SHA" -f backend/assistant/Dockerfile . --only-show-errors
 az acr build -r "$ACR_NAME" -g "$RESOURCE_GROUP" -t "csa-workbench-frontend:$SHA" -f frontend/Dockerfile frontend --build-arg "NEXT_PUBLIC_API_URL=$API_URL" --build-arg "NEXT_PUBLIC_IDENTITY_MODE=$IDENTITY_MODE" --build-arg "NEXT_PUBLIC_ENTRA_TENANT_ID=$TENANT_ID" --build-arg "NEXT_PUBLIC_ENTRA_CLIENT_ID=$WEB_CLIENT_ID" --build-arg "NEXT_PUBLIC_ENTRA_API_CLIENT_ID=$API_CLIENT_ID" --build-arg "NEXT_PUBLIC_ENTRA_API_SCOPES=api://$API_CLIENT_ID/access_as_user" --build-arg "NEXT_PUBLIC_ENTRA_REDIRECT_URI=$FRONTEND_URL" --only-show-errors
 APPS=(az deployment group create -g "$RESOURCE_GROUP" --name "${BASE_NAME}-apps-${SHA:0:12}" --template-file infra/apps.bicep
   --parameters environmentName="$ENVIRONMENT_NAME" acrServer="$ACR_SERVER" imageTag="$SHA" frontendAppName="$FRONTEND_APP_NAME" apiAppName="$API_APP_NAME" runtimeAppName="$RUNTIME_APP_NAME"

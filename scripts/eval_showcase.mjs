@@ -443,7 +443,7 @@ export function buildShowcaseModel({
   const atomicDefinitions = readJson(resolve(root, "tests/evals/mvp-cases.json"));
   const workflowDefinitions = readJson(resolve(root, "tests/evals/mvp-workflows.json"));
   const rubric = readJson(resolve(root, "tests/evals/judge-rubrics.json"));
-  const skillPath = resolve(root, "session-container/product-skills/engagement-meeting-prep/SKILL.md");
+  const skillPath = resolve(root, "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md");
   const skillHash = sha256(skillPath);
   const evidenceWarnings = [];
   const productCandidates = productPath

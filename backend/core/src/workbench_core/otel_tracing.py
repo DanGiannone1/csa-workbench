@@ -3,7 +3,7 @@
 Activates only when APPLICATIONINSIGHTS_CONNECTION_STRING is set (the deployed
 Container App provides it; local development normally leaves it unset) and never
 raises into startup. The session runtime has its own equivalent shim in
-session-container/tracing.py.
+backend/assistant/src/workbench_assistant/tracing.py.
 """
 
 from __future__ import annotations

@@ -26,9 +26,7 @@ jobs:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
       - name: Install locked Python environments
-        run: |
-          uv sync --locked
-          (cd session-container && uv sync --locked)
+        run: uv sync --locked
       - name: Run deterministic host verification
         run: npm run verify:ci
       - name: Build Bicep

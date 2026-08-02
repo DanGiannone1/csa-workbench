@@ -12,7 +12,7 @@
     "eval:mvp:scorecard": "node scripts/mvp_scorecard_merge.mjs",
     "eval:mvp:history": "node scripts/mvp_scorecard_history.mjs",
     "eval:showcase": "node scripts/eval_showcase_server.mjs",
-    "eval:foundry": "uv run --project session-container --with azure-ai-projects --with azure-identity python scripts/foundry_eval_upload.py",
+    "eval:foundry": "uv run --package workbench-assistant --with azure-ai-projects --with azure-identity python scripts/foundry_eval_upload.py",
     "eval:demo": "node scripts/eval_demo.mjs",
     "eval:waza:check": "scripts/waza_eval.sh check",
     "eval:waza:gate": "scripts/waza_eval.sh gate",

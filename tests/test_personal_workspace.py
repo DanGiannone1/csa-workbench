@@ -7,8 +7,8 @@ from copy import deepcopy
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-import app as orchestrator
-import appdb
+from workbench_api import app as orchestrator
+from workbench_core import appdb
 from workbench_core.personal_workspace import MAX_TASKS, PersonalNotFound, PersonalWorkspaceError, PersonalWorkspaceService
 
 

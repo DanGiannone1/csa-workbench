@@ -30,15 +30,10 @@ Design notes:
 import json as _json
 import logging as _logging
 import os
-import sys
 import threading
 import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
-
-_REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-if str(_REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from ag_ui.core.events import (
     BaseEvent,
@@ -62,23 +57,23 @@ from langgraph.checkpoint.memory import InMemorySaver
 from deepagents import create_deep_agent
 from deepagents.middleware._tool_exclusion import _ToolExclusionMiddleware
 
-import appdb
-import navsvc
 from workbench_core import (
     EngagementService, PersonalNotFound, PersonalWorkspaceError, PersonalWorkspaceService,
     ProductToolResult, engagement_product_result,
 )
+from workbench_core import appdb
 from workbench_core.appdb_repository import AppdbEngagementRepository
 from workbench_core.personal_repository import AppdbPersonalWorkspaceRepository
 from workbench_core.trace_logging import trace_event
-from mvp_tool_schemas import (
+from . import navsvc
+from .mvp_tool_schemas import (
     AddSubtaskCommand, CreateEngagementCommand, CreateEventCommand, CreateReminderCommand,
     CreateTaskCommand, DeleteEventCommand, DeleteReminderCommand, DeleteTaskCommand,
     GetEngagementCommand, ListEngagementsCommand, ListEventsCommand, ListRemindersCommand,
     ListTasksCommand, NavigateCommand, SetEngagementStatusCommand, ShareEngagementCommand,
     UpdateEngagementCommand, UpdateEventCommand, UpdateReminderCommand, UpdateTaskCommand,
 )
-from skill_runtime import (
+from .skill_runtime import (
     INTERNAL_SKILL_TOOLS,
     deepagents_skill_config,
     skill_identities,

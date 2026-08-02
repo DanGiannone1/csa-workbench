@@ -18,7 +18,7 @@ const workflowSuite = scope === "atomic" ? null : JSON.parse(readFileSync("tests
 const selectedSuites = selectMvpEvalScope(scope, cases, workflowSuite);
 const harness = process.env.AGENT_BACKEND || "deepagents";
 if (harness !== "deepagents") throw new Error("The MVP workflow lane is Deep Agents product-runtime evidence; run Waza separately for skill-laboratory evidence.");
-const skillPath = "session-container/product-skills/engagement-meeting-prep/SKILL.md";
+const skillPath = "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md";
 const skill = {
   name: "engagement-meeting-prep",
   version: "1.0.0",

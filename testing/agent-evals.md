@@ -38,8 +38,8 @@ code and JSON say *case* (`mvp-cases.json`, `atomicCaseIds`, `evaluateCase`, `MV
 |---|---|---|
 | Gold-standard scenarios | `tests/evals/mvp-cases.json`, `tests/evals/mvp-workflows.json` | 8 scenarios — 7 single prompts and 1 four-turn conversation. Each states the prompt(s) a user would type, who is signed in, the expected tool calls and arguments (exact or a declared subset), forbidden actions, and the expected database end state. Single prompts isolate one behavior each; the conversation proves context carries across turns ("Open it." must still mean the same Engagement) |
 | Official suite list | `scripts/mvp_eval_manifest.mjs` | The frozen list of scenario ids the scorecard accepts, and which of them pass or fail as a whole (the safety scenario) |
-| Test identities | `auth_users.py`, seeded in `session-container/appdb.py` | Three demo accounts (dan / ava / sam) sharing one demo password; every scenario names which one runs the prompt |
-| Known test data | `session-container/appdb.py` (`_seed_engagements`), reset via `scripts/reset_demo_state.py` | The demo data every run starts from (version `acme-ai-v1`): actors dan/ava/sam and three engagements around the "Acme Internal AI Chatbot" story |
+| Test identities | `backend/api/src/workbench_api/auth_users.py`, seeded in `backend/core/src/workbench_core/appdb.py` | Three demo accounts (dan / ava / sam) sharing one demo password; every scenario names which one runs the prompt |
+| Known test data | `backend/core/src/workbench_core/appdb.py` (`_seed_engagements`), reset via `scripts/reset_demo_state.py` | The demo data every run starts from (version `acme-ai-v1`): actors dan/ava/sam and three engagements around the "Acme Internal AI Chatbot" story |
 | Driver | `scripts/mvp_agent_eval.mjs` | Runs the suite against the live app and writes evidence |
 | Grader | `scripts/mvp_evidence.mjs` | `evaluateCase` / `evaluateWorkflow`: the deterministic checks |
 | Scorecard | `scripts/mvp_scorecard.mjs` (+ `mvp_scorecard_history.mjs`) | Aggregates evidence into the product hard gate, Waza lane, and advisory-judge lane |
@@ -166,7 +166,7 @@ Layer 4 is three mechanical steps:
    server-side in Foundry; the run appears in the portal with per-row scores and reasoning.
 
 `npm run eval:foundry` performs steps 2–3 against a finished evidence file, with tool
-definitions generated from `session-container/mvp_tool_schemas.py` and ground-truth tool
+definitions generated from `backend/assistant/src/workbench_assistant/mvp_tool_schemas.py` and ground-truth tool
 sequences derived from each gold contract, and submits to the Foundry evals API. Microsoft's built-in agent evaluators —
 intent resolution, tool-call accuracy, task adherence, task completion, tool selection/input
 accuracy/output utilization/call success, quality, customer satisfaction, and the
@@ -234,7 +234,7 @@ link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs 
 
 ```bash
 # 1. App up (terminal 1) — see docs/guides/local-development.md for the full env
-uv run dev.py
+uv run python scripts/dev.py
 
 # 2. Full suite (terminal 2; same env values as the app)
 export MVP_API_URL='http://127.0.0.1:8000'   # the port your app is serving on

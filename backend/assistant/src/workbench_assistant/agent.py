@@ -13,16 +13,11 @@ import asyncio
 import json as _json
 import logging as _logging
 import os
-import sys
 import threading
 import time as _time
 import uuid
 from collections.abc import AsyncGenerator
 from pathlib import Path
-
-_REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-if str(_REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from ag_ui.core.events import (
     BaseEvent,
@@ -55,16 +50,16 @@ from copilot.session_events import (
     ToolExecutionStartData,
 )
 
-import appdb
-import navsvc
 from workbench_core import (
     EngagementService, PersonalNotFound, PersonalWorkspaceError, PersonalWorkspaceService,
     ProductToolResult, engagement_product_result,
 )
+from workbench_core import appdb
 from workbench_core.appdb_repository import AppdbEngagementRepository
 from workbench_core.personal_repository import AppdbPersonalWorkspaceRepository
 from workbench_core.trace_logging import trace_event
-from mvp_tool_schemas import (
+from . import navsvc
+from .mvp_tool_schemas import (
     AddSubtaskCommand, CreateEngagementCommand, CreateEventCommand, CreateReminderCommand,
     CreateTaskCommand, DeleteEventCommand, DeleteReminderCommand, DeleteTaskCommand,
     GetEngagementCommand, ListEngagementsCommand, ListEventsCommand, ListRemindersCommand,
@@ -581,7 +576,6 @@ class AgentSession:
         await self._client.start()
         self._loop = asyncio.get_running_loop()
 
-        skills_dir = str(Path(__file__).parent / "skills")
         custom_tools = _build_flow_tools(self._working_dir, self._user_id)
         available_tools = [t.name for t in custom_tools]
 

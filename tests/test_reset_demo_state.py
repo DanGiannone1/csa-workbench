@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
@@ -40,12 +39,10 @@ def test_reset_fixture_version_and_summary_exclude_legacy_personal_state() -> No
     assert "load_state" not in source
 
 
-def test_configure_import_paths_makes_root_orchestrator_discoverable(monkeypatch: pytest.MonkeyPatch) -> None:
-    root = Path(__file__).resolve().parents[1]
-    monkeypatch.setattr(sys, "path", [str(root / "scripts")])
-    reset_demo_state.configure_import_paths()
-    spec = importlib.util.find_spec("app")
-    assert spec is not None and spec.origin == str(root / "app.py")
+def test_workspace_packages_are_importable() -> None:
+    assert importlib.util.find_spec("workbench_api") is not None
+    assert importlib.util.find_spec("workbench_assistant") is not None
+    assert importlib.util.find_spec("workbench_core") is not None
 
 
 def test_reset_guard_allows_only_the_dedicated_artifact_subtree() -> None:
@@ -117,7 +114,7 @@ def test_reset_guard_refuses_ambiguous_or_nonlocal_targets(field: str, value: st
     [
         Path(__file__).resolve().parents[1],
         Path(__file__).resolve().parents[1] / "scripts",
-        Path(__file__).resolve().parents[1] / "session-container",
+        Path(__file__).resolve().parents[1] / "backend",
         Path(__file__).resolve().parents[1] / ".mvp-artifacts" / ".." / "scripts",
     ],
 )

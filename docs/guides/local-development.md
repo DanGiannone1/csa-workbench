@@ -19,7 +19,6 @@ The repository does not install or configure the Cosmos emulator.
 cp .env.example .env
 npm ci
 uv sync
-(cd session-container && uv sync)
 (cd frontend && npm ci)
 ```
 
@@ -29,7 +28,7 @@ in `.env`. Do not commit real secrets. Read `.env.example` for the current varia
 ## Start the application
 
 ```bash
-uv run dev.py
+uv run python scripts/dev.py
 ```
 
 The launcher starts the frontend, API, and assistant runtime as separate processes.
@@ -48,7 +47,7 @@ export DEMO_PASSWORD='local-only-secret'
 export COSMOS_ENDPOINT='http://localhost:8081'
 export COSMOS_DATABASE='csa_workbench_demo1_local'
 export COSMOS_CONTAINER='appstate_demo1_local'
-uv run dev.py
+uv run python scripts/dev.py
 ```
 
 Both Cosmos names must contain the run ID and either `demo` or `local`. The endpoint must use

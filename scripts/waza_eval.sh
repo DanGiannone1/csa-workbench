@@ -8,7 +8,7 @@ INSTALL_ROOT="${REPOSITORY_ROOT}/evidence/mvp/local-synthetic/tools/waza/${WAZA_
 WAZA_BIN="${INSTALL_ROOT}/waza"
 RESULTS_ROOT="${REPOSITORY_ROOT}/evidence/mvp/local-synthetic/waza"
 EVAL_FILE="${REPOSITORY_ROOT}/tests/evals/waza/engagement-meeting-prep/eval.yaml"
-SKILL_DIR="${REPOSITORY_ROOT}/session-container/product-skills/engagement-meeting-prep"
+SKILL_DIR="${REPOSITORY_ROOT}/backend/assistant/product-skills/engagement-meeting-prep"
 
 platform_asset() {
   local os arch asset checksum
@@ -115,7 +115,7 @@ report.csaMvpProvenance = {
   tag,
   skill: {
     name: "engagement-meeting-prep",
-    path: "session-container/product-skills/engagement-meeting-prep/SKILL.md",
+    path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md",
     sha256: skillSha256,
   },
   eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml",

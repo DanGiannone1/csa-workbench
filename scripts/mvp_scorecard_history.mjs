@@ -330,7 +330,7 @@ export function validateProductEvidence(product) {
   exactKeys(product.skill, ["name", "version", "path", "sha256"], "Product evidence.skill");
   requireSafeIdentifier(product.skill.name, "Product evidence.skill.name");
   requireSafeIdentifier(product.skill.version, "Product evidence.skill.version");
-  if (product.skill.path !== "session-container/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Product evidence.skill.path is invalid");
+  if (product.skill.path !== "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Product evidence.skill.path is invalid");
   requireHash(product.skill.sha256, "Product evidence.skill.sha256");
   if (typeof product.api !== "string" || !/^https?:\/\//.test(product.api) || /[\u0000-\u001f\u007f]/.test(product.api)) throw new Error("Product evidence.api is invalid");
   requireRfc3339(product.startedAt, "Product evidence.startedAt");
@@ -420,7 +420,7 @@ export function validateWazaEvidence(waza) {
   if (typeof provenance.sourceDirtyBefore !== "boolean" || typeof provenance.sourceDirtyAfter !== "boolean") throw new Error("Waza evidence dirty-source binding is invalid");
   isOneOf(provenance.tag, ["gate", "advisory", "all"], "Waza evidence provenance.tag");
   exactKeys(provenance.skill, ["name", "path", "sha256"], "Waza evidence provenance.skill");
-  if (provenance.skill.name !== "engagement-meeting-prep" || provenance.skill.path !== "session-container/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Waza evidence skill provenance is invalid");
+  if (provenance.skill.name !== "engagement-meeting-prep" || provenance.skill.path !== "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Waza evidence skill provenance is invalid");
   requireHash(provenance.skill.sha256, "Waza evidence skill hash");
   requireRfc3339(provenance.recordedAt, "Waza evidence recordedAt");
   return structuredClone(waza);

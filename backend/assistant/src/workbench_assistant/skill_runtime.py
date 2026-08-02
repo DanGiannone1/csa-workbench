@@ -16,7 +16,7 @@ from deepagents.backends.filesystem import FilesystemBackend
 from deepagents.middleware.filesystem import FilesystemPermission
 
 
-PRODUCT_SKILLS_ROOT = Path(__file__).resolve().parent / "product-skills"
+PRODUCT_SKILLS_ROOT = Path(__file__).resolve().parents[2] / "product-skills"
 SKILL_NAMES = ("engagement-meeting-prep", "tasks", "calendar", "weekly-review")
 SKILL_SOURCES = ["/"]
 INTERNAL_SKILL_TOOLS = frozenset({"read_file"})

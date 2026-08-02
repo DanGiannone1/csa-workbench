@@ -10,8 +10,9 @@ from typing import Any, Protocol
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from identity_config import IdentityConfig
-from mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
+from workbench_core.mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
+
+from .identity_config import IdentityConfig
 
 logger = logging.getLogger(__name__)
 

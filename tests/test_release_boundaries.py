@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 import time
 from pathlib import Path
 
@@ -13,15 +12,12 @@ import pytest
 from starlette.requests import Request
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "session-container"))
 
-import artifact_store
-import app as orchestrator
-import session_manager
-from session_manager import SessionManager, _RuntimeServiceAuth
-from mise_validation import TokenRejected, ValidationUnavailable
-from workload_auth import EntraTokenVerifier, WorkloadAuthConfig, WorkloadAuthenticator
+from workbench_api import artifact_store, session_manager
+from workbench_api import app as orchestrator
+from workbench_api.session_manager import SessionManager, _RuntimeServiceAuth
+from workbench_assistant.workload_auth import EntraTokenVerifier, WorkloadAuthConfig, WorkloadAuthenticator
+from workbench_core.mise_validation import TokenRejected, ValidationUnavailable
 from workbench_core.request_limits import (
     MAX_EDIT_CONTENT_BYTES,
     MAX_EDIT_FILENAME_CHARS,
@@ -145,7 +141,7 @@ def test_sidecar_token_rejection_is_unauthorized() -> None:
 
 def test_runtime_does_not_trust_user_header_before_entra_workload_auth(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     monkeypatch.setattr(
         server, "workload_authenticator",
@@ -205,12 +201,7 @@ def test_local_http_runtime_skips_token_auth_without_an_audience(monkeypatch: py
 def test_active_sources_omit_dynamic_sessions_and_legacy_trace_tools() -> None:
     banned_domain = "dynamicsessions" + ".io"
     banned_label = "Dynamic" + " Sessions"
-    source_files = [ROOT / "app.py", ROOT / "session_manager.py"]
-    source_files.extend((ROOT / "workbench_core").rglob("*.py"))
-    source_files.extend(
-        path for path in (ROOT / "session-container").rglob("*.py")
-        if ".venv" not in path.parts
-    )
+    source_files = list((ROOT / "backend").rglob("*.py"))
     source_files.extend(
         path for path in (ROOT / "frontend" / "src").rglob("*")
         if path.suffix in {".ts", ".tsx"}
@@ -230,6 +221,29 @@ def test_active_sources_omit_dynamic_sessions_and_legacy_trace_tools() -> None:
         "propose_memory", "save_memory", "delete_schedule", "write_file",
     ):
         assert legacy_tool not in trace
+
+
+def test_backend_packages_have_one_clear_boundary() -> None:
+    api = ROOT / "backend" / "api" / "src" / "workbench_api"
+    assistant = ROOT / "backend" / "assistant" / "src" / "workbench_assistant"
+    core = ROOT / "backend" / "core" / "src" / "workbench_core"
+    for package in (api, assistant, core):
+        assert (package / "__init__.py").is_file()
+    assert (api / "__main__.py").is_file()
+    assert (assistant / "__main__.py").is_file()
+    assert not (ROOT / "session-container").exists()
+    for old_module in (
+        "app.py", "api_auth.py", "artifact_store.py", "auth_users.py",
+        "identity_config.py", "mise_validation.py", "session_manager.py",
+    ):
+        assert not (ROOT / old_module).exists()
+    assert (ROOT / "backend" / "assistant" / "product-skills").is_dir()
+    api_source = "\n".join(path.read_text(encoding="utf-8") for path in api.glob("*.py"))
+    assistant_source = "\n".join(path.read_text(encoding="utf-8") for path in assistant.glob("*.py"))
+    assert "workbench_assistant" not in api_source
+    assert "workbench_api" not in assistant_source
+    assert "sys.path" not in api_source
+    assert "sys.path" not in assistant_source
 
 
 def test_azure_openai_token_is_not_forwarded_without_explicit_legacy_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -265,11 +279,11 @@ def test_manual_personal_routes_exist_without_scheduler_or_library_surfaces() ->
     assert not any(route.startswith("/sessions/{session_id}/library") for route in routes)
     assert not (ROOT / "scheduler.py").exists()
     assert not (ROOT / "email_acs.py").exists()
-    assert not (ROOT / "session-container" / "library.py").exists()
+    assert not (ROOT / "backend" / "assistant" / "src" / "workbench_assistant" / "library.py").exists()
 
 
 def test_supported_app_state_includes_private_and_engagement_records(monkeypatch: pytest.MonkeyPatch) -> None:
-    import appdb
+    from workbench_core import appdb
 
     user = {
         "id": "dan", "username": "dan", "displayName": "Dan",
@@ -314,9 +328,9 @@ def test_supported_app_state_includes_private_and_engagement_records(monkeypatch
 
 
 def test_legacy_personal_state_helpers_and_runtime_proxy_are_absent() -> None:
-    appdb_source = (ROOT / "session-container" / "appdb.py").read_text()
-    runtime_source = (ROOT / "session-container" / "server.py").read_text()
-    manager_source = (ROOT / "session_manager.py").read_text()
+    appdb_source = (ROOT / "backend" / "core" / "src" / "workbench_core" / "appdb.py").read_text()
+    runtime_source = (ROOT / "backend" / "assistant" / "src" / "workbench_assistant" / "server.py").read_text()
+    manager_source = (ROOT / "backend" / "api" / "src" / "workbench_api" / "session_manager.py").read_text()
     for symbol in (
         "load_state", "save_state", "update_state", "load_context", "update_context",
         "record_visit", "set_working_context", "resolve_destination", "find_schedule",
@@ -330,29 +344,32 @@ def test_legacy_personal_state_helpers_and_runtime_proxy_are_absent() -> None:
 
 
 def test_runtime_image_packages_the_shared_tool_schemas() -> None:
-    dockerfile = (ROOT / "session-container" / "Dockerfile").read_text()
-    assert "session-container/mvp_tool_schemas.py" in dockerfile
+    dockerfile = (ROOT / "backend" / "assistant" / "Dockerfile").read_text()
+    assert "COPY backend/assistant/src/" in dockerfile
 
 
 def test_runtime_image_packages_the_product_skill_runtime() -> None:
-    dockerfile = (ROOT / "session-container" / "Dockerfile").read_text()
-    assert "session-container/skill_runtime.py" in dockerfile
-    assert "session-container/product-skills/" in dockerfile
-    assert "session-container/skills/" not in dockerfile
-    assert (ROOT / "session-container" / "product-skills" / "engagement-meeting-prep" / "SKILL.md").is_file()
-    assert not (ROOT / "session-container" / "skills").exists()
+    dockerfile = (ROOT / "backend" / "assistant" / "Dockerfile").read_text()
+    assert "COPY backend/assistant/src/" in dockerfile
+    assert "COPY backend/assistant/product-skills/" in dockerfile
+    assert "backend/assistant/skills/" not in dockerfile
+    assert (ROOT / "backend" / "assistant" / "product-skills" / "engagement-meeting-prep" / "SKILL.md").is_file()
+    assert not (ROOT / "backend" / "assistant" / "skills").exists()
 
 
 def test_api_image_installs_the_tracing_extra_and_wires_setup() -> None:
-    assert "--extra tracing" in (ROOT / "Dockerfile").read_text()
-    assert "azure-monitor-opentelemetry" in (ROOT / "pyproject.toml").read_text()
-    assert "setup_tracing(app)" in (ROOT / "app.py").read_text()
+    assert "--extra tracing" in (ROOT / "backend" / "api" / "Dockerfile").read_text()
+    assert "azure-monitor-opentelemetry" in (ROOT / "backend" / "core" / "pyproject.toml").read_text()
+    assert "setup_tracing(app)" in (ROOT / "backend" / "api" / "src" / "workbench_api" / "app.py").read_text()
 
 
 def test_tracing_shims_disable_log_and_metric_exporters() -> None:
     # configure_azure_monitor overwrites its disable_logging/disable_metrics
     # kwargs from these environment variables, so both shims must set them.
-    for path in (ROOT / "workbench_core" / "otel_tracing.py", ROOT / "session-container" / "tracing.py"):
+    for path in (
+        ROOT / "backend" / "core" / "src" / "workbench_core" / "otel_tracing.py",
+        ROOT / "backend" / "assistant" / "src" / "workbench_assistant" / "tracing.py",
+    ):
         source = path.read_text()
         assert 'os.environ.setdefault("OTEL_LOGS_EXPORTER", "none")' in source
         assert 'os.environ.setdefault("OTEL_METRICS_EXPORTER", "none")' in source
@@ -369,8 +386,8 @@ def test_api_tracing_stays_disabled_without_a_connection_string(monkeypatch) -> 
 
 
 def test_session_upload_profile_excludes_conversion_dependencies_and_sources() -> None:
-    source = (ROOT / "session_manager.py").read_text()
-    dependencies = (ROOT / "pyproject.toml").read_text()
+    source = (ROOT / "backend" / "api" / "src" / "workbench_api" / "session_manager.py").read_text()
+    dependencies = "\n".join(path.read_text() for path in (ROOT / "backend").glob("*/pyproject.toml"))
     assert not (ROOT / "content_processing.py").exists()
     assert "ContentProcessor" not in source
     assert "content_processor" not in source
@@ -387,7 +404,7 @@ def test_shared_session_upload_policy_accepts_only_markdown() -> None:
 
 
 def test_runtime_image_uses_a_fixed_non_root_user_and_writable_workspace() -> None:
-    dockerfile = (ROOT / "session-container" / "Dockerfile").read_text()
+    dockerfile = (ROOT / "backend" / "assistant" / "Dockerfile").read_text()
     assert "--uid 10001" in dockerfile
     assert "chown -R 10001:10001 /app /workspace" in dockerfile
     assert "USER 10001:10001" in dockerfile
@@ -530,7 +547,7 @@ def test_json_body_limit_preserves_sse_streaming_responses() -> None:
 
 
 def test_json_body_limit_rejects_declared_chunked_and_untyped_edit_bodies_before_app_execution() -> None:
-    import server
+    from workbench_assistant import server
 
     assert any(item.cls is JsonRequestBodyLimitMiddleware for item in orchestrator.app.user_middleware)
     assert any(item.cls is JsonRequestBodyLimitMiddleware for item in server.app.user_middleware)
@@ -586,7 +603,7 @@ def test_json_body_limit_rejects_declared_chunked_and_untyped_edit_bodies_before
 
 
 def test_edit_request_models_share_filename_and_content_bounds() -> None:
-    import server
+    from workbench_assistant import server
 
     for model in (orchestrator.SaveContentRequest, server.WriteContentBody):
         properties = model.model_json_schema()["properties"]
@@ -596,7 +613,7 @@ def test_edit_request_models_share_filename_and_content_bounds() -> None:
 
 def test_runtime_bounded_write_is_accepted(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     workspace = tmp_path / sid
@@ -621,7 +638,7 @@ def test_runtime_bounded_write_is_accepted(monkeypatch: pytest.MonkeyPatch, tmp_
 
 def test_runtime_untyped_oversized_edit_body_is_rejected_before_validation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     workspace = tmp_path / sid
@@ -645,7 +662,7 @@ def test_runtime_untyped_oversized_edit_body_is_rejected_before_validation(monke
 
 def test_runtime_upload_accepts_markdown_and_rejects_other_files(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     workspace = tmp_path / sid
@@ -677,7 +694,7 @@ def test_runtime_upload_accepts_markdown_and_rejects_other_files(monkeypatch: py
 
 def test_runtime_session_state_and_lifecycle_endpoints_hide_other_actors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     (tmp_path / sid).mkdir()
@@ -696,7 +713,7 @@ def test_runtime_session_state_and_lifecycle_endpoints_hide_other_actors(monkeyp
 
 def test_runtime_session_endpoints_reject_missing_actor_headers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from fastapi.testclient import TestClient
-    import server
+    from workbench_assistant import server
 
     sid = "0123456789abcdef"
     workspace = tmp_path / sid
@@ -723,7 +740,7 @@ def test_runtime_session_endpoints_reject_missing_actor_headers(monkeypatch: pyt
 
 
 def test_runtime_app_state_proxy_endpoint_and_manager_method_are_absent() -> None:
-    import server
+    from workbench_assistant import server
 
     routes = {route.path for route in server.app.routes}
     assert "/app/state" not in routes
@@ -731,7 +748,7 @@ def test_runtime_app_state_proxy_endpoint_and_manager_method_are_absent() -> Non
 
 
 def test_library_search_is_not_started_or_routed() -> None:
-    source = (ROOT / "app.py").read_text()
+    source = (ROOT / "backend" / "api" / "src" / "workbench_api" / "app.py").read_text()
     assert "import library" not in source
     assert "ensure_seeded_indexed" not in source
     assert '"/sessions/{session_id}/library' not in source
@@ -742,13 +759,12 @@ def test_library_search_is_not_started_or_routed() -> None:
     assert "SCHEDULER_ENABLED" not in source
     assert "import email_acs" not in source
     assert "REMINDER_EMAIL" not in source
-    assert "library.py" not in (ROOT / "Dockerfile").read_text()
-    assert "library.py" not in (ROOT / "session-container" / "Dockerfile").read_text()
+    assert "library.py" not in (ROOT / "backend" / "api" / "Dockerfile").read_text()
+    assert "library.py" not in (ROOT / "backend" / "assistant" / "Dockerfile").read_text()
 
 
 def test_agent_error_messages_are_fixed_and_do_not_echo_sdk_text() -> None:
-    import agent
-    import agent_deepagents
+    from workbench_assistant import agent, agent_deepagents
 
     secret = "provider failure includes https://internal.example/token"
     for module in (agent, agent_deepagents):
@@ -783,7 +799,7 @@ def test_engagement_task_group_is_bounded_to_120_characters() -> None:
 def test_deepagents_managed_identity_uses_refreshable_sync_and_async_token_providers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import agent_deepagents
+    from workbench_assistant import agent_deepagents
 
     model_options: list[dict] = []
     credentials: list[object] = []
@@ -898,11 +914,11 @@ def test_azure_chat_openai_accepts_managed_identity_sync_and_async_providers_off
 
 
 def test_manual_quick_link_and_visit_api_surfaces_are_absent() -> None:
-    source = (ROOT / "app.py").read_text()
+    source = (ROOT / "backend" / "api" / "src" / "workbench_api" / "app.py").read_text()
     routes = {route.path for route in orchestrator.app.routes}
     assert "/quicklinks" not in routes
     assert "/visits" not in routes
     assert "import navsvc" not in source
     assert "rank_destinations" not in source
     assert "record_visit" not in source
-    assert "session-container/navsvc.py" not in (ROOT / "Dockerfile").read_text()
+    assert "workbench_assistant/navsvc.py" not in (ROOT / "backend" / "api" / "Dockerfile").read_text()

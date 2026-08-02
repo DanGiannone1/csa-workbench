@@ -34,10 +34,8 @@ temporary_dir="$(mktemp -d)"
 trap 'rm -rf "${temporary_dir}"' EXIT
 
 uv lock --check
-(cd session-container && uv lock --check)
 
-PYTHONPATH="${repository_root}:${repository_root}/session-container" \
-  uv run --project session-container --with pytest pytest -q \
+uv run pytest -q \
   tests/test_dev_launcher.py tests/test_reset_demo_state.py tests/test_local_quality.py \
   tests/test_identity_modes.py tests/test_mise_validation.py tests/test_engagement_core.py tests/test_structured_control.py \
   tests/test_infra_entra_contract.py tests/test_release_boundaries.py tests/test_skill_runtime.py \

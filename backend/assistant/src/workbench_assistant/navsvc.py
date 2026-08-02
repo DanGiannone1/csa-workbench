@@ -7,8 +7,8 @@ accepts chat text or generates a route from it.
 from __future__ import annotations
 
 import re
-import appdb
 from workbench_core import ProductToolResult
+from workbench_core import appdb
 
 
 _STATIC = {

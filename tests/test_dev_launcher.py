@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 
-SPEC = importlib.util.spec_from_file_location("dev_launcher", Path(__file__).resolve().parents[1] / "dev.py")
+SPEC = importlib.util.spec_from_file_location(
+    "dev_launcher", Path(__file__).resolve().parents[1] / "scripts" / "dev.py"
+)
 assert SPEC and SPEC.loader
 dev_launcher = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = dev_launcher

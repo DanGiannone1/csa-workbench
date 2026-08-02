@@ -17,7 +17,6 @@ import logging
 import mimetypes
 import os
 import re
-import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,22 +25,18 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
 # Agent backend is selectable so the same session container can run either the
 # standalone LangGraph Deep Agents backend (the deployed primary harness) or
 # the GitHub Copilot SDK agent (local portability check). Both expose an
 # identical AgentSession interface (see agent_deepagents).
 _AGENT_BACKEND = os.getenv("AGENT_BACKEND", "deepagents").lower()
 if _AGENT_BACKEND == "deepagents":
-    from agent_deepagents import AgentSession
+    from .agent_deepagents import AgentSession
 elif _AGENT_BACKEND == "copilot":
-    from agent import AgentSession
+    from .agent import AgentSession
 else:
     raise RuntimeError("AGENT_BACKEND must be 'deepagents' or 'copilot'")
-from tracing import setup_tracing
+from .tracing import setup_tracing
 from workbench_core.trace_logging import setup_trace_logging, trace_event
 from workbench_core.request_limits import (
     MAX_EDIT_CONTENT_BYTES,
@@ -49,7 +44,7 @@ from workbench_core.request_limits import (
     JsonRequestBodyLimitMiddleware,
 )
 from workbench_core.upload_policy import is_allowed_upload
-from workload_auth import WorkloadAuthenticator
+from .workload_auth import WorkloadAuthenticator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,7 +57,7 @@ def _sse_event(event: BaseEvent) -> str:
     return f"data: {event.model_dump_json(exclude_none=True)}\n\n"
 
 # In ACA, this is /workspace. In local dev, default to a directory relative to the project root.
-_default_ws = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "workspace"))
+_default_ws = str(Path(__file__).resolve().parents[4] / "workspace")
 WORKSPACE = os.getenv("WORKSPACE", _default_ws)
 UPLOAD_MANIFEST = ".uploaded_files.json"
 _SESSION_ID_RE = re.compile(r"^[0-9a-f]{16}$")
@@ -552,7 +547,7 @@ def _write_uploaded_manifest(workspace: str, names: set[str]) -> None:
         json.dump(payload, f)
 
 
-_SEED_DOCS_DIR = Path(__file__).parent / "seed_docs"
+_SEED_DOCS_DIR = Path(__file__).resolve().parents[2] / "seed-docs"
 
 
 def _ensure_documents_seeded(workspace: str) -> None:

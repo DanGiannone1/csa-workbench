@@ -15,7 +15,7 @@ from typing import Any, Protocol
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
+from workbench_core.mise_validation import MiseTokenValidator, MiseValidationConfig, TokenRejected
 
 logger = logging.getLogger(__name__)
 

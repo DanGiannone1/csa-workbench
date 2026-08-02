@@ -16,8 +16,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
-sys.path.insert(0, str(REPO / "session-container"))
-import mvp_tool_schemas as ts  # noqa: E402
+from workbench_assistant import mvp_tool_schemas as ts
 
 
 def tool_definitions() -> list[dict]:

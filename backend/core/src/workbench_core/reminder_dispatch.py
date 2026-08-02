@@ -39,7 +39,7 @@ _MAX_STATUS_CHARS = 240
 
 
 class PersonalStateStore(Protocol):
-    """The appdb surface the dispatcher needs (see session-container/appdb.py)."""
+    """The appdb surface the dispatcher needs (see workbench_core/appdb.py)."""
 
     AbortWrite: type[Exception]
 

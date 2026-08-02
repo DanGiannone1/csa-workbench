@@ -49,7 +49,7 @@ presentation.
    export COSMOS_ENDPOINT='http://localhost:8081'
    export COSMOS_DATABASE='csa_workbench_evaldemo_local'
    export COSMOS_CONTAINER='appstate_evaldemo_local'
-   uv run dev.py
+   uv run python scripts/dev.py
    ```
 
 7. In terminal 2, use matching values and run the full product suite:

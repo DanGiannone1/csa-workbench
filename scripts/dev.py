@@ -26,7 +26,7 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_ROOT = ROOT / "frontend"
 LOCAL_RUNS_ROOT = ROOT / ".local-runs"
 MVP_ARTIFACT_ROOT = ROOT / ".mvp-artifacts"
@@ -190,8 +190,8 @@ def prepare_run(config: LocalRunConfig) -> Path:
 def commands(config: LocalRunConfig) -> list[tuple[str, list[str], Path]]:
     """Return child commands so tests can inspect ports without launching services."""
     return [
-        ("session container", ["uv", "run", "uvicorn", "server:app", "--host", "127.0.0.1", "--port", str(config.runtime_port)], ROOT / "session-container"),
-        ("orchestrator", ["uv", "run", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", str(config.api_port)], ROOT),
+        ("assistant", ["uv", "run", "--package", "workbench-assistant", "uvicorn", "workbench_assistant.server:app", "--host", "127.0.0.1", "--port", str(config.runtime_port)], ROOT),
+        ("API", ["uv", "run", "--package", "workbench-api", "uvicorn", "workbench_api.app:app", "--host", "127.0.0.1", "--port", str(config.api_port)], ROOT),
         ("frontend", ["npm", "run", "dev", "--", "--hostname", "127.0.0.1", "--port", str(config.frontend_port)], ROOT / "frontend"),
     ]
 
