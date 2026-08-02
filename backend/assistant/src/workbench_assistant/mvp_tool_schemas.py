@@ -32,6 +32,9 @@ class CreateEngagementCommand(BaseModel):
     description: str = Field(default="", description="Optional engagement description.")
     customer: str = Field(default="", description="Optional customer name.")
     target_date: str = Field(default="", description="Optional target date in YYYY-MM-DD form.")
+    business_value: str = Field(default="", description="One line: why this matters to the customer.")
+    value: float = Field(default=0, ge=0, description="Optional engagement value in USD.")
+    objective: str = Field(default="", description="Optional first objective (what good looks like).")
 
 
 class GetEngagementCommand(BaseModel):
@@ -44,6 +47,9 @@ class UpdateEngagementCommand(GetEngagementCommand):
     customer: str | None = Field(default=None)
     start_date: str | None = Field(default=None)
     target_date: str | None = Field(default=None)
+    business_value: str | None = Field(default=None, description="One line: why this matters to the customer.")
+    current_state: str | None = Field(default=None, description="'Where it stands' — the paragraph a stand-in could read to take over. Stamped with today's date.")
+    value: float | None = Field(default=None, ge=0, description="Engagement value in USD.")
 
 
 class SetEngagementStatusCommand(GetEngagementCommand):
@@ -54,6 +60,39 @@ class SetEngagementStatusCommand(GetEngagementCommand):
 class ShareEngagementCommand(GetEngagementCommand):
     user: str = Field(description="User ID to share with.")
     role: str = Field(default="viewer", description="viewer, editor, or owner")
+
+
+TimelineEntryType = Literal["meeting", "decision", "risk", "note"]
+
+
+class AddTimelineEntryCommand(GetEngagementCommand):
+    type: TimelineEntryType = Field(description="Entry type: meeting, decision, risk, or note.")
+    title: str = Field(description="Entry title.")
+    body: str = Field(default="", description="Optional detail for the entry.")
+    date: str = Field(default="", description="Optional entry date in YYYY-MM-DD form; defaults to today.")
+    source: str = Field(default="", description="Optional source, e.g. the file the entry came from.")
+
+
+class AddKeyDateCommand(GetEngagementCommand):
+    date: str = Field(description="Key date in YYYY-MM-DD form.")
+    label: str = Field(description="What the date is, e.g. 'Go-live'.")
+
+
+class ToggleKeyDateCommand(GetEngagementCommand):
+    reference: str = Field(description="The key date's label (or its date) to mark done / reopen.")
+
+
+class AddObjectiveCommand(GetEngagementCommand):
+    text: str = Field(description="The objective — what good looks like.")
+
+
+class AddContactCommand(GetEngagementCommand):
+    name: str = Field(description="Customer contact name.")
+    role: str = Field(default="", description="Their role on the customer side, e.g. 'Digital sponsor'.")
+
+
+class PromoteArtifactCommand(GetEngagementCommand):
+    artifact_id: str = Field(description="Artifact ID or exact filename to promote to gold.")
 
 
 # ── Personal workspace: the actor's own private Tasks, Calendar, and Reminders.
@@ -160,6 +199,12 @@ ACTIVE_TOOL_SCHEMAS = {
     "update_engagement": UpdateEngagementCommand,
     "set_engagement_status": SetEngagementStatusCommand,
     "share_engagement": ShareEngagementCommand,
+    "add_timeline_entry": AddTimelineEntryCommand,
+    "add_key_date": AddKeyDateCommand,
+    "toggle_key_date": ToggleKeyDateCommand,
+    "add_objective": AddObjectiveCommand,
+    "add_contact": AddContactCommand,
+    "promote_artifact": PromoteArtifactCommand,
     "list_tasks": ListTasksCommand,
     "create_task": CreateTaskCommand,
     "update_task": UpdateTaskCommand,

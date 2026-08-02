@@ -720,6 +720,9 @@ class EngagementCreate(BaseModel):
     statusNote: str = Field("", max_length=300)
     startDate: str = Field("", max_length=10)
     targetDate: str = Field("", max_length=10)
+    businessValue: str = Field("", max_length=300)
+    value: float = Field(0, ge=0)
+    objective: str = Field("", max_length=200)
 
 
 class EngagementPatch(BaseModel):
@@ -730,6 +733,36 @@ class EngagementPatch(BaseModel):
     statusNote: str | None = Field(None, max_length=300)
     startDate: str | None = Field(None, max_length=10)
     targetDate: str | None = Field(None, max_length=10)
+    businessValue: str | None = Field(None, max_length=300)
+    value: float | None = Field(None, ge=0)
+    currentState: str | None = Field(None, max_length=1200)
+    stateDate: str | None = Field(None, max_length=10)
+
+
+class ObjectiveCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=200)
+
+
+class KeyDateCreate(BaseModel):
+    date: str = Field(..., min_length=10, max_length=10)
+    label: str = Field(..., min_length=1, max_length=120)
+
+
+class KeyDateToggle(BaseModel):
+    reference: str = Field(..., min_length=1, max_length=160)
+
+
+class ContactCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    role: str = Field("", max_length=120)
+
+
+class TimelineEntryCreate(BaseModel):
+    type: str = Field(..., min_length=1, max_length=16)
+    title: str = Field(..., min_length=1, max_length=200)
+    body: str = Field("", max_length=2000)
+    date: str = Field("", max_length=10)
+    source: str = Field("", max_length=200)
 
 
 class MemberAdd(BaseModel):
@@ -796,7 +829,8 @@ async def create_engagement(req: EngagementCreate, response: Response, uid: str 
         _engagement_service.create, uid,
         {"name": req.name, "description": req.description, "customer": req.customer,
          "status": req.status, "statusNote": req.statusNote,
-         "startDate": req.startDate, "targetDate": req.targetDate},
+         "startDate": req.startDate, "targetDate": req.targetDate,
+         "businessValue": req.businessValue, "value": req.value, "objective": req.objective},
     )
     _raise_for_engagement_outcome(outcome)
     engagement = outcome.record
@@ -837,6 +871,65 @@ async def remove_member(engagement_id: str, member_id: str, uid: str = Depends(c
     outcome = await asyncio.to_thread(_engagement_service.remove_member, uid, engagement_id, member_id)
     _raise_for_engagement_outcome(outcome)
     return Response(status_code=204)
+
+
+# ── Prototype record collections (#31): objectives, key dates, contacts, timeline,
+# artifact promotion. Editor-gated in the service; noop returns 200 instead of 201.
+@app.post("/engagements/{engagement_id}/objectives", status_code=201)
+async def add_objective(engagement_id: str, req: ObjectiveCreate, response: Response, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(_engagement_service.add_objective, uid, engagement_id, req.text)
+    _raise_for_engagement_outcome(outcome)
+    if outcome.status == "noop":
+        response.status_code = 200
+    return {"objectives": outcome.record["objectives"]}
+
+
+@app.post("/engagements/{engagement_id}/key-dates", status_code=201)
+async def add_key_date(engagement_id: str, req: KeyDateCreate, response: Response, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(_engagement_service.add_key_date, uid, engagement_id, req.date, req.label)
+    _raise_for_engagement_outcome(outcome)
+    if outcome.status == "noop":
+        response.status_code = 200
+    return {"keyDates": outcome.record["keyDates"]}
+
+
+@app.post("/engagements/{engagement_id}/key-dates/toggle")
+async def toggle_key_date(engagement_id: str, req: KeyDateToggle, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(_engagement_service.toggle_key_date, uid, engagement_id, req.reference)
+    if outcome.status == "ambiguous":
+        raise HTTPException(status_code=422, detail="Reference matches more than one key date")
+    if outcome.code == "keyDate.not_found":
+        raise HTTPException(status_code=404, detail="Key date not found")
+    _raise_for_engagement_outcome(outcome)
+    return {"keyDates": outcome.record["keyDates"]}
+
+
+@app.post("/engagements/{engagement_id}/contacts", status_code=201)
+async def add_contact(engagement_id: str, req: ContactCreate, response: Response, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(_engagement_service.add_contact, uid, engagement_id, req.name, req.role)
+    _raise_for_engagement_outcome(outcome)
+    if outcome.status == "noop":
+        response.status_code = 200
+    return {"contacts": outcome.record["contacts"]}
+
+
+@app.post("/engagements/{engagement_id}/timeline", status_code=201)
+async def add_timeline_entry(engagement_id: str, req: TimelineEntryCreate, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(
+        _engagement_service.add_timeline_entry, uid, engagement_id,
+        req.type, req.title, req.body, req.date, req.source)
+    _raise_for_engagement_outcome(outcome)
+    return outcome.record["timeline"][0]
+
+
+@app.post("/engagements/{engagement_id}/artifacts/{artifact_id}/promote")
+async def promote_artifact(engagement_id: str, artifact_id: str, uid: str = Depends(current_user)) -> dict:
+    outcome = await asyncio.to_thread(_engagement_service.promote_artifact, uid, engagement_id, artifact_id)
+    if outcome.code == "artifact.not_found":
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    _raise_for_engagement_outcome(outcome)
+    item = next(a for a in outcome.record["library"] if a.get("id") == artifact_id or a.get("name") == artifact_id)
+    return item
 
 
 # Engagement-scoped task CRUD, gated editor+.

@@ -60,11 +60,13 @@ from workbench_core.personal_repository import AppdbPersonalWorkspaceRepository
 from workbench_core.trace_logging import trace_event
 from . import navsvc
 from .mvp_tool_schemas import (
-    AddSubtaskCommand, CreateEngagementCommand, CreateEventCommand, CreateReminderCommand,
+    AddContactCommand, AddKeyDateCommand, AddObjectiveCommand, AddSubtaskCommand,
+    AddTimelineEntryCommand, CreateEngagementCommand, CreateEventCommand, CreateReminderCommand,
     CreateTaskCommand, DeleteEventCommand, DeleteReminderCommand, DeleteTaskCommand,
     GetEngagementCommand, ListEngagementsCommand, ListEventsCommand, ListRemindersCommand,
-    ListTasksCommand, NavigateCommand, SetEngagementStatusCommand, ShareEngagementCommand,
-    UpdateEngagementCommand, UpdateEventCommand, UpdateReminderCommand, UpdateTaskCommand,
+    ListTasksCommand, NavigateCommand, PromoteArtifactCommand, SetEngagementStatusCommand,
+    ShareEngagementCommand, ToggleKeyDateCommand, UpdateEngagementCommand, UpdateEventCommand,
+    UpdateReminderCommand, UpdateTaskCommand,
 )
 
 load_dotenv()
@@ -87,9 +89,11 @@ You are the CSA Workbench assistant. It covers two kinds of work: shared Engagem
 delivery workspaces with other members) and the user's own private Tasks, Calendar, and
 Reminders (visible only to them, never scoped to an Engagement). Use only these tools:
 `navigate`, `list_engagements`, `create_engagement`, `get_engagement`, `update_engagement`,
-`set_engagement_status`, `share_engagement`, `list_tasks`, `create_task`, `update_task`,
-`delete_task`, `add_subtask`, `list_events`, `create_event`, `update_event`, `delete_event`,
-`list_reminders`, `create_reminder`, `update_reminder`, and `delete_reminder`.
+`set_engagement_status`, `share_engagement`, `add_timeline_entry`, `add_key_date`,
+`toggle_key_date`, `add_objective`, `add_contact`, `promote_artifact`, `list_tasks`,
+`create_task`, `update_task`, `delete_task`, `add_subtask`, `list_events`, `create_event`,
+`update_event`, `delete_event`, `list_reminders`, `create_reminder`, `update_reminder`,
+and `delete_reminder`.
 
 Navigation accepts only these destination IDs: `engagements`, `engagement_overview`,
 `engagement_tasks`, `engagement_artifacts`, `home`, `tasks`, `calendar`, and `reminders`. For an
@@ -231,6 +235,28 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
         ]
         if record.get("description"):
             lines.append(f"description: {record['description']}")
+        if record.get("businessValue"):
+            lines.append(f"businessValue: {record['businessValue']}")
+        if record.get("value"):
+            lines.append(f"value: ${record['value']:,.0f}")
+        if record.get("currentState"):
+            lines.append(f"currentState (as of {record.get('stateDate') or 'n/a'}): {record['currentState']}")
+        if record.get("objectives"):
+            lines.append("objectives: " + "; ".join(record["objectives"]))
+        if record.get("keyDates"):
+            lines.append("keyDates: " + "; ".join(
+                f"{k.get('date')} {k.get('label')}{' (done)' if k.get('done') else ''}"
+                for k in record["keyDates"]))
+        if record.get("contacts"):
+            lines.append("customer contacts: " + "; ".join(
+                f"{c.get('name')} ({c.get('role')})" for c in record["contacts"]))
+        timeline = record.get("timeline") or []
+        if timeline:
+            lines.append("timeline (newest first):")
+            for entry in timeline[:10]:
+                src = f" [from {entry['source']}]" if entry.get("source") else ""
+                lines.append(f"- [{entry.get('id')}] {entry.get('date')} {entry.get('type')}: "
+                             f"{entry.get('title')} — {entry.get('author')}{src}")
         for label, key, fields in (
             ("tasks", "tasks", ("title", "status", "priority", "dueDate")),
             ("actions", "actions", ("title", "status", "owner", "dueDate")),
@@ -290,10 +316,12 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
         text = _engagement_detail_text(outcome.record) if outcome.record else result.message
         return _tool_result(result, text)
 
-    @define_tool(name="update_engagement", description="Update description, customer, or dates as an editor/owner; changing name requires owner access. Omit fields to leave them unchanged; empty optional fields clear them.")
+    @define_tool(name="update_engagement", description="Update description, customer, dates, business value, USD value, or the 'where it stands' currentState as an editor/owner; changing name requires owner access. Omit fields to leave them unchanged; empty optional fields clear them.")
     def update_engagement(params: UpdateEngagementCommand) -> ToolResult:
         values = {key: value for key, value in (("name", params.name), ("description", params.description),
-                  ("customer", params.customer), ("startDate", params.start_date), ("targetDate", params.target_date)) if value is not None}
+                  ("customer", params.customer), ("startDate", params.start_date), ("targetDate", params.target_date),
+                  ("businessValue", params.business_value), ("currentState", params.current_state),
+                  ("value", params.value)) if value is not None}
         outcome = engagement_service.update(user_id, params.engagement_id, values)
         result = engagement_product_result(outcome)
         return _tool_result(result, "Engagement update processed." if outcome.status == "committed" else result.message)
@@ -309,6 +337,45 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
         outcome = engagement_service.share(user_id, params.engagement_id, params.user, params.role)
         result = engagement_product_result(outcome)
         return _tool_result(result, "Engagement sharing processed." if outcome.status == "committed" else result.message)
+
+    # ── Prototype record collections (#31): the append-only log and the rail fields ──
+
+    @define_tool(name="add_timeline_entry", description="Append a typed entry (meeting, decision, risk, or note) to an engagement's timeline — the record's append-only log. Entries are attributed to the user and cannot be edited or deleted. Requires editor access.")
+    def add_timeline_entry(params: AddTimelineEntryCommand) -> ToolResult:
+        outcome = engagement_service.add_timeline_entry(
+            user_id, params.engagement_id, params.type, params.title, params.body, params.date, params.source)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Timeline entry logged." if outcome.status == "committed" else result.message)
+
+    @define_tool(name="add_key_date", description="Add a key date (milestone, gate, go-live) to an engagement. Requires editor access.")
+    def add_key_date(params: AddKeyDateCommand) -> ToolResult:
+        outcome = engagement_service.add_key_date(user_id, params.engagement_id, params.date, params.label)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Key date added." if outcome.status == "committed" else result.message)
+
+    @define_tool(name="toggle_key_date", description="Mark an engagement key date done (or reopen it) by its label or date. Requires editor access.")
+    def toggle_key_date(params: ToggleKeyDateCommand) -> ToolResult:
+        outcome = engagement_service.toggle_key_date(user_id, params.engagement_id, params.reference)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Key date toggled." if outcome.status == "committed" else result.message)
+
+    @define_tool(name="add_objective", description="Add an objective (what good looks like) to an engagement. Requires editor access.")
+    def add_objective(params: AddObjectiveCommand) -> ToolResult:
+        outcome = engagement_service.add_objective(user_id, params.engagement_id, params.text)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Objective added." if outcome.status == "committed" else result.message)
+
+    @define_tool(name="add_contact", description="Add a customer-side contact (name and their role) to an engagement. Customer contacts are separate from the delivery team members. Requires editor access.")
+    def add_contact(params: AddContactCommand) -> ToolResult:
+        outcome = engagement_service.add_contact(user_id, params.engagement_id, params.name, params.role)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Contact added." if outcome.status == "committed" else result.message)
+
+    @define_tool(name="promote_artifact", description="Promote an engagement artifact to gold (curated, vetted — safe to share). Records who promoted it and when. Requires editor access.")
+    def promote_artifact(params: PromoteArtifactCommand) -> ToolResult:
+        outcome = engagement_service.promote_artifact(user_id, params.engagement_id, params.artifact_id)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Artifact promoted to gold." if outcome.status == "committed" else result.message)
 
     # ── Personal workspace: the actor's own private Tasks, Calendar, and Reminders ──
 
@@ -486,7 +553,8 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
     return [
         navigate,
         list_engagements, create_engagement, get_engagement, update_engagement, set_engagement_status,
-        share_engagement,
+        share_engagement, add_timeline_entry, add_key_date, toggle_key_date, add_objective,
+        add_contact, promote_artifact,
         list_tasks, create_task, update_task, delete_task, add_subtask,
         list_events, create_event, update_event, delete_event,
         list_reminders, create_reminder, update_reminder, delete_reminder,

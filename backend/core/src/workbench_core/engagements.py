@@ -15,6 +15,8 @@ from typing import Any, Callable, Protocol
 ROLE_RANK = {"viewer": 0, "editor": 1, "owner": 2}
 ROLES = tuple(ROLE_RANK)
 STATUSES = ("green", "yellow", "red")
+TIMELINE_TYPES = ("meeting", "decision", "risk", "note")
+ARTIFACT_TIERS = ("bronze", "silver", "gold")
 
 
 @dataclass(frozen=True)
@@ -184,6 +186,177 @@ class EngagementService:
 
         return self._repository.update(engagement_id, mutate)
 
+    # ── Prototype record operations (#31) ──────────────────────────────────────
+    # Each writes one collection on the record, requires editor access, and logs
+    # attributed activity. The timeline is append-only by construction: there are
+    # no edit or delete operations for entries.
+
+    def add_objective(self, actor_id: str, engagement_id: str, text: str) -> Outcome:
+        cleaned = (text or "").strip()
+        if not cleaned or len(cleaned) > 200:
+            return Outcome("invalid", "add_objective", errors={"text": "required, at most 200 characters"})
+        return self._append(actor_id, engagement_id, "add_objective", "objectives", cleaned,
+                            "objective.added", cleaned,
+                            duplicate=lambda items: cleaned.lower() in (i.lower() for i in items),
+                            limit=(20, "objectives"))
+
+    def add_key_date(self, actor_id: str, engagement_id: str, date_iso: str, label: str) -> Outcome:
+        errors: dict[str, str] = {}
+        cleaned = (label or "").strip()
+        if not cleaned or len(cleaned) > 120:
+            errors["label"] = "required, at most 120 characters"
+        parsed = self._iso_or_none(date_iso)
+        if parsed is None:
+            errors["date"] = "must be an ISO calendar date"
+        if errors:
+            return Outcome("invalid", "add_key_date", errors=errors)
+        entry = {"date": parsed, "label": cleaned, "done": False}
+        return self._append(actor_id, engagement_id, "add_key_date", "keyDates", entry,
+                            "keyDate.added", f"{cleaned} · {parsed}",
+                            duplicate=lambda items: any(
+                                i.get("label", "").lower() == cleaned.lower() and i.get("date") == parsed
+                                for i in items),
+                            limit=(30, "key dates"), sort_key=lambda i: i.get("date", ""))
+
+    def toggle_key_date(self, actor_id: str, engagement_id: str, reference: str) -> Outcome:
+        ref = (reference or "").strip().lower()
+        if not ref:
+            return Outcome("invalid", "toggle_key_date", errors={"reference": "required"})
+        initial = self._visible(actor_id, engagement_id)
+        if initial is None:
+            return Outcome("not_found", "toggle_key_date", code="engagement.not_found")
+
+        def mutate(record: dict[str, Any]) -> _Mutation:
+            denied = self._authorize(record, actor_id, "editor", "toggle_key_date")
+            if denied:
+                return _Mutation(denied, False)
+            items = record.get("keyDates") or []
+            matches = [i for i in items if i.get("label", "").lower() == ref or i.get("date") == ref]
+            if not matches:
+                matches = [i for i in items if ref in i.get("label", "").lower()]
+            if len(matches) != 1:
+                status = "not_found" if not matches else "ambiguous"
+                return _Mutation(Outcome(status, "toggle_key_date", code=f"keyDate.{status}"), False)
+            matches[0]["done"] = not matches[0].get("done", False)
+            state = "done" if matches[0]["done"] else "reopened"
+            self._repository.log_activity(record, actor_id, "keyDate.toggled", f"{matches[0]['label']} {state}")
+            return _Mutation(Outcome("committed", "toggle_key_date", record=record, changed_fields=("keyDates",)), True)
+
+        return self._repository.update(engagement_id, mutate)
+
+    def add_contact(self, actor_id: str, engagement_id: str, name: str, role: str = "") -> Outcome:
+        cleaned = (name or "").strip()
+        if not cleaned or len(cleaned) > 120:
+            return Outcome("invalid", "add_contact", errors={"name": "required, at most 120 characters"})
+        entry = {"name": cleaned, "role": (role or "").strip()[:120] or "Contact"}
+        return self._append(actor_id, engagement_id, "add_contact", "contacts", entry,
+                            "contact.added", f"{cleaned} ({entry['role']})",
+                            duplicate=lambda items: any(i.get("name", "").lower() == cleaned.lower() for i in items),
+                            limit=(30, "contacts"))
+
+    def add_timeline_entry(self, actor_id: str, engagement_id: str, entry_type: str, title: str,
+                           body: str = "", date_iso: str = "", source: str = "") -> Outcome:
+        errors: dict[str, str] = {}
+        kind = (entry_type or "").strip().lower()
+        if kind not in TIMELINE_TYPES:
+            errors["type"] = f"must be one of {', '.join(TIMELINE_TYPES)}"
+        cleaned = (title or "").strip()
+        if not cleaned or len(cleaned) > 200:
+            errors["title"] = "required, at most 200 characters"
+        when = self._iso_or_none(date_iso) if (date_iso or "").strip() else date.today().isoformat()
+        if when is None:
+            errors["date"] = "must be an ISO calendar date"
+        if errors:
+            return Outcome("invalid", "add_timeline_entry", errors=errors)
+        initial = self._visible(actor_id, engagement_id)
+        if initial is None:
+            return Outcome("not_found", "add_timeline_entry", code="engagement.not_found")
+
+        def mutate(record: dict[str, Any]) -> _Mutation:
+            denied = self._authorize(record, actor_id, "editor", "add_timeline_entry")
+            if denied:
+                return _Mutation(denied, False)
+            entries = record.setdefault("timeline", [])
+            ids = {e.get("id") for e in entries}
+            n = len(entries) + 1
+            while f"tl-{n}" in ids:
+                n += 1
+            entries.insert(0, {
+                "id": f"tl-{n}", "type": kind, "title": cleaned, "date": when,
+                "body": (body or "").strip()[:2000], "author": actor_id,
+                "source": (source or "").strip()[:200],
+            })
+            del entries[500:]  # bounded log
+            self._repository.log_activity(record, actor_id, "timeline.added", f"{kind}: {cleaned}")
+            return _Mutation(Outcome("committed", "add_timeline_entry", record=record,
+                                     changed_fields=("timeline",)), True)
+
+        return self._repository.update(engagement_id, mutate)
+
+    def promote_artifact(self, actor_id: str, engagement_id: str, artifact_id: str) -> Outcome:
+        ref = (artifact_id or "").strip()
+        if not ref:
+            return Outcome("invalid", "promote_artifact", errors={"artifactId": "required"})
+        initial = self._visible(actor_id, engagement_id)
+        if initial is None:
+            return Outcome("not_found", "promote_artifact", code="engagement.not_found")
+
+        def mutate(record: dict[str, Any]) -> _Mutation:
+            denied = self._authorize(record, actor_id, "editor", "promote_artifact")
+            if denied:
+                return _Mutation(denied, False)
+            item = next((a for a in record.get("library") or []
+                         if a.get("id") == ref or a.get("name") == ref), None)
+            if item is None:
+                return _Mutation(Outcome("not_found", "promote_artifact", code="artifact.not_found"), False)
+            if item.get("tier") == "gold":
+                return _Mutation(Outcome("noop", "promote_artifact", record=record), False)
+            item["tier"] = "gold"
+            item["promotedBy"] = actor_id
+            item["promotedAt"] = date.today().isoformat()
+            self._repository.log_activity(record, actor_id, "artifact.promoted", item.get("name", ref))
+            return _Mutation(Outcome("committed", "promote_artifact", record=record,
+                                     changed_fields=("library",)), True)
+
+        return self._repository.update(engagement_id, mutate)
+
+    def _append(self, actor_id: str, engagement_id: str, operation: str, field_name: str,
+                entry: Any, action: str, detail: str,
+                duplicate: Callable[[list], bool], limit: tuple[int, str],
+                sort_key: Callable[[Any], Any] | None = None) -> Outcome:
+        initial = self._visible(actor_id, engagement_id)
+        if initial is None:
+            return Outcome("not_found", operation, code="engagement.not_found")
+
+        def mutate(record: dict[str, Any]) -> _Mutation:
+            denied = self._authorize(record, actor_id, "editor", operation)
+            if denied:
+                return _Mutation(denied, False)
+            items = record.setdefault(field_name, [])
+            if duplicate(items):
+                return _Mutation(Outcome("noop", operation, record=record), False)
+            cap, label = limit
+            if len(items) >= cap:
+                return _Mutation(Outcome("invalid", operation, errors={field_name: f"at most {cap} {label}"}), False)
+            items.append(entry)
+            if sort_key is not None:
+                items.sort(key=sort_key)
+            self._repository.log_activity(record, actor_id, action, detail)
+            return _Mutation(Outcome("committed", operation, record=record, changed_fields=(field_name,)), True)
+
+        return self._repository.update(engagement_id, mutate)
+
+    @staticmethod
+    def _iso_or_none(value: str) -> str | None:
+        cleaned = (value or "").strip()
+        if len(cleaned) != 10:
+            return None
+        try:
+            parsed = date.fromisoformat(cleaned)
+        except ValueError:
+            return None
+        return parsed.isoformat() if parsed.isoformat() == cleaned else None
+
     def _visible(self, actor_id: str, engagement_id: str) -> dict[str, Any] | None:
         record = self._repository.load(engagement_id)
         return record if record and self._role(record, actor_id) else None
@@ -202,7 +375,8 @@ class EngagementService:
         return member.get("role") if member else None
 
     def _normalize(self, values: dict[str, Any], creating: bool = False) -> tuple[dict[str, Any], dict[str, str]]:
-        allowed = {"name", "description", "customer", "status", "statusNote", "startDate", "targetDate"}
+        allowed = {"name", "description", "customer", "status", "statusNote", "startDate", "targetDate",
+                   "businessValue", "currentState", "stateDate", "value", "objective"}
         errors: dict[str, str] = {}
         normalized: dict[str, Any] = {}
         for key, value in values.items():
@@ -212,15 +386,27 @@ class EngagementService:
                 continue
             if value is None and not creating:
                 continue
+            if key == "value":
+                if isinstance(value, bool) or not isinstance(value, (int, float)):
+                    errors[key] = "must be a non-negative number"
+                elif value < 0:
+                    errors[key] = "must be a non-negative number"
+                else:
+                    normalized[key] = float(value)
+                continue
             if not isinstance(value, str):
                 errors[key] = "must be a string"
                 continue
             normalized[key] = value.strip()
+        if not creating and "objective" in normalized:
+            errors["objective"] = "unknown field"  # creation-only convenience; use add_objective afterwards
+            normalized.pop("objective", None)
         if creating and not normalized.get("name"):
             errors["name"] = "required"
         if "name" in normalized and not normalized["name"]:
             errors["name"] = "required"
-        for field, limit in (("name", 120), ("description", 500), ("customer", 120), ("statusNote", 300)):
+        for field, limit in (("name", 120), ("description", 500), ("customer", 120), ("statusNote", 300),
+                             ("businessValue", 300), ("currentState", 1200), ("objective", 200)):
             if field in normalized and len(normalized[field]) > limit:
                 errors[field] = f"must be at most {limit} characters"
         if "status" in normalized:
@@ -229,7 +415,7 @@ class EngagementService:
                 normalized["status"] = "green"
             elif normalized["status"] not in STATUSES:
                 errors["status"] = "must be green, yellow, or red"
-        for field in ("startDate", "targetDate"):
+        for field in ("startDate", "targetDate", "stateDate"):
             if normalized.get(field):
                 if len(normalized[field]) != 10:
                     errors[field] = "must be an ISO calendar date"
@@ -241,6 +427,9 @@ class EngagementService:
                     continue
                 if parsed.isoformat() != normalized[field]:
                     errors[field] = "must be an ISO calendar date"
+        # "Where it stands" always carries its as-of date: stamp today unless given.
+        if normalized.get("currentState") and not normalized.get("stateDate"):
+            normalized["stateDate"] = date.today().isoformat()
         return normalized, errors
 
     @staticmethod
