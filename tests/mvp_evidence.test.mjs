@@ -515,6 +515,18 @@ test("Playwright responsive acceptance pins the six breakpoint-edge viewports an
   assert.match(source, /document\.documentElement\.scrollWidth <= window\.innerWidth/);
 });
 
+test("Playwright contrast acceptance scans representative visible product states", () => {
+  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  assert.equal(packageJson.devDependencies["@axe-core/playwright"], "^4.12.1");
+  assert.match(source, /import AxeBuilder from "@axe-core\/playwright"/);
+  assert.match(source, /withRules\(\["color-contrast"\]\)/);
+  assert.match(source, /report\.colorContrast\.push\(\{ state, rule: "color-contrast", violations \}\)/);
+  for (const state of ["wide-engagements", "compact-viewer", "dialog", "phone-drawer", "phone-assistant"]) {
+    assert.match(source, new RegExp(`checkColorContrast\\([^,]+, "${state}", report\\)`));
+  }
+});
+
 test("remote browser evidence is labeled and stored separately from local evidence", () => {
   assert.equal(evidencePath("playwright", "run"), "evidence/mvp/local-synthetic/playwright/run");
   assert.equal(evidencePath("playwright", "run", "azure-demo"), "evidence/mvp/azure-demo/playwright/run");
