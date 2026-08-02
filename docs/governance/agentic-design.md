@@ -24,9 +24,10 @@ There are two separate kinds of skills:
   product tools. It is allowlisted by the assistant runtime, packaged into its image, versioned,
   hashed, and evaluated as product behavior. It is never a developer-agent skill.
 
-The product catalog currently lives at `session-container/product-skills/`; #47 moves it to
-`backend/assistant/product-skills/`. That move must update the catalog, allowlist, packaging, and
-checks together without duplicating skills.
+The product catalog lives at `backend/assistant/product-skills/`. The runtime allowlist lives in
+`backend/assistant/src/workbench_assistant/skill_runtime.py`, and
+`backend/assistant/Dockerfile` packages the catalog into the image. Update those three locations
+and their checks together without duplicating skills.
 
 ## Handoffs and review
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PRODUCT_SKILLS = ROOT / "session-container" / "product-skills"
+PRODUCT_SKILLS = ROOT / "backend" / "assistant" / "product-skills"
 DEVELOPER_SKILL_ROOTS = (ROOT / ".claude" / "skills", ROOT / ".codex" / "skills", ROOT / ".github" / "skills")
 EXPECTED_PRODUCT_SKILLS = {"engagement-meeting-prep", "tasks", "calendar", "weekly-review"}
 
@@ -34,14 +34,14 @@ def test_product_skills_are_allowlisted_packaged_and_not_developer_skills() -> N
     checked_in = {path.parent.name for path in PRODUCT_SKILLS.glob("*/SKILL.md")}
     assert checked_in == EXPECTED_PRODUCT_SKILLS
 
-    runtime = text("session-container/skill_runtime.py")
+    runtime = text("backend/assistant/src/workbench_assistant/skill_runtime.py")
     for skill in EXPECTED_PRODUCT_SKILLS:
         assert f'"{skill}"' in runtime
     assert "PRODUCT_SKILLS_ROOT" in runtime
     assert "FilesystemPermission" in runtime
 
-    dockerfile = text("session-container/Dockerfile")
-    assert "session-container/product-skills/ ./product-skills/" in dockerfile
+    dockerfile = text("backend/assistant/Dockerfile")
+    assert "COPY backend/assistant/product-skills/ backend/assistant/product-skills/" in dockerfile
 
     for developer_root in DEVELOPER_SKILL_ROOTS:
         duplicated = {path.parent.name for path in developer_root.glob("*/SKILL.md")} & EXPECTED_PRODUCT_SKILLS
@@ -52,7 +52,12 @@ def test_documented_skill_taxonomy_and_smoke_checks_have_one_destination() -> No
     guide = text("docs/guides/coding-agents.md")
     assert "Supported developer-agent entry points" in guide
     assert "Discovery smoke tests" in guide
-    assert ".copilot/" in guide
+    assert "GitHub Copilot CLI" in guide
+    assert "VS Code agent mode" in guide
+    assert "Copilot cloud coding agent" in guide
+    assert "codex debug prompt-input" in guide
+    assert ".claude/settings.json" not in guide
+    assert "session-container" not in guide
     policy = text("docs/governance/agentic-design.md")
     assert "backend/assistant/product-skills" in policy
     assert "Runtime independence and skill boundary" in policy

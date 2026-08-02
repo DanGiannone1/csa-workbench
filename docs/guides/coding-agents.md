@@ -21,14 +21,19 @@ independence and skill-boundary policy is [Agentic Design](../governance/agentic
 
 | Runtime | Repository entry points | Native additions | What this repository does not promise |
 |---|---|---|---|
-| Claude Code | `AGENTS.md`, then `CLAUDE.md` | `.claude/agents`, `.claude/skills`, and `.claude/settings.json` | That every developer has the optional PPEL or the same local permissions and models. |
+| Claude Code | `AGENTS.md`, then `CLAUDE.md` | `.claude/agents`, `.claude/skills`, and communication guidance | That every developer has the optional PPEL or the same local permissions and models. |
 | Codex | `AGENTS.md` | `.codex/skills` | That a locally configured profile, including PPEL, exists after a fresh clone. |
-| GitHub Copilot CLI, VS Code agent mode, and Copilot cloud agent | `AGENTS.md` and `.github/copilot-instructions.md` | `.github/skills` and GitHub workflows | That custom instructions force a model to comply, or that every Copilot surface supports every optional GitHub feature. |
+| GitHub Copilot CLI | `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md` | `.github/skills`; it may also discover `.claude/skills` | That the CLI is installed, or that a product-assistant skill is a developer skill. |
+| VS Code agent mode | `.github/copilot-instructions.md` and `AGENTS.md` | `.github/skills` | That VS Code agent mode discovers `CLAUDE.md`, or that an IDE can enforce an instruction. |
+| Copilot cloud coding agent | `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md` | `.github/skills`; it may also discover `.claude/skills` | That every GitHub plan or organization enables the coding agent, or that a product-assistant skill is a developer skill. |
 
 GitHub documents `.github/copilot-instructions.md` as the repository-wide Copilot instruction
-location and `AGENTS.md` as agent guidance. GitHub also documents `.github/skills/<name>/SKILL.md`
-for agent skills. We deliberately use those conventions and do not create a repository `.copilot/`
-folder. See GitHub's [custom-instruction support reference](https://docs.github.com/en/copilot/reference/custom-instructions-support)
+location and `AGENTS.md` as agent guidance. Copilot CLI and the cloud coding agent can also use
+`CLAUDE.md`; VS Code agent mode should be checked against `AGENTS.md`, not `CLAUDE.md`. GitHub
+documents `.github/skills/<name>/SKILL.md` and `.claude/skills/<name>/SKILL.md` as project skill
+locations for the CLI and cloud agent. We deliberately keep repository workflow skills there and
+never copy the shipped product skills from `backend/assistant/product-skills/` into either folder.
+See GitHub's [custom-instruction support reference](https://docs.github.com/en/copilot/reference/custom-instructions-support)
 when adding a new Copilot surface.
 
 ## Discovery smoke tests
@@ -42,16 +47,32 @@ they do not claim that an instruction can technically enforce a runtime permissi
 2. **Claude Code:** run `/memory` or `/context` when available and verify `AGENTS.md` and the
    `@AGENTS.md` import from `CLAUDE.md` are listed. PPEL communication guidance is native/manual;
    no repository hook enforces it.
-3. **Codex:** inspect its loaded instructions/context from the repository root, then inspect
-   `.codex/skills`. Do not require a local profile.
-4. **GitHub Copilot:** use `/instructions` and `/skills list` when that surface provides them.
-   Verify `AGENTS.md`, thin `CLAUDE.md`, `.github/copilot-instructions.md`, and `.github/skills`.
-   If the selected surface has no inventory command or Copilot CLI is absent, record that limitation
-   rather than inferring discovery from a model answer.
+3. **Codex:** from the repository root, run this model-free inventory command:
 
-When #47 moves the assistant package, update the current catalog path in this guide, the runtime
-allowlist, container copy rule, and this static check in one change. Do not move or duplicate the
-developer skill directories.
+   ```bash
+   codex debug prompt-input "Inventory repository guidance and discovered skills. Do not change files."
+   ```
+
+   The JSON evidence must include the model-visible repository instruction context and the
+   discovered `.codex/skills` entries. It does not need a model, a profile, or a file change.
+4. **GitHub Copilot CLI:** start a fresh session and run `/instructions`, then `/skills list`.
+   Expect the CLI to report `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md`, plus
+   skills from `.github/skills` and any applicable `.claude/skills`. If `copilot` is not installed,
+   or the installed CLI has no inventory command, record that limitation rather than inferring
+   discovery from a model answer.
+5. **VS Code agent mode:** start a fresh agent-mode chat in the repository workspace. Check the
+   references that VS Code exposes for `.github/copilot-instructions.md` and `AGENTS.md`. Do not
+   use `CLAUDE.md` as evidence for this surface. If the client does not expose an instruction
+   inventory, record the client version and the limitation rather than treating a chat reply as
+   proof.
+6. **Copilot cloud coding agent:** inspect the coding-agent task's instruction references when the
+   GitHub UI exposes them. Expect `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md`,
+   with `.github/skills` and applicable `.claude/skills` available for task-specific work. If the
+   task UI has no inventory, record that limitation; do not create a test task only to claim
+   discovery.
+
+The static check above keeps the current product catalog, runtime allowlist, image packaging, and
+skill boundary aligned. Do not move or duplicate developer skill directories.
 
 ## Azure work
 
