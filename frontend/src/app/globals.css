@@ -414,48 +414,43 @@ html, body {
 }
 
 /* ───────────────────────── CSA Workbench app pane ───────────────────────── */
+/* Full-bleed shell per the design reference: panes join with 1px borders, no outer
+   padding, no rounded outer frame. The rail carries the brand; there is no appbar. */
 .tw-app {
   display: flex; flex-direction: column; height: 100%; width: 100%; min-height: 0;
-  background: var(--surface-1); border: 1px solid var(--border-subtle);
-  border-radius: 1.25rem; overflow: hidden;
-  box-shadow: var(--shadow-raised);
+  background: var(--app-bg); overflow: hidden;
 }
-.tw-appbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  height: 56px; padding: 0 1rem; border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-1);
-}
-.tw-appbar-brand { display: flex; align-items: center; gap: 0.6rem; }
-.tw-logo {
-  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
-  border-radius: 8px; color: var(--text-on-brand);
-  background: var(--brand-primary);
-}
-.tw-appbar-title { font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); font-size: 0.95rem; }
-.tw-appbar-sub { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); }
-.tw-breadcrumb { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.02em; text-align: right; }
 
 .tw-body { display: flex; flex: 1; min-height: 0; }
 .tw-nav {
-  width: 220px; flex-shrink: 0; border-right: 1px solid var(--border-subtle);
-  padding: 0.75rem 0.6rem; overflow-y: auto; background: var(--surface-2);
+  width: 232px; flex-shrink: 0; border-right: 1px solid var(--border-subtle);
+  padding: 1rem 0.75rem; overflow-y: auto; background: var(--app-bg);
   display: flex; flex-direction: column; gap: 2px;
 }
-.tw-nav-section { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--text-muted); font-weight: 700; margin: 0.8rem 0.5rem 0.3rem; }
-.tw-nav-item, .tw-nav-client, .tw-nav-wa {
-  display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left;
-  padding: 0.45rem 0.6rem; border-radius: 8px; font-size: 0.82rem; color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s; font-weight: 600; cursor: pointer;
+.tw-brand { display: flex; align-items: center; gap: 0.6rem; padding: 0 0.25rem 0.9rem; }
+.tw-brand-mark {
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  flex-shrink: 0; border-radius: 9px; background: var(--brand-primary); color: var(--text-on-brand);
+  font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
 }
-.tw-nav-item:hover, .tw-nav-client:hover, .tw-nav-wa:hover { background: var(--surface-1); color: var(--text-primary); }
-.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--brand-primary); }
+.tw-brand-title { font-weight: 600; color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; }
+.tw-brand-status { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; }
+.tw-nav-section { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; margin: 0.9rem 0.7rem 0.3rem; }
+.tw-nav-item, .tw-nav-client, .tw-nav-wa {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left;
+  padding: 0.55rem 0.7rem; border-radius: 9px; font-size: 0.84rem; color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s; font-weight: 500; cursor: pointer;
+}
+.tw-nav-item:hover, .tw-nav-client:hover, .tw-nav-wa:hover { background: var(--surface-2); color: var(--text-primary); }
+.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--brand-strong); font-weight: 600; }
+.tw-nav-count { margin-left: auto; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
 .tw-nav-client { font-size: 0.8rem; color: var(--text-primary); }
 .tw-nav-engagement { margin: 0 0 0.25rem 0.55rem; padding-left: 0.5rem; border-left: 1px solid var(--border-subtle); }
 .tw-nav-engagement-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 0.3rem 0.5rem 0.15rem; }
 .tw-nav-wa { font-size: 0.8rem; font-weight: 500; padding: 0.35rem 0.6rem; }
 .tw-nav-wa-active { background: var(--surface-brand-subtle); color: var(--brand-primary); font-weight: 700; }
 
-.tw-content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.5rem 1.75rem; }
+.tw-content { flex: 1; min-width: 0; overflow-y: auto; }
 .tw-app .tw-input {
   width: 100%; min-width: 0; min-height: 2.5rem; padding: 0.5rem 0.65rem;
   border: 1px solid var(--border-subtle); border-radius: 0.6rem;
@@ -490,8 +485,12 @@ html, body {
   background: var(--surface-2);
 }
 .tw-empty-card svg { color: var(--text-muted); flex-shrink: 0; }
-.tw-screen { display: flex; flex-direction: column; gap: 0.4rem; animation: fade-in 0.25s ease-out both; }
-.tw-h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+/* Centered reading column per the design reference (`.page`). */
+.tw-screen {
+  display: flex; flex-direction: column; gap: 0.4rem; animation: fade-in 0.25s ease-out both;
+  max-width: 900px; margin: 0 auto; padding: 1.9rem 2.5rem 4rem;
+}
+.tw-h1 { font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; letter-spacing: 0; color: var(--text-primary); }
 .tw-h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.5rem; }
 .tw-subtle { color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem; }
 .tw-count { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 0.05rem 0.5rem; }
@@ -548,8 +547,9 @@ html, body {
 .tw-docitem:hover { border-color: var(--brand-primary); background: var(--surface-2); color: var(--text-primary); }
 .tw-doc-pending { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
 
-/* Constrain content width so short tables don't strand at the top-left of a wide pane */
-.tw-screen { max-width: 1040px; }
+/* The assistant dock and floating launcher, per the design reference's rail + FAB. */
+.tw-dock { border-left: 1px solid var(--border-subtle); background: var(--surface-1); padding: 0.75rem; }
+.tw-fab { width: 44px; height: 44px; border-radius: 999px; box-shadow: var(--shadow-raised); }
 
 /* Newly created rows briefly highlight so an agent create is visually obvious */
 @keyframes tw-row-flash {
@@ -640,13 +640,6 @@ html, body {
 
 .tw-td-mono { white-space: nowrap; }
 
-/* Brief pulse on the app pane header when an agent navigation changes the view */
-@keyframes tw-route-pulse {
-  0% { background: var(--brand-transparent); }
-  35% { background: var(--surface-brand-subtle); }
-  100% { background: var(--brand-transparent); }
-}
-.tw-appbar-pulse { animation: tw-route-pulse 1.1s ease-out 1; }
 .tw-rowlink { cursor: pointer; }
 
 /* Engagement-first workspace additions. Kept scoped to the workbench shell so
@@ -694,19 +687,16 @@ html, body {
 
 @media (max-width: 1199px) {
   .tw-nav-toggle { display: inline-flex; position: absolute; z-index: 4; left: 0.75rem; top: 0.75rem; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: 0.7rem; background: var(--surface-1); color: var(--text-primary); }
-  .tw-appbar { padding-left: 3.75rem; }
   .tw-nav { position: absolute; z-index: 30; inset: 0 auto 0 0; width: min(290px, 82vw); visibility: hidden; pointer-events: none; transform: translateX(-105%); transition: transform .2s ease, visibility .2s; box-shadow: var(--shadow-drawer); }
   .tw-nav-drawer-open { visibility: visible; pointer-events: auto; transform: translateX(0); }
   .tw-nav-mobile-head { display: flex; align-items: center; justify-content: space-between; padding: 0.1rem 0.25rem 0.6rem; color: var(--text-primary); font-size: .86rem; font-weight: 800; }
   .tw-nav-backdrop { display: block; position: absolute; z-index: 20; inset: 0; border: 0; background: var(--overlay-scrim); }
-  .tw-content { padding: 1.25rem 1.25rem calc(1.25rem + 5.25rem); }
+  /* Clear the floating nav toggle and keep the FAB reachable below the fold. */
+  .tw-screen { padding: 3.6rem 1.75rem calc(1.25rem + 5.25rem); }
 }
 
 @media (max-width: 767px) {
-  .tw-content { padding: 1rem 1rem calc(1rem + 5.25rem); }
-  .tw-appbar { height: 54px; gap: .5rem; }
-  .tw-breadcrumb { max-width: 45%; }
-  .tw-screen { max-width: 100%; min-width: 0; }
+  .tw-screen { max-width: 100%; min-width: 0; padding: 3.6rem 1rem calc(1rem + 5.25rem); }
   .tw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
   .tw-stat { padding: .75rem; }
   .tw-stat-value { font-size: 1.45rem; }
