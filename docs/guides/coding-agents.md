@@ -16,8 +16,8 @@ Do not paste, print, or commit secrets.
 
 ## Supported developer-agent entry points
 
-The repository supports a small, documented entry point for each runtime. All three use the same
-shared policy in `docs/governance/`; their native files do not try to copy it.
+The repository supports a small, documented entry point for each runtime. The canonical
+independence and skill-boundary policy is [Agentic Design](../governance/agentic-design.md).
 
 | Runtime | Repository entry points | Native additions | What this repository does not promise |
 |---|---|---|---|
@@ -31,17 +31,6 @@ for agent skills. We deliberately use those conventions and do not create a repo
 folder. See GitHub's [custom-instruction support reference](https://docs.github.com/en/copilot/reference/custom-instructions-support)
 when adding a new Copilot surface.
 
-## Skills: developer workflow or shipped product behavior?
-
-| Kind | Purpose | Home | Ships? | How it is checked |
-|---|---|---|---|---|
-| Repository-agent workflow | Helps a developer work on this repository. | `.claude/skills`, `.codex/skills`, or `.github/skills` | No | Static guidance checks and the runtime's own discovery. |
-| Product-assistant skill | Helps an end user complete an approved CSA Workbench task through typed product tools. | Current: `session-container/product-skills`; target after the hierarchy move: `backend/assistant/product-skills` | Yes | Runtime allowlist, image-content check, hash/version evidence, and product/Waza evals. |
-
-Do not copy a product skill into a developer skill location for convenience. The two kinds have
-different audiences, permissions, packaging, and evidence. The assistant runtime loads only its
-approved product catalog; developer-agent guidance cannot expand that allowlist.
-
 ## Discovery smoke tests
 
 Run these after changing an entry point or developer skill. They confirm discovery and references;
@@ -50,17 +39,15 @@ they do not claim that an instruction can technically enforce a runtime permissi
 1. **Static check, every platform:** run `uv run --with pytest pytest tests/test_agent_guidance.py`
    from the repository root. It checks the entry-point links, product-skill allowlist, image
    packaging, and that product skills are not duplicated into developer skill folders.
-2. **Claude Code:** start Claude Code in the repository root. Ask which file defines shared
-   repository rules and confirm it identifies `AGENTS.md`; inspect the session's loaded references
-   if the client shows them. Claude-native additions should be discoverable under `.claude/`.
-3. **Codex:** start Codex in the repository root without assuming a local profile. Ask for the
-   shared repository rules and confirm it identifies `AGENTS.md`; inspect `.codex/skills` for
-   repository workflows. A profile is an optional local enhancement, not a smoke-test prerequisite.
-4. **GitHub Copilot:** use one supported surface with the repository attached. Ask which repository
-   instructions apply and inspect the response references when the surface provides them. Confirm
-   `.github/copilot-instructions.md` and `AGENTS.md` are present, then verify a repository skill is
-   under `.github/skills`. GitHub Copilot may combine applicable instruction files, so keep all
-   shared rules in `AGENTS.md` and `docs/governance/`.
+2. **Claude Code:** run `/memory` or `/context` when available and verify `AGENTS.md` and the
+   `@AGENTS.md` import from `CLAUDE.md` are listed. PPEL communication guidance is native/manual;
+   no repository hook enforces it.
+3. **Codex:** inspect its loaded instructions/context from the repository root, then inspect
+   `.codex/skills`. Do not require a local profile.
+4. **GitHub Copilot:** use `/instructions` and `/skills list` when that surface provides them.
+   Verify `AGENTS.md`, thin `CLAUDE.md`, `.github/copilot-instructions.md`, and `.github/skills`.
+   If the selected surface has no inventory command or Copilot CLI is absent, record that limitation
+   rather than inferring discovery from a model answer.
 
 When #47 moves the assistant package, update the current catalog path in this guide, the runtime
 allowlist, container copy rule, and this static check in one change. Do not move or duplicate the

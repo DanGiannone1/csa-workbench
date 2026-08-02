@@ -13,19 +13,9 @@ Read the product, architecture, development, and deployment documents related to
 change. Stop and ask the user when required guidance is missing or contradictory. Preserve existing
 worktree changes and do not switch the primary branch unless the user explicitly asks.
 
-## Keep the two kinds of skills separate
-
-- A **repository-agent workflow** helps a developer investigate, implement, review, test, or deploy
-  this repository. It belongs only in a developer runtime's skill location, such as `.claude/skills`,
-  `.codex/skills`, or `.github/skills`. It never ships in the application image.
-- A **product-assistant skill** guides a CSA Workbench user through a supported product task. It
-  lives in the product-assistant skill catalog, is allowlisted by the runtime, is packaged into the
-  assistant image, and is versioned, hashed, and evaluated as product behavior. It must use typed
-  product tools; it is not a developer-agent skill.
-
-The catalog is currently `session-container/product-skills/`. The approved hierarchy work moves it
-to `backend/assistant/product-skills/`; move its allowlist, packaging rule, and checks together.
-Do not duplicate product skills into developer skill directories during that move.
+The canonical runtime-independence and skill-boundary policy is in
+[Agentic Design](docs/governance/agentic-design.md). Do not duplicate shipped product skills into
+developer skill directories.
 
 ## Native runtime additions
 

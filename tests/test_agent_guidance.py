@@ -23,10 +23,11 @@ def test_shared_and_native_entry_points_are_thin_and_linked() -> None:
     assert "docs/governance/" in agents
     assert "claude --agent" not in agents
     assert "codex --profile" not in agents
-    assert "Follow the shared repository instructions in [AGENTS.md]" in claude
+    assert claude.startswith("@AGENTS.md")
     assert "Follow the shared repository instructions in [AGENTS.md]" in copilot
     assert "Master SDLC" not in claude
     assert "Master SDLC" not in copilot
+    assert not (ROOT / ".claude" / "settings.json").exists()
 
 
 def test_product_skills_are_allowlisted_packaged_and_not_developer_skills() -> None:
@@ -50,7 +51,7 @@ def test_product_skills_are_allowlisted_packaged_and_not_developer_skills() -> N
 def test_documented_skill_taxonomy_and_smoke_checks_have_one_destination() -> None:
     guide = text("docs/guides/coding-agents.md")
     assert "Supported developer-agent entry points" in guide
-    assert "Skills: developer workflow or shipped product behavior?" in guide
     assert "Discovery smoke tests" in guide
     assert ".copilot/" in guide
     assert "backend/assistant/product-skills" in guide
+    assert "Runtime independence and skill boundary" in text("docs/governance/agentic-design.md")

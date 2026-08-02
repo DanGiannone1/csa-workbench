@@ -14,6 +14,7 @@ and Codex keep their runtime settings in their own directories and use these sha
 | How should repository work be carried out safely? | [Engineering Operating Standards](engineering-operating-standards.md) |
 | How should behavior be checked? | [Testing Charter](../../testing/testing-charter.md) |
 | How should agents, skills, and handoffs be designed? | [Agentic Design](agentic-design.md) |
+| Where is the developer-workflow versus product-skill boundary? | [Agentic Design](agentic-design.md) |
 | What is the product expected to do? | [Product requirements](../product/requirements.md) |
 | How does the application work today? | [Architecture overview](../architecture/README.md) |
 | How is it run locally? | [Local development](../guides/local-development.md) |
