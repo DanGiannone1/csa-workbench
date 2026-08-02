@@ -498,6 +498,27 @@ test("requireTargetUrl stays loopback-only unless MVP_ALLOW_REMOTE=1 opts into a
   }
 });
 
+test("Playwright responsive acceptance pins the six breakpoint-edge viewports and visual evidence", () => {
+  const source = readFileSync(new URL("../scripts/mvp_playwright.mjs", import.meta.url), "utf8");
+  const matrix = [
+    ["desktop-1440", 1440], ["desktop-1200", 1200], ["compact-1199", 1199],
+    ["compact-768", 768], ["phone-767", 767], ["phone-390", 390],
+  ];
+  for (const [name, width] of matrix) {
+    assert.match(source, new RegExp(`name: "${name}", width: ${width},`));
+  }
+  assert.ok(source.includes("responsive-${viewport.name}.png"));
+  for (const filename of [
+    "wide-dan-new-session-dialog-overlay.png",
+    "wide-dan-new-session-focus-restored.png",
+    "narrow-dan-drawer-open.png",
+    "narrow-dan-drawer-focus-restored.png",
+    "wide-sam-stale-workspace-toast.png",
+  ]) assert.ok(source.includes(filename), `missing visual evidence: ${filename}`);
+  assert.match(source, /matchesResponsiveLayout\(observation, viewport\.layout\)/);
+  assert.match(source, /document\.documentElement\.scrollWidth <= window\.innerWidth/);
+});
+
 test("remote browser evidence is labeled and stored separately from local evidence", () => {
   assert.equal(evidencePath("playwright", "run"), "evidence/mvp/local-synthetic/playwright/run");
   assert.equal(evidencePath("playwright", "run", "azure-demo"), "evidence/mvp/azure-demo/playwright/run");

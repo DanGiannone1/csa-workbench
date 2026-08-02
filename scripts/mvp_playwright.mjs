@@ -22,6 +22,16 @@ const runId = process.env.MVP_RUN_ID || new Date().toISOString().replace(/[:.]/g
 const runTag = runId.replace(/[^A-Za-z0-9_-]/g, "").slice(-12) || randomUUID().slice(0, 8);
 const out = evidencePath("playwright", runId, EVIDENCE_ENVIRONMENT);
 const expectedFixtureVersion = JSON.parse(readFileSync("tests/evals/mvp-cases.json", "utf8")).fixtureVersion;
+// Keep both sides of each responsive boundary in the recorded browser evidence.
+// The sizes are deliberately concrete: desktop >=1200, compact 768–1199, phone <=767.
+const RESPONSIVE_VIEWPORTS = Object.freeze([
+  { name: "desktop-1440", width: 1440, height: 900, layout: "desktop" },
+  { name: "desktop-1200", width: 1200, height: 900, layout: "desktop" },
+  { name: "compact-1199", width: 1199, height: 900, layout: "compact" },
+  { name: "compact-768", width: 768, height: 900, layout: "compact" },
+  { name: "phone-767", width: 767, height: 844, layout: "phone" },
+  { name: "phone-390", width: 390, height: 844, layout: "phone" },
+]);
 if (!process.env.DEMO_PASSWORD) throw new Error("DEMO_PASSWORD is required; this runner never supplies a static password.");
 // Remote (live Azure demo) runs rely on the instance's idempotent boot-seed instead of the
 // local-only reset_demo_state.py fixture; local runs still require the guarded reset.
@@ -72,6 +82,54 @@ async function raw(page, path, method, body) {
 }
 async function noHorizontalOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth);
+}
+async function responsiveLayout(page) {
+  return page.evaluate(() => {
+    const visible = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+    };
+    const content = document.querySelector('[data-testid="workbench-content"]');
+    return {
+      noHorizontalOverflow: document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth,
+      dockVisible: visible('[data-testid="copilot-dock"]'),
+      launcherVisible: visible('[data-testid="dock-launcher"]'),
+      navigationToggleVisible: visible('[data-testid="nav-toggle"]'),
+      contentPaddingLeft: content ? Math.round(parseFloat(getComputedStyle(content).paddingLeft)) : null,
+    };
+  });
+}
+function matchesResponsiveLayout(observation, layout) {
+  if (!observation.noHorizontalOverflow) return false;
+  if (layout === "desktop") return observation.dockVisible && !observation.launcherVisible && !observation.navigationToggleVisible;
+  if (layout === "compact") return !observation.dockVisible && observation.launcherVisible && observation.navigationToggleVisible && observation.contentPaddingLeft === 20;
+  return !observation.dockVisible && observation.launcherVisible && observation.navigationToggleVisible && observation.contentPaddingLeft === 16;
+}
+async function captureResponsiveMatrix(page, report) {
+  report.responsiveMatrix = [];
+  for (const viewport of RESPONSIVE_VIEWPORTS) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    let observation = await responsiveLayout(page);
+    try {
+      observation = await eventually(async () => {
+        const candidate = await responsiveLayout(page);
+        return matchesResponsiveLayout(candidate, viewport.layout) ? candidate : null;
+      }, 3_000);
+    } catch {
+      // Record the observed layout and let the normal evidence check report the mismatch.
+    }
+    report.responsiveMatrix.push({ viewport, observation });
+    check(`MVP-P48-responsive-${viewport.name}`, matchesResponsiveLayout(observation, viewport.layout), JSON.stringify(observation));
+    await capture(page, `${out}/responsive-${viewport.name}.png`);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await eventually(async () => {
+    const observation = await responsiveLayout(page);
+    return matchesResponsiveLayout(observation, "desktop") ? observation : null;
+  });
 }
 async function capture(page, path) {
   await page.evaluate(async () => {
@@ -223,6 +281,7 @@ try {
   await dan.page.getByTestId("engagements-screen").waitFor({ state: "visible" });
   await capture(dan.page, `${out}/wide-dan-portfolio.png`);
   check("MVP-P2-wide-no-horizontal-overflow", await noHorizontalOverflow(dan.page));
+  await captureResponsiveMatrix(dan.page, report);
 
   await dan.page.getByTestId("add-engagement-btn").click();
   await dan.page.getByTestId("engagement-save-btn").click();
@@ -366,6 +425,23 @@ try {
   check("MVP-P30-wide-no-horizontal-overflow-after-agent", await noHorizontalOverflow(dan.page));
   await capture(dan.page, `${out}/wide-agent-updated-engagement.png`);
 
+  // This dialog appears only after a real conversation exists. Its overlay and focus
+  // restoration are recorded directly from the product surface, without test doubles.
+  await dan.page.getByTestId("new-chat-button").click();
+  const newSessionDialog = dan.page.getByRole("dialog", { name: "Start a new session?" });
+  await newSessionDialog.waitFor({ state: "visible" });
+  const dialogConfirm = newSessionDialog.getByRole("button", { name: "Start new session" });
+  const dialogOverlay = dan.page.locator(".ui-overlay-layer");
+  check(
+    "MVP-P49-new-session-dialog-overlay-focus",
+    await dialogOverlay.isVisible() && await dialogConfirm.evaluate((element) => document.activeElement === element),
+  );
+  await capture(dan.page, `${out}/wide-dan-new-session-dialog-overlay.png`);
+  await dan.page.keyboard.press("Escape");
+  check("MVP-P50-new-session-dialog-escape-restores-focus", await eventually(() =>
+    dan.page.getByTestId("new-chat-button").evaluate((element) => document.activeElement === element)));
+  await capture(dan.page, `${out}/wide-dan-new-session-focus-restored.png`);
+
   const narrow = await newPage(browser, { width: 390, height: 844 }, "dan");
   await narrow.page.getByTestId("nav-toggle").click();
   check("MVP-P21-narrow-drawer-opens", await narrow.page.getByTestId("nav-drawer").count() === 1);
@@ -375,6 +451,7 @@ try {
   await capture(narrow.page, `${out}/narrow-dan-drawer-open.png`);
   await narrow.page.keyboard.press("Escape");
   check("MVP-P23-narrow-escape-restores-focus", await eventually(() => narrow.page.getByTestId("nav-toggle").evaluate((element) => document.activeElement === element)));
+  await capture(narrow.page, `${out}/narrow-dan-drawer-focus-restored.png`);
   check("MVP-P24-narrow-no-horizontal-overflow", await noHorizontalOverflow(narrow.page));
   const critical = await narrow.page.getByTestId("nav-toggle").boundingBox();
   check("MVP-P25-narrow-critical-control-not-clipped", !!critical && critical.x >= 0 && critical.y >= 0 && critical.x + critical.width <= 390 && critical.y + critical.height <= 844);
@@ -517,6 +594,18 @@ try {
     reminderCreateValid && reminderNextCellText !== "—" && !!pausedReminder && reminderPausedRendered,
     JSON.stringify({ created: createdReminder, nextCellText: reminderNextCellText, paused: pausedReminder }),
   );
+
+  // Expire Sam's disposable browser session through the real API, then navigate in
+  // the real UI. The retained view renders the product's stale-workspace Toast; no
+  // network interception or component mock is involved.
+  await sam.page.setViewportSize({ width: 1440, height: 900 });
+  const samSessionId = await sessionId(sam.page);
+  const deletedSamSession = samSessionId ? await raw(sam.page, `/sessions/${samSessionId}`, "DELETE") : { status: 0 };
+  await sam.page.getByTestId("nav--home").click();
+  const staleWorkspaceToast = sam.page.getByTestId("workspace-stale");
+  await staleWorkspaceToast.waitFor({ state: "visible" });
+  check("MVP-P51-real-stale-workspace-toast", deletedSamSession.status === 204 && await staleWorkspaceToast.isVisible(), String(deletedSamSession.status));
+  await capture(sam.page, `${out}/wide-sam-stale-workspace-toast.png`);
 
   // Isolation: Ava's own personal aggregates must never contain Dan's records.
   const avaPersonalState = await state(ava.page);
