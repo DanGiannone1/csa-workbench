@@ -53,5 +53,6 @@ def test_documented_skill_taxonomy_and_smoke_checks_have_one_destination() -> No
     assert "Supported developer-agent entry points" in guide
     assert "Discovery smoke tests" in guide
     assert ".copilot/" in guide
-    assert "backend/assistant/product-skills" in guide
-    assert "Runtime independence and skill boundary" in text("docs/governance/agentic-design.md")
+    policy = text("docs/governance/agentic-design.md")
+    assert "backend/assistant/product-skills" in policy
+    assert "Runtime independence and skill boundary" in policy
