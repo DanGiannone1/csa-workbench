@@ -57,7 +57,7 @@ class SkillRuntimeTests(unittest.TestCase):
 
     def test_only_a_full_read_is_recorded_as_skill_invocation(self):
         for name in SKILL_NAMES:
-            line_count = len(skill_path(name).read_text().splitlines(keepends=True))
+            line_count = len(skill_path(name).read_text(encoding="utf-8").splitlines(keepends=True))
             self.assertIsNone(
                 skill_name_for_read({"file_path": skill_virtual_path(name), "offset": 0, "limit": line_count - 1}),
             )
