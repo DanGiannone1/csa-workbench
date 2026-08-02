@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Sparkles, ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { ChatMessage, MessagePart } from "@/lib/types";
-import BespokeIcon from "./ui/BespokeIcon";
 import ToolTrace from "./ToolTrace";
 import MarkdownRenderer from "./MarkdownRenderer";
 
@@ -66,24 +65,26 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
   const isThinking = message.isStreaming && message.parts.length === 0;
   const meta = message.meta;
 
+  // The streaming cursor rides the last text segment while TEXT_MESSAGE_CONTENT
+  // deltas are still arriving (removed by RUN_FINISHED via isStreaming).
+  const lastTextIndex = segments.reduce(
+    (last, seg, index) => (seg.kind === "text" ? index : last),
+    -1,
+  );
+
   return (
     <article className={`message-row ${isUser ? "message-row-user" : "message-row-assistant"}`}>
-      {!isUser && (
-        <div className="message-avatar-assistant">
-          <BespokeIcon icon={Sparkles} size={16} strokeWidth={2.5} />
-        </div>
-      )}
-
       <div className={`message-body ${isUser ? "message-body-user" : "message-body-assistant"}`}>
         <div className="message-parts">
-          {segments.map((seg) => {
+          {segments.map((seg, segIndex) => {
             if (seg.kind === "text") {
               return (
-                <MarkdownRenderer
-                  key={seg.index}
-                  content={seg.part.content}
-                  className="animate-fade-in"
-                />
+                <div key={seg.index} className="animate-fade-in">
+                  <MarkdownRenderer content={seg.part.content} />
+                  {!isUser && message.isStreaming && segIndex === lastTextIndex && (
+                    <span className="tw-cursor" aria-hidden="true" />
+                  )}
+                </div>
               );
             } else if (seg.kind === "reasoning") {
               return <ReasoningBlock key={seg.index} content={seg.part.content} />;

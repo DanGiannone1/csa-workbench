@@ -61,8 +61,8 @@ export default function HostApp() {
   const agentWorking = state.isStreaming || isChatUploading;
 
   return (
-    <div className="relative flex h-screen w-full bg-app p-3 gap-3 text-text-primary font-sans overflow-clip" data-testid="host-shell">
-      <div className="relative z-10 flex h-full w-full gap-3" data-testid="host-layout">
+    <div className="relative flex h-screen w-full bg-app text-text-primary font-sans overflow-clip" data-testid="host-shell">
+      <div className="relative z-10 flex h-full w-full" data-testid="host-layout">
         <div className="flex-1 min-w-0 h-full">
           <WorkbenchApp
             appState={state.appState}
@@ -81,7 +81,7 @@ export default function HostApp() {
         {dockOpen && !narrow && (
           <div
             data-testid="copilot-dock"
-            className="w-[32%] min-w-[360px] max-w-[420px] shrink-0 h-full"
+            className="tw-dock w-[372px] shrink-0 h-full"
           >
             <CoPilotDock onCollapse={closeDock} />
           </div>
@@ -111,19 +111,13 @@ export default function HostApp() {
           data-testid="dock-launcher"
           ref={launcherRef}
           onClick={() => setDockOpen(true)}
-          className="fixed bottom-6 right-6 z-20 gap-2.5 px-4 py-3"
+          variant="primary"
+          size="icon"
+          aria-label={agentWorking ? "Assistant working — open assistant" : "Ask the Assistant"}
+          title="Ask the Assistant"
+          className={`tw-fab fixed bottom-5 right-5 z-20 ${agentWorking ? "agent-working" : ""}`}
         >
-          <span
-            className={`p-1.5 rounded-lg bg-brand-primary text-text-on-brand ${agentWorking ? "agent-working" : ""}`}
-          >
-            <BespokeIcon
-              icon={Sparkles}
-              size={15}
-            />
-          </span>
-          <span className="text-[12px] font-bold uppercase tracking-widest text-text-secondary">
-            {agentWorking ? "Assistant · Working…" : "Ask the Assistant"}
-          </span>
+          <BespokeIcon icon={Sparkles} size={17} />
         </Button>
       )}
     </div>

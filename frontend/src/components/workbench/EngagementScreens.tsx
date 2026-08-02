@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  CheckSquare,
   Download,
   Files,
   FolderKanban,
@@ -38,7 +37,6 @@ import {
 } from "@/lib/api";
 import { parseEngagementRoute } from "@/lib/engagementRoute";
 import { friendlyError } from "@/lib/utils";
-import Status from "@/components/ui/Status";
 import { Tab, Tabs } from "@/components/ui/Tabs";
 
 const statusLabel: Record<EngagementStatus, string> = {
@@ -46,21 +44,6 @@ const statusLabel: Record<EngagementStatus, string> = {
   yellow: "Yellow",
   red: "Red",
 };
-
-function StatusBadge({
-  status,
-  testid,
-}: {
-  status: EngagementStatus;
-  testid?: string;
-}) {
-  const tone = status === "red" ? "danger" : status === "yellow" ? "warning" : "success";
-  return (
-    <Status tone={tone} data-testid={testid}>
-      {statusLabel[status]}
-    </Status>
-  );
-}
 
 function openTasks(engagement: Engagement) {
   return (engagement.tasks ?? []).filter((task) => task.status !== "Done")
@@ -293,57 +276,49 @@ export function EngagementsList({
   );
 }
 
+// Portfolio row per the design reference's `pf-row`: status dot, name + customer
+// inline, a one-line "why", and quiet metadata on the right.
 export function EngagementPortfolioRow({
   engagement,
-  userId,
   onNavigate,
 }: {
   engagement: Engagement;
   userId?: string;
   onNavigate: (route: string) => void;
 }) {
-  const role = roleOf(engagement, userId);
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueCount = (engagement.tasks ?? []).filter((task) => isOverdue(task, today)).length;
+  const right = [
+    overdueCount ? `${overdueCount} overdue` : "",
+    `${openTasks(engagement)} open`,
+    engagement.targetDate ? `target ${engagement.targetDate}` : "",
+  ].filter(Boolean);
   return (
     <button
       type="button"
-      className="tw-docitem tw-rowlink tw-engagement-card"
+      className="tw-pf-row"
       data-testid={`engagement-row-${engagement.id}`}
       onClick={() => onNavigate(`/engagements/${engagement.id}`)}
     >
-      <FolderKanban size={16} />
-      <span className="tw-engagement-main">
-        <span className="tw-td-title">
-          {engagement.name}
-          {engagement.customer ? (
-            <span className="tw-td-sub"> · {engagement.customer}</span>
-          ) : null}
-        </span>
-        <span className="tw-td-sub">
+      <span
+        className={`tw-dot tw-dot-${engagement.status}`}
+        data-testid={`engagement-status-${engagement.id}`}
+        aria-label={statusLabel[engagement.status]}
+      />
+      <span style={{ minWidth: 0, display: "block" }}>
+        <span className="tw-pf-name">{engagement.name}</span>
+        {engagement.customer && <span className="tw-pf-cust">{engagement.customer}</span>}
+        <span className="tw-pf-why">
           {engagement.status !== "green" && engagement.statusNote
-            ? `Why: ${engagement.statusNote}`
+            ? engagement.statusNote
             : engagement.description || "No description"}
         </span>
       </span>
-      <span className="tw-engagement-meta">
-        <StatusBadge
-          status={engagement.status}
-          testid={`engagement-status-${engagement.id}`}
-        />
-        <span
-          className="tw-badge tw-badge-gray"
-          data-testid={`engagement-role-${engagement.id}`}
-        >
-          {role ?? "member"}
-        </span>
-        <span className="tw-td-sub">
-          <CheckSquare size={12} /> {openTasks(engagement)} open
-        </span>
-        <span className="tw-td-sub">
-          <Files size={12} /> {(engagement.library ?? []).length}
-        </span>
-        {engagement.targetDate && (
-          <span className="tw-td-sub">Target {engagement.targetDate}</span>
-        )}
+      <span className="tw-pf-right">
+        {overdueCount > 0 && <span className="tw-alert">{right[0]}</span>}
+        {(overdueCount > 0 ? right.slice(1) : right).map((part, index) => (
+          <span key={part}>{(index > 0 || overdueCount > 0) ? " · " : ""}{part}</span>
+        ))}
       </span>
     </button>
   );
@@ -516,16 +491,16 @@ function EngagementHeader({
       </button>
       <h1 className="tw-h1">{engagement.name}</h1>
       <div className="tw-engagement-header">
-        <StatusBadge
-          status={engagement.status}
-          testid="engagement-status-badge"
-        />
-        <span className="tw-badge tw-badge-gray" data-testid="my-role">
-          {role ?? "viewer"}
-        </span>
         {engagement.customer && (
           <span className="tw-td-sub">{engagement.customer}</span>
         )}
+        <span className="tw-status-word" data-testid="engagement-status-badge">
+          <span className={`tw-dot tw-dot-${engagement.status}`} />
+          {statusLabel[engagement.status]}
+        </span>
+        <span className="tw-badge tw-badge-gray" data-testid="my-role">
+          {role ?? "viewer"}
+        </span>
         {engagement.targetDate && (
           <span className="tw-td-sub">Target {engagement.targetDate}</span>
         )}
@@ -563,17 +538,17 @@ function ActivityFeed({ engagement }: { engagement: Engagement }) {
     <section className="tw-section">
       <h2 className="tw-h2">Recent activity</h2>
       {engagement.activity.length ? (
-        <div className="tw-doclist" data-testid="activity-feed">
+        <div data-testid="activity-feed">
           {engagement.activity.slice(0, 8).map((entry, index) => (
-            <div
-              key={`${entry.ts}-${index}`}
-              className="tw-docitem tw-activity"
-            >
-              <span className="tw-td-sub">{entry.userId}</span>
-              <span className="tw-td-title">{entry.detail}</span>
-              <span className="tw-td-sub">
-                {entry.ts.slice(5, 16).replace("T", " ")}
-              </span>
+            <div key={`${entry.ts}-${index}`} className="tw-entry">
+              <span className="tw-mark" />
+              <div style={{ minWidth: 0 }}>
+                <div className="tw-e-top">
+                  <span className="tw-e-title">{entry.detail}</span>
+                  <span className="tw-e-date">{entry.ts.slice(5, 16).replace("T", " ")}</span>
+                </div>
+                <div className="tw-e-body">{entry.userId}</div>
+              </div>
             </div>
           ))}
         </div>
