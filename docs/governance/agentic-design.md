@@ -24,11 +24,6 @@ There are two separate kinds of skills:
   product tools. It is allowlisted by the assistant runtime, packaged into its image, versioned,
   hashed, and evaluated as product behavior. It is never a developer-agent skill.
 
-Codex repository workflows remain canonical under `.codex/skills`. Because standalone Codex
-discovers repository skills under `.agents/skills`, that directory may contain only metadata-only
-adapters that delegate to the matching canonical Codex workflow. An adapter repeats the required
-skill name and description, but not the workflow body or shared governance.
-
 The product catalog lives at `backend/assistant/product-skills/`. The runtime allowlist lives in
 `backend/assistant/src/workbench_assistant/skill_runtime.py`, and
 `backend/assistant/Dockerfile` packages the catalog into the image. Update those three locations
