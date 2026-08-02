@@ -4,6 +4,11 @@
 .venv
 .git
 .env*
+frontend/node_modules
+frontend/.next
+frontend/.next-*
+frontend/.env*
+design-system/reference
 workspace
 infra
 docs

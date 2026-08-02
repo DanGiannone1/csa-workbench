@@ -16,3 +16,22 @@ test("production CSS uses design tokens and excludes prototype effects", () => {
   assert.doesNotMatch(css, /linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css, /reference\/claude-design|support\.js|\.dc\.html/);
 });
+
+test("frontend image builds from the repository root without reference assets", () => {
+  const dockerfile = read("../frontend/Dockerfile");
+  const deploy = read("../infra/deploy.sh");
+  const dockerignore = read("../.dockerignore");
+  const nextConfig = read("../frontend/next.config.ts");
+
+  assert.match(dockerfile, /COPY frontend\/package\.json frontend\/package-lock\.json\* \.\//);
+  assert.match(dockerfile, /COPY frontend\/ \.\//);
+  assert.match(dockerfile, /COPY design-system\/package\.json \/app\/design-system\/package\.json/);
+  assert.match(dockerfile, /COPY design-system\/src\/ \/app\/design-system\/src\//);
+  assert.doesNotMatch(dockerfile, /COPY design-system\/reference/);
+  assert.match(dockerfile, /COPY --from=build --chown=nextjs:nodejs \/app\/frontend\/\.next\/standalone \.\//);
+  assert.match(dockerfile, /WORKDIR \/app\/frontend\s+USER nextjs[\s\S]*CMD \["node", "server\.js"\]/);
+  assert.match(deploy, /-f frontend\/Dockerfile \. --build-arg/);
+  assert.doesNotMatch(dockerignore, /^frontend$/m);
+  assert.match(dockerignore, /^design-system\/reference$/m);
+  assert.match(nextConfig, /outputFileTracingRoot: path\.resolve\(__dirname, "\.\."\)/);
+});

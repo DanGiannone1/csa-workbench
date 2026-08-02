@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       }
     : {}),
   output: "standalone",
+  // Include the sibling production design-system package in standalone tracing.
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
   turbopack: {
     // Tokens live in the repository design-system package, one level above frontend.
     root: path.resolve(__dirname, ".."),
