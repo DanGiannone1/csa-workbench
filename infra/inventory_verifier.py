@@ -18,6 +18,7 @@ settings = {**os.environ, **payload}
 apps = json.loads(settings['APPS']); deployments = json.loads(settings['DEPLOYMENTS']); identities = json.loads(settings['IDENTITIES'])
 import uuid
 resources = json.loads(settings['RESOURCES']); acr = json.loads(settings['ACR']); aoai = json.loads(settings['AZURE_OPEN_AI'])
+smart_detection_action_group = json.loads(settings['SMART_DETECTION_ACTION_GROUP'])
 foundry_project = json.loads(settings['FOUNDRY_PROJECT'])
 system_topics = json.loads(settings['SYSTEM_TOPICS']); system_topic_subscriptions = json.loads(settings['SYSTEM_TOPIC_SUBSCRIPTIONS'])
 cosmos = json.loads(settings['COSMOS']); storage = json.loads(settings['STORAGE']); vnet = json.loads(settings['VNET'])
@@ -271,8 +272,36 @@ expected_resources |= {('microsoft.network/networkinterfaces', name) for name in
 if network_security_groups:
     expected_resources |= {('microsoft.network/networksecuritygroups', name) for name in expected_nsgs}
 actual_resources = {(r.get('type', '').lower(), r.get('name', '').lower()) for r in resources if isinstance(r, dict)}
-allowed_children = {('microsoft.documentdb/databaseaccounts/sqldatabases', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}'.lower()), ('microsoft.documentdb/databaseaccounts/sqldatabases/containers', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}/appstate'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["LEGACY_MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/projects', f'{settings["AOAI_NAME"]}/{settings["FOUNDRY_PROJECT_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COSMOS_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["STORAGE_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["OPENAI_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COGNITIVE_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["AI_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["COSMOS_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["STORAGE_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["OPENAI_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices', f'{settings["STORAGE_ACCOUNT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices/containers', f'{settings["STORAGE_ACCOUNT_NAME"]}/default/engagement-artifacts'.lower()), ('microsoft.alertsmanagement/smartdetectoralertrules', f'failure anomalies - {settings["APP_INSIGHTS_NAME"]}'.lower())}
-if not expected_resources <= actual_resources or any(resource not in expected_resources | allowed_children for resource in actual_resources): raise SystemExit('required resource inventory drifted')
+smart_detection_rule = ('microsoft.alertsmanagement/smartdetectoralertrules', f'failure anomalies - {settings["APP_INSIGHTS_NAME"]}'.lower())
+smart_detection_group = ('microsoft.insights/actiongroups', 'application insights smart detection')
+has_smart_detection_group = smart_detection_group in actual_resources
+if (smart_detection_rule in actual_resources) != has_smart_detection_group:
+    raise SystemExit('Application Insights smart detection companion inventory drifted')
+expected_smart_detection_action_group = {
+    'name': 'Application Insights Smart Detection',
+    'type': 'Microsoft.Insights/ActionGroups',
+    'location': 'Global',
+    'properties': {
+        'enabled': True,
+        'groupShortName': 'SmartDetect',
+        'armRoleReceivers': [
+            {'name': 'Monitoring Contributor', 'roleId': '749f88d5-cbae-40b8-bcfc-e573ddc772fa', 'useCommonAlertSchema': True},
+            {'name': 'Monitoring Reader', 'roleId': '43d0d8ad-25c7-4714-9337-8ba259a9fe05', 'useCommonAlertSchema': True},
+        ],
+        'automationRunbookReceivers': [], 'azureAppPushReceivers': [], 'azureFunctionReceivers': [],
+        'emailReceivers': [], 'eventHubReceivers': [], 'itsmReceivers': [], 'logicAppReceivers': [],
+        'smsReceivers': [], 'voiceReceivers': [], 'webhookReceivers': [],
+    },
+}
+if has_smart_detection_group != (smart_detection_action_group is not None):
+    raise SystemExit('Application Insights smart detection action group inventory drifted')
+if smart_detection_action_group is not None and smart_detection_action_group != expected_smart_detection_action_group:
+    raise SystemExit('Application Insights smart detection action group profile drifted')
+allowed_children = {('microsoft.documentdb/databaseaccounts/sqldatabases', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}'.lower()), ('microsoft.documentdb/databaseaccounts/sqldatabases/containers', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}/appstate'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["LEGACY_MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/projects', f'{settings["AOAI_NAME"]}/{settings["FOUNDRY_PROJECT_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COSMOS_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["STORAGE_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["OPENAI_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COGNITIVE_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["AI_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["COSMOS_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["STORAGE_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["OPENAI_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices', f'{settings["STORAGE_ACCOUNT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices/containers', f'{settings["STORAGE_ACCOUNT_NAME"]}/default/engagement-artifacts'.lower()), smart_detection_rule, smart_detection_group}
+missing_resources = expected_resources - actual_resources
+unexpected_resources = actual_resources - expected_resources - allowed_children
+if missing_resources or unexpected_resources:
+    raise SystemExit(f'required resource inventory drifted; missing={sorted(missing_resources)}; unexpected={sorted(unexpected_resources)}')
 rg_scope = f'/subscriptions/{settings["SUBSCRIPTION_ID"]}/resourceGroups/{settings["RESOURCE_GROUP"]}/'.lower()
 if any(not item.get('scope', '').lower().startswith(rg_scope) for item in assignments): raise SystemExit('managed identity role assignment escapes the resource group')
 expected_roles = {(f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['FRONTEND_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['API_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['RUNTIME_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.Storage/storageAccounts/{settings["STORAGE_ACCOUNT_NAME"]}'.lower(), 'storage blob data contributor', settings['API_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.CognitiveServices/accounts/{settings["AOAI_NAME"]}'.lower(), 'cognitive services openai user', settings['RUNTIME_PRINCIPAL'].lower())}

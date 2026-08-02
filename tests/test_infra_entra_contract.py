@@ -487,7 +487,7 @@ def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
     env = {
         **os.environ,
         'APPS': json.dumps(apps), 'DEPLOYMENTS': json.dumps([{'name': 'deployment', 'properties': {'provisioningState': 'Succeeded', 'model': {'format': 'OpenAI', 'name': 'model', 'version': 'version'}} , 'sku': {'name': 'GlobalStandard', 'capacity': 30}}]),
-        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'FOUNDRY_PROJECT': '{}', 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'OPENAI_DNS_LINKS': '[]', 'COGNITIVE_SERVICES_DNS_LINKS': '[]', 'AI_SERVICES_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'OPENAI_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'OPENAI_DNS_RECORDS': '[]', 'COGNITIVE_SERVICES_DNS_RECORDS': '[]', 'AI_SERVICES_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]', 'APP_INSIGHTS': '{}', 'LOG_ANALYTICS': '{}',
+        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'SMART_DETECTION_ACTION_GROUP': 'null', 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'FOUNDRY_PROJECT': '{}', 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'OPENAI_DNS_LINKS': '[]', 'COGNITIVE_SERVICES_DNS_LINKS': '[]', 'AI_SERVICES_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'OPENAI_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'OPENAI_DNS_RECORDS': '[]', 'COGNITIVE_SERVICES_DNS_RECORDS': '[]', 'AI_SERVICES_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]', 'APP_INSIGHTS': '{}', 'LOG_ANALYTICS': '{}',
         'FRONTEND_APP_NAME': f'csa-wb-{slug}-frontend', 'API_APP_NAME': f'csa-wb-{slug}-api', 'RUNTIME_APP_NAME': f'csa-wb-{slug}-runtime', 'FRONTEND_IDENTITY_NAME': f'csa-wb-{slug}-frontend-identity', 'API_IDENTITY_NAME': f'csa-wb-{slug}-api-identity', 'RUNTIME_IDENTITY_NAME': f'csa-wb-{slug}-runtime-identity', 'MODEL_DEPLOYMENT_NAME': 'deployment', 'MODEL_NAME': 'model', 'MODEL_VERSION': 'version', 'MODEL_SKU_NAME': 'GlobalStandard', 'MODEL_CAPACITY': '30', 'LEGACY_MODEL_DEPLOYMENT_NAME': 'legacy-deployment', 'LEGACY_MODEL_NAME': 'legacy-model', 'LEGACY_MODEL_VERSION': 'legacy-version', 'LEGACY_MODEL_SKU_NAME': 'GlobalStandard', 'LEGACY_MODEL_CAPACITY': '10', 'FOUNDRY_PROJECT_NAME': f'csa-wb-{slug}', 'SHA': sha, 'RESOURCE_GROUP': f'csa-wb-{slug}-rg', 'SUBSCRIPTION_ID': 'sub', 'ENVIRONMENT_NAME': f'csa-wb-{slug}-env', 'DATABASE_NAME': f'csa-wb-{slug}-entra', 'VNET_NAME': f'csa-wb-{slug}-vnet', 'COSMOS_ACCOUNT_NAME': 'cosmos', 'STORAGE_ACCOUNT_NAME': 'storage', 'ACR_NAME': 'acr', 'AOAI_NAME': 'ai', 'APP_INSIGHTS_NAME': f'csa-wb-{slug}-insights', 'LOG_ANALYTICS_NAME': f'csa-wb-{slug}-logs', 'COSMOS_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-cosmos-pe', 'STORAGE_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-storage-pe', 'OPENAI_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-openai-pe', 'COSMOS_PRIVATE_DNS_ZONE': 'privatelink.documents.azure.com', 'STORAGE_PRIVATE_DNS_ZONE': 'privatelink.blob.core.windows.net', 'OPENAI_PRIVATE_DNS_ZONE': 'privatelink.openai.azure.com', 'COGNITIVE_SERVICES_PRIVATE_DNS_ZONE': 'privatelink.cognitiveservices.azure.com', 'AI_SERVICES_PRIVATE_DNS_ZONE': 'privatelink.services.ai.azure.com', 'PRIVATE_DNS_VNET_LINK_NAME': f'csa-wb-{slug}-vnet-link', 'FRONTEND_PRINCIPAL': 'frontend', 'API_PRINCIPAL': 'api', 'RUNTIME_PRINCIPAL': 'runtime', 'LOCATION': 'eastus2',
     }
     result = subprocess.run([sys.executable, '-c', verifier], env=env, text=True, capture_output=True)
@@ -547,7 +547,7 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
     for p in ('frontend','api','runtime'): roles.append({'scope':f'{scope}providers/Microsoft.ContainerRegistry/registries/{acr}','roleDefinitionName':'AcrPull','principalId':principal[p]})
     roles += [{'scope':f'{scope}providers/Microsoft.Storage/storageAccounts/{storage}','roleDefinitionName':'Storage Blob Data Contributor','principalId':'api'},{'scope':f'{scope}providers/Microsoft.CognitiveServices/accounts/{ai}','roleDefinitionName':'Cognitive Services OpenAI User','principalId':'runtime'}]
     cscope=f'{scope}providers/Microsoft.DocumentDB/databaseAccounts/{cosmos}'; croles=[{'roleDefinitionId':f'{cscope}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002','scope':cscope,'principalId':p} for p in ('api','runtime')]
-    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}},{'name':'legacy-deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'legacy-model','version':'legacy-version'}},'sku':{'name':'GlobalStandard','capacity':10}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'SYSTEM_TOPICS':'[]','SYSTEM_TOPIC_SUBSCRIPTIONS':'[]','APP_INSIGHTS':json.dumps({'name':f'{base}-insights','properties':{'provisioningState':'Succeeded','WorkspaceResourceId':f'{root}/Microsoft.OperationalInsights/workspaces/{base}-logs','IngestionMode':'LogAnalytics','ConnectionString':'InstrumentationKey=fixture'}}),'LOG_ANALYTICS':json.dumps({'name':f'{base}-logs','properties':{'provisioningState':'Succeeded','sku':{'name':'PerGB2018'},'retentionInDays':30}}),'APP_INSIGHTS_NAME':f'{base}-insights','LOG_ANALYTICS_NAME':f'{base}-logs','ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'AIServices','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'allowProjectManagement':True,'publicNetworkAccess':'Disabled','endpoint':'https://ai/'}}),'FOUNDRY_PROJECT':json.dumps({'name':f'{ai}/{base}','properties':{'provisioningState':'Succeeded'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled','enableAutomaticFailover':True}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones+ai_zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'OPENAI_DNS_LINKS':json.dumps(links(ai_zones[0])),'COGNITIVE_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[1])),'AI_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[2])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'OPENAI_DNS_GROUPS':json.dumps(ai_group),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'OPENAI_DNS_RECORDS':json.dumps(ai_records(43)),'COGNITIVE_SERVICES_DNS_RECORDS':json.dumps(ai_records(44)),'AI_SERVICES_DNS_RECORDS':json.dumps(ai_records(45)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','LEGACY_MODEL_DEPLOYMENT_NAME':'legacy-deployment','LEGACY_MODEL_NAME':'legacy-model','LEGACY_MODEL_VERSION':'legacy-version','LEGACY_MODEL_SKU_NAME':'GlobalStandard','LEGACY_MODEL_CAPACITY':'10','FOUNDRY_PROJECT_NAME':base,'SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','OPENAI_PRIVATE_ENDPOINT_NAME':f'{base}-openai-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'OPENAI_PRIVATE_DNS_ZONE':ai_zones[0],'COGNITIVE_SERVICES_PRIVATE_DNS_ZONE':ai_zones[1],'AI_SERVICES_PRIVATE_DNS_ZONE':ai_zones[2],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2','IDENTITY_MODE':'entra','TENANT_ID':tenant_id,'API_CLIENT_ID':api_client_id,'RUNTIME_CLIENT_ID':runtime_client_id,'MISE_SIDECAR_IMAGE':mise_image}
+    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}},{'name':'legacy-deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'legacy-model','version':'legacy-version'}},'sku':{'name':'GlobalStandard','capacity':10}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'SMART_DETECTION_ACTION_GROUP':'null','SYSTEM_TOPICS':'[]','SYSTEM_TOPIC_SUBSCRIPTIONS':'[]','APP_INSIGHTS':json.dumps({'name':f'{base}-insights','properties':{'provisioningState':'Succeeded','WorkspaceResourceId':f'{root}/Microsoft.OperationalInsights/workspaces/{base}-logs','IngestionMode':'LogAnalytics','ConnectionString':'InstrumentationKey=fixture'}}),'LOG_ANALYTICS':json.dumps({'name':f'{base}-logs','properties':{'provisioningState':'Succeeded','sku':{'name':'PerGB2018'},'retentionInDays':30}}),'APP_INSIGHTS_NAME':f'{base}-insights','LOG_ANALYTICS_NAME':f'{base}-logs','ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'AIServices','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'allowProjectManagement':True,'publicNetworkAccess':'Disabled','endpoint':'https://ai/'}}),'FOUNDRY_PROJECT':json.dumps({'name':f'{ai}/{base}','properties':{'provisioningState':'Succeeded'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled','enableAutomaticFailover':True}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones+ai_zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'OPENAI_DNS_LINKS':json.dumps(links(ai_zones[0])),'COGNITIVE_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[1])),'AI_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[2])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'OPENAI_DNS_GROUPS':json.dumps(ai_group),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'OPENAI_DNS_RECORDS':json.dumps(ai_records(43)),'COGNITIVE_SERVICES_DNS_RECORDS':json.dumps(ai_records(44)),'AI_SERVICES_DNS_RECORDS':json.dumps(ai_records(45)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','LEGACY_MODEL_DEPLOYMENT_NAME':'legacy-deployment','LEGACY_MODEL_NAME':'legacy-model','LEGACY_MODEL_VERSION':'legacy-version','LEGACY_MODEL_SKU_NAME':'GlobalStandard','LEGACY_MODEL_CAPACITY':'10','FOUNDRY_PROJECT_NAME':base,'SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','OPENAI_PRIVATE_ENDPOINT_NAME':f'{base}-openai-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'OPENAI_PRIVATE_DNS_ZONE':ai_zones[0],'COGNITIVE_SERVICES_PRIVATE_DNS_ZONE':ai_zones[1],'AI_SERVICES_PRIVATE_DNS_ZONE':ai_zones[2],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2','IDENTITY_MODE':'entra','TENANT_ID':tenant_id,'API_CLIENT_ID':api_client_id,'RUNTIME_CLIENT_ID':runtime_client_id,'MISE_SIDECAR_IMAGE':mise_image}
     return code, env
 
 
@@ -599,6 +599,90 @@ def test_inventory_handoff_cleans_its_temp_file_after_verifier_failure() -> None
 
     assert observed_payload is not None
     assert not observed_payload.exists()
+
+
+def _smart_detection_action_group() -> dict[str, Any]:
+    return {
+        'name': 'Application Insights Smart Detection',
+        'type': 'Microsoft.Insights/ActionGroups',
+        'location': 'Global',
+        'properties': {
+            'enabled': True,
+            'groupShortName': 'SmartDetect',
+            'armRoleReceivers': [
+                {'name': 'Monitoring Contributor', 'roleId': '749f88d5-cbae-40b8-bcfc-e573ddc772fa', 'useCommonAlertSchema': True},
+                {'name': 'Monitoring Reader', 'roleId': '43d0d8ad-25c7-4714-9337-8ba259a9fe05', 'useCommonAlertSchema': True},
+            ],
+            'automationRunbookReceivers': [], 'azureAppPushReceivers': [], 'azureFunctionReceivers': [],
+            'emailReceivers': [], 'eventHubReceivers': [], 'itsmReceivers': [], 'logicAppReceivers': [],
+            'smsReceivers': [], 'voiceReceivers': [], 'webhookReceivers': [],
+        },
+    }
+
+
+def _with_smart_detection(env: dict[str, str]) -> dict[str, str]:
+    resources = json.loads(env['RESOURCES'])
+    resources.extend([
+        {'type': 'Microsoft.AlertsManagement/smartDetectorAlertRules', 'name': 'Failure Anomalies - csa-wb-mvp1-insights'},
+        {'type': 'Microsoft.Insights/ActionGroups', 'name': 'Application Insights Smart Detection'},
+    ])
+    return {
+        **env,
+        'RESOURCES': json.dumps(resources),
+        'SMART_DETECTION_ACTION_GROUP': json.dumps(_smart_detection_action_group()),
+    }
+
+
+def test_portable_verifier_accepts_the_exact_smart_detection_companion() -> None:
+    code, env = _verifier_fixture()
+
+    result = subprocess.run(
+        [sys.executable, '-c', code], env=_with_smart_detection(env), text=True, capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(('field', 'bad_value'), [
+    ('enabled', False),
+    ('groupShortName', 'Changed'),
+    ('armRoleReceivers', []),
+    ('emailReceivers', [{'name': 'unexpected'}]),
+])
+def test_portable_verifier_rejects_a_drifted_smart_detection_action_group(
+    field: str, bad_value: object,
+) -> None:
+    code, env = _verifier_fixture()
+    governed = _with_smart_detection(env)
+    action_group = json.loads(governed['SMART_DETECTION_ACTION_GROUP'])
+    action_group['properties'][field] = bad_value
+
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        env={**governed, 'SMART_DETECTION_ACTION_GROUP': json.dumps(action_group)},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert 'smart detection action group profile drifted' in result.stderr
+
+
+def test_portable_verifier_rejects_an_extra_action_group_with_safe_diagnostics() -> None:
+    code, env = _verifier_fixture()
+    governed = _with_smart_detection(env)
+    resources = json.loads(governed['RESOURCES'])
+    resources.append({'type': 'Microsoft.Insights/ActionGroups', 'name': 'Unapproved Paging Group'})
+
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        env={**governed, 'RESOURCES': json.dumps(resources)},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert "('microsoft.insights/actiongroups', 'unapproved paging group')" in result.stderr
 
 
 def test_portable_verifier_accepts_complete_fixture_and_rejects_wiring_roles_and_inventory() -> None:

@@ -376,6 +376,21 @@ class Deployment:
             json.loads(j(["az", "role", "assignment", "list", "--assignee", principal, "--all", "-o", "json"]))
             for principal in (frontend_principal, api_principal, runtime_principal)
         ]
+        resources = j(["az", "resource", "list", *rg, "-o", "json"])
+        resource_items = json.loads(resources)
+        smart_detection_action_group = "null"
+        if any(
+            isinstance(resource, dict)
+            and resource.get("type", "").lower() == "microsoft.insights/actiongroups"
+            and resource.get("name", "").lower() == "application insights smart detection"
+            for resource in resource_items
+        ):
+            smart_detection_action_group = j([
+                "az", "resource", "show", *rg, "-n", "Application Insights Smart Detection",
+                "--resource-type", "Microsoft.Insights/ActionGroups", "--query",
+                "{name:name,type:type,location:location,properties:{enabled:properties.enabled,groupShortName:properties.groupShortName,armRoleReceivers:properties.armRoleReceivers,automationRunbookReceivers:properties.automationRunbookReceivers,azureAppPushReceivers:properties.azureAppPushReceivers,azureFunctionReceivers:properties.azureFunctionReceivers,emailReceivers:properties.emailReceivers,eventHubReceivers:properties.eventHubReceivers,itsmReceivers:properties.itsmReceivers,logicAppReceivers:properties.logicAppReceivers,smsReceivers:properties.smsReceivers,voiceReceivers:properties.voiceReceivers,webhookReceivers:properties.webhookReceivers}}",
+                "-o", "json",
+            ])
         zones = {
             "COSMOS": self.cosmos_private_dns_zone, "STORAGE": self.storage_private_dns_zone,
             "OPENAI": self.openai_private_dns_zone, "COGNITIVE_SERVICES": self.cognitive_services_private_dns_zone,
@@ -385,7 +400,7 @@ class Deployment:
             "APPS": j(["az", "containerapp", "list", *rg, "-o", "json"]),
             "DEPLOYMENTS": j(["az", "cognitiveservices", "account", "deployment", "list", *rg, "-n", values["aoai_name"], "-o", "json"]),
             "IDENTITIES": j(["az", "identity", "list", *rg, "-o", "json"]),
-            "RESOURCES": j(["az", "resource", "list", *rg, "-o", "json"]),
+            "RESOURCES": resources, "SMART_DETECTION_ACTION_GROUP": smart_detection_action_group,
             "SYSTEM_TOPICS": system_topics, "SYSTEM_TOPIC_SUBSCRIPTIONS": subscriptions,
             "APP_INSIGHTS": j(["az", "resource", "show", *rg, "-n", self.app_insights_name, "--resource-type", "Microsoft.Insights/components", "-o", "json"]),
             "LOG_ANALYTICS": j(["az", "resource", "show", *rg, "-n", self.log_analytics_name, "--resource-type", "Microsoft.OperationalInsights/workspaces", "-o", "json"]),
