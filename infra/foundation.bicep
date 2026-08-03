@@ -24,21 +24,19 @@ param azureOpenAiModelCapacity int
 @minLength(2)
 @maxLength(64)
 param foundryProjectName string
-@minLength(1)
+param enableFoundryProject bool = false
+param enableLegacyModel bool = false
 @maxLength(64)
-param legacyModelDeploymentName string
-@minLength(1)
+param legacyModelDeploymentName string = ''
 @maxLength(128)
-param legacyModelName string
-@minLength(1)
+param legacyModelName string = ''
 @maxLength(128)
-param legacyModelVersion string
-@minLength(1)
+param legacyModelVersion string = ''
 @maxLength(64)
-param legacyModelSkuName string
+param legacyModelSkuName string = ''
 @minValue(1)
 @maxValue(1000000)
-param legacyModelCapacity int
+param legacyModelCapacity int = 1
 @description('Existing tenant-governance NSG ID to preserve on the ACA infrastructure subnet, or empty when absent.')
 param acaInfrastructureNsgId string = ''
 @description('Existing tenant-governance NSG ID to preserve on the private-endpoints subnet, or empty when absent.')
@@ -97,7 +95,9 @@ module platform 'platform.bicep' = {
     azureOpenAiModelVersion: azureOpenAiModelVersion
     azureOpenAiModelSkuName: azureOpenAiModelSkuName
     azureOpenAiModelCapacity: azureOpenAiModelCapacity
+    enableFoundryProject: enableFoundryProject
     foundryProjectName: foundryProjectName
+    enableLegacyModel: enableLegacyModel
     legacyModelDeploymentName: legacyModelDeploymentName
     legacyModelName: legacyModelName
     legacyModelVersion: legacyModelVersion

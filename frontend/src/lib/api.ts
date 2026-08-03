@@ -23,8 +23,8 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response>
   return res;
 }
 
-export async function getAppState(sessionId: string): Promise<AppState> {
-  const res = await apiFetch(`/sessions/${sessionId}/app/state`, {
+export async function getAppState(): Promise<AppState> {
+  const res = await apiFetch("/app/state", {
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw new Error(`Failed to load app state: ${res.status}`);
@@ -151,29 +151,29 @@ async function jsonReq<T = unknown>(method: string, path: string, body?: unknown
 }
 
 // ── Personal workspace (durable, private Tasks / Calendar / Reminders) ──────────
-export const createTask = (sid: string, body: { title: string; status?: string; priority?: string; group?: string; dueDate?: string; notes?: string }) =>
-  jsonReq("POST", `/sessions/${sid}/tasks`, body);
-export const updateTask = (sid: string, id: string, body: Partial<{ title: string; status: string; priority: string; group: string; dueDate: string; notes: string }>) =>
-  jsonReq("PATCH", `/sessions/${sid}/tasks/${id}`, body);
-export const deleteTask = (sid: string, id: string) => jsonReq("DELETE", `/sessions/${sid}/tasks/${id}`);
-export const addSubtask = (sid: string, id: string, text: string) =>
-  jsonReq("POST", `/sessions/${sid}/tasks/${id}/subtasks`, { text });
-export const toggleSubtask = (sid: string, id: string, index: number, done: boolean) =>
-  jsonReq("PATCH", `/sessions/${sid}/tasks/${id}/subtasks/${index}`, { done });
-export const deleteSubtask = (sid: string, id: string, index: number) =>
-  jsonReq("DELETE", `/sessions/${sid}/tasks/${id}/subtasks/${index}`);
+export const createTask = (body: { title: string; status?: string; priority?: string; group?: string; dueDate?: string; notes?: string }) =>
+  jsonReq("POST", "/me/tasks", body);
+export const updateTask = (id: string, body: Partial<{ title: string; status: string; priority: string; group: string; dueDate: string; notes: string }>) =>
+  jsonReq("PATCH", `/me/tasks/${id}`, body);
+export const deleteTask = (id: string) => jsonReq("DELETE", `/me/tasks/${id}`);
+export const addSubtask = (id: string, text: string) =>
+  jsonReq("POST", `/me/tasks/${id}/subtasks`, { text });
+export const toggleSubtask = (id: string, index: number, done: boolean) =>
+  jsonReq("PATCH", `/me/tasks/${id}/subtasks/${index}`, { done });
+export const deleteSubtask = (id: string, index: number) =>
+  jsonReq("DELETE", `/me/tasks/${id}/subtasks/${index}`);
 
-export const createEvent = (sid: string, body: { title: string; date: string; start?: string; end?: string; type?: string; notes?: string }) =>
-  jsonReq("POST", `/sessions/${sid}/events`, body);
-export const updateEvent = (sid: string, id: string, body: Partial<{ title: string; date: string; start: string; end: string; type: string; notes: string }>) =>
-  jsonReq("PATCH", `/sessions/${sid}/events/${id}`, body);
-export const deleteEvent = (sid: string, id: string) => jsonReq("DELETE", `/sessions/${sid}/events/${id}`);
+export const createEvent = (body: { title: string; date: string; start?: string; end?: string; type?: string; notes?: string }) =>
+  jsonReq("POST", "/me/events", body);
+export const updateEvent = (id: string, body: Partial<{ title: string; date: string; start: string; end: string; type: string; notes: string }>) =>
+  jsonReq("PATCH", `/me/events/${id}`, body);
+export const deleteEvent = (id: string) => jsonReq("DELETE", `/me/events/${id}`);
 
-export const createReminder = (sid: string, body: { title: string; message?: string; frequency: string; dueDate: string; time: string; timezone: string; daysOfWeek?: number[] }) =>
-  jsonReq("POST", `/sessions/${sid}/schedules`, body);
-export const updateReminder = (sid: string, id: string, body: Partial<{ title: string; message: string; frequency: string; dueDate: string; time: string; timezone: string; daysOfWeek: number[]; enabled: boolean }>) =>
-  jsonReq("PATCH", `/sessions/${sid}/schedules/${id}`, body);
-export const deleteReminder = (sid: string, id: string) => jsonReq("DELETE", `/sessions/${sid}/schedules/${id}`);
+export const createReminder = (body: { title: string; message?: string; frequency: string; dueDate: string; time: string; timezone: string; daysOfWeek?: number[] }) =>
+  jsonReq("POST", "/me/reminders", body);
+export const updateReminder = (id: string, body: Partial<{ title: string; message: string; frequency: string; dueDate: string; time: string; timezone: string; daysOfWeek: number[]; enabled: boolean }>) =>
+  jsonReq("PATCH", `/me/reminders/${id}`, body);
+export const deleteReminder = (id: string) => jsonReq("DELETE", `/me/reminders/${id}`);
 
 // ── Engagements (shared customer-delivery workspaces) ───────────────────────────
 export const listEngagements = () => jsonReq<unknown>("GET", "/engagements").then(decodeEngagementList);

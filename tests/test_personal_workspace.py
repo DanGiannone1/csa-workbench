@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from workbench_api import app as orchestrator
@@ -13,10 +12,10 @@ from workbench_core.personal_workspace import MAX_TASKS, PersonalNotFound, Perso
 
 
 def _state() -> dict:
-    return {"currentRoute": "/home", "personalTasks": [], "calendarEvents": [], "reminders": []}
+    return {"personalTasks": [], "calendarEvents": [], "reminders": []}
 
 
-def test_legacy_engagements_landing_is_normalized_to_home() -> None:
+def test_legacy_route_is_ignored_by_personal_state() -> None:
     legacy = {
         "currentRoute": "/engagements",
         "personalTasks": [],
@@ -25,10 +24,8 @@ def test_legacy_engagements_landing_is_normalized_to_home() -> None:
     }
     state = appdb._personal_state(legacy)
 
-    assert state["currentRoute"] == "/home"
+    assert "currentRoute" not in state
     assert legacy["currentRoute"] == "/engagements"
-    assert appdb._personal_state({**legacy, "currentRoute": ""})["currentRoute"] == "/home"
-    assert appdb._personal_state({**legacy, "currentRoute": "/calendar"})["currentRoute"] == "/calendar"
 
 
 class MemoryPersonalRepository:
@@ -75,16 +72,15 @@ class AllowRequest:
 
 def _client(monkeypatch, repository: MemoryPersonalRepository):
     actor = {"id": "dan"}
-    owners = {"session-dan": "dan", "session-ava": "ava"}
-
-    async def owned(session_id: str, uid: str) -> None:
-        if owners.get(session_id) != uid:
-            raise HTTPException(status_code=404, detail="Session not found")
 
     monkeypatch.setattr(orchestrator, "api_authenticator", AllowRequest())
-    monkeypatch.setattr(orchestrator, "_require_owned_session", owned)
     monkeypatch.setattr(
         orchestrator, "_personal_workspace_service", PersonalWorkspaceService(repository))
+    monkeypatch.setattr(appdb, "supported_app_state_for", lambda uid: {
+        **(repository.load(uid) or _state()),
+        "engagements": [],
+        "user": {"id": uid, "username": uid, "displayName": uid.title()},
+    })
     orchestrator.app.dependency_overrides[orchestrator.current_user] = lambda: actor["id"]
     client = TestClient(orchestrator.app)
     return client, actor
@@ -94,7 +90,7 @@ def test_owner_can_crud_private_tasks_events_and_reminders(monkeypatch) -> None:
     repository = MemoryPersonalRepository()
     client, _actor = _client(monkeypatch, repository)
     try:
-        task = client.post("/sessions/session-dan/tasks", json={
+        task = client.post("/me/tasks", json={
             "title": f"  {'x' * 300}  ", "status": "To do", "priority": "High",
             "group": "  Work ", "dueDate": "2030-02-28", "notes": "  private  ",
         })
@@ -104,19 +100,19 @@ def test_owner_can_crud_private_tasks_events_and_reminders(monkeypatch) -> None:
             "group": "Work", "dueDate": "2030-02-28", "notes": "private", "subtasks": [],
             "createdAt": "ignored",
         }
-        assert client.patch("/sessions/session-dan/tasks/t-1", json={"status": "Done"}).json()["status"] == "Done"
-        assert client.delete("/sessions/session-dan/tasks/t-1").status_code == 204
+        assert client.patch("/me/tasks/t-1", json={"status": "Done"}).json()["status"] == "Done"
+        assert client.delete("/me/tasks/t-1").status_code == 204
 
-        event = client.post("/sessions/session-dan/events", json={
+        event = client.post("/me/events", json={
             "title": "Planning", "date": "2030-02-28", "start": "09:00", "end": "10:00",
             "type": "Focus", "notes": "private",
         })
         assert event.status_code == 201
         assert event.json()["id"] == "e-1"
-        assert client.patch("/sessions/session-dan/events/e-1", json={"end": "10:30"}).json()["end"] == "10:30"
-        assert client.delete("/sessions/session-dan/events/e-1").status_code == 204
+        assert client.patch("/me/events/e-1", json={"end": "10:30"}).json()["end"] == "10:30"
+        assert client.delete("/me/events/e-1").status_code == 204
 
-        reminder = client.post("/sessions/session-dan/schedules", json={
+        reminder = client.post("/me/reminders", json={
             "title": "Weekly review", "frequency": "weekly",
             "dueDate": "2030-01-07", "time": "09:00", "timezone": "UTC", "daysOfWeek": [0],
         })
@@ -124,8 +120,8 @@ def test_owner_can_crud_private_tasks_events_and_reminders(monkeypatch) -> None:
         assert reminder.json()["id"] == "s-1"
         assert reminder.json()["message"] == ""
         assert reminder.json()["nextDueAt"]
-        assert client.patch("/sessions/session-dan/schedules/s-1", json={"enabled": False}).json()["nextDueAt"] is None
-        assert client.delete("/sessions/session-dan/schedules/s-1").status_code == 204
+        assert client.patch("/me/reminders/s-1", json={"enabled": False}).json()["nextDueAt"] is None
+        assert client.delete("/me/reminders/s-1").status_code == 204
         assert repository.states["dan"] == _state()
     finally:
         orchestrator.app.dependency_overrides.clear()
@@ -136,33 +132,33 @@ def test_subtasks_are_bounded_index_addressed_and_validated(monkeypatch) -> None
     repository = MemoryPersonalRepository()
     client, _actor = _client(monkeypatch, repository)
     try:
-        assert client.post("/sessions/session-dan/tasks", json={"title": "Parent"}).status_code == 201
-        added = client.post("/sessions/session-dan/tasks/t-1/subtasks", json={"text": "  step one  "})
+        assert client.post("/me/tasks", json={"title": "Parent"}).status_code == 201
+        added = client.post("/me/tasks/t-1/subtasks", json={"text": "  step one  "})
         assert added.status_code == 201
         assert added.json()["subtasks"] == [{"text": "step one", "done": False}]
 
-        toggled = client.patch("/sessions/session-dan/tasks/t-1/subtasks/0", json={"done": True})
+        toggled = client.patch("/me/tasks/t-1/subtasks/0", json={"done": True})
         assert toggled.json()["subtasks"] == [{"text": "step one", "done": True}]
 
-        assert client.post("/sessions/session-dan/tasks/t-1/subtasks", json={"text": "  "}).status_code == 422
-        assert client.patch("/sessions/session-dan/tasks/t-1/subtasks/5", json={"done": True}).status_code == 404
-        assert client.delete("/sessions/session-dan/tasks/t-1/subtasks/5").status_code == 404
-        assert client.delete("/sessions/session-dan/tasks/t-1/subtasks/0").status_code == 204
+        assert client.post("/me/tasks/t-1/subtasks", json={"text": "  "}).status_code == 422
+        assert client.patch("/me/tasks/t-1/subtasks/5", json={"done": True}).status_code == 404
+        assert client.delete("/me/tasks/t-1/subtasks/5").status_code == 404
+        assert client.delete("/me/tasks/t-1/subtasks/0").status_code == 204
         assert repository.states["dan"]["personalTasks"][0]["subtasks"] == []
     finally:
         orchestrator.app.dependency_overrides.clear()
         client.close()
 
 
-def test_other_actor_cannot_use_session_or_forge_private_record_id(monkeypatch) -> None:
+def test_other_actor_cannot_forge_private_record_id(monkeypatch) -> None:
     repository = MemoryPersonalRepository()
     client, actor = _client(monkeypatch, repository)
     try:
-        created = client.post("/sessions/session-dan/tasks", json={"title": "Dan only"})
+        created = client.post("/me/tasks", json={"title": "Dan only"})
         assert created.status_code == 201
         actor["id"] = "ava"
-        assert client.get("/sessions/session-dan/app/state").status_code == 404
-        assert client.patch("/sessions/session-ava/tasks/t-1", json={"title": "forged"}).status_code == 404
+        assert client.get("/app/state").json()["personalTasks"] == []
+        assert client.patch("/me/tasks/t-1", json={"title": "forged"}).status_code == 404
         assert repository.states["dan"]["personalTasks"][0]["title"] == "Dan only"
         assert repository.states["ava"]["personalTasks"] == []
     finally:
@@ -174,22 +170,22 @@ def test_personal_validation_rejects_invalid_data_without_mutation(monkeypatch) 
     repository = MemoryPersonalRepository()
     client, _actor = _client(monkeypatch, repository)
     try:
-        assert client.post("/sessions/session-dan/tasks", json={"title": "  "}).status_code == 422
-        assert client.post("/sessions/session-dan/tasks", json={"title": "x" * 301}).status_code == 422
-        assert client.post("/sessions/session-dan/tasks", json={"title": "ok", "status": "Unknown"}).status_code == 422
-        assert client.post("/sessions/session-dan/tasks", json={"title": "ok", "owner": "ava"}).status_code == 422
-        assert client.post("/sessions/session-dan/events", json={
+        assert client.post("/me/tasks", json={"title": "  "}).status_code == 422
+        assert client.post("/me/tasks", json={"title": "x" * 301}).status_code == 422
+        assert client.post("/me/tasks", json={"title": "ok", "status": "Unknown"}).status_code == 422
+        assert client.post("/me/tasks", json={"title": "ok", "owner": "ava"}).status_code == 422
+        assert client.post("/me/events", json={
             "title": "bad", "date": "2030-02-30", "start": "10:00", "end": "09:00",
         }).status_code == 422
-        assert client.post("/sessions/session-dan/events", json={"title": "bad", "date": "2030-02-28", "type": "Other"}).status_code == 422
-        assert client.post("/sessions/session-dan/schedules", json={
+        assert client.post("/me/events", json={"title": "bad", "date": "2030-02-28", "type": "Other"}).status_code == 422
+        assert client.post("/me/reminders", json={
             "title": "bad", "frequency": "weekly", "dueDate": "2030-01-07", "time": "9:00",
             "timezone": "Not/AZone", "daysOfWeek": [7],
         }).status_code == 422
-        assert client.post("/sessions/session-dan/schedules", json={
+        assert client.post("/me/reminders", json={
             "title": "bad", "frequency": "monthly", "dueDate": "2030-01-07", "time": "09:00",
         }).status_code == 422
-        assert client.patch("/sessions/session-dan/tasks/not-an-id", json={"title": "no"}).status_code == 422
+        assert client.patch("/me/tasks/not-an-id", json={"title": "no"}).status_code == 422
         assert repository.states["dan"] == _state()
     finally:
         orchestrator.app.dependency_overrides.clear()
@@ -220,7 +216,7 @@ def test_private_collection_limits_are_enforced() -> None:
 def test_supported_app_state_includes_private_and_engagement_records(monkeypatch) -> None:
     user = {"id": "dan", "username": "dan", "displayName": "Dan", "persona": {}}
     personal = {
-        "currentRoute": "/home", "personalTasks": [{"id": "t-1"}],
+        "personalTasks": [{"id": "t-1"}],
         "calendarEvents": [{"id": "e-1"}], "reminders": [{"id": "s-1"}],
     }
     monkeypatch.setattr(appdb, "get_user", lambda uid: user if uid == "dan" else None)

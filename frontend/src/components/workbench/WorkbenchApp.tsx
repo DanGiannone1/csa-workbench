@@ -1,7 +1,6 @@
 "use client";
 
 import type { AppState } from "@/lib/types";
-import { useSession } from "@/components/SessionProvider";
 import WorkbenchNav from "./WorkbenchNav";
 import { EngagementScreen, EngagementsList } from "./EngagementScreens";
 import SettingsScreen from "./SettingsScreen";
@@ -28,8 +27,6 @@ interface WorkbenchAppProps {
 export default function WorkbenchApp({
   appState, loading, viewRoute, onNavigate, agentWorking, onRefresh, workspaceStale, sessionError, onRetrySession, onDrawerOpenChange,
 }: WorkbenchAppProps) {
-  const { state } = useSession();
-  const sessionId = state.sessionId;
   return (
     <div className="tw-app" data-testid="workbench-app">
       <div className="tw-body">
@@ -44,7 +41,7 @@ export default function WorkbenchApp({
           {loading && !appState ? <div className="tw-empty" data-testid="workspace-loading" role="status">Loading workspace…</div>
             : sessionError && !appState ? <div className="tw-empty" role="alert">{sessionError} <Button variant="primary" size="small" data-testid="workspace-retry" onClick={() => void onRetrySession?.()}>Retry</Button></div>
               : !appState ? <div className="tw-empty" role="alert">{workspaceStale ?? "Workspace unavailable."}</div>
-                : <RouteContent appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onRefresh={onRefresh} sessionId={sessionId} />}
+                : <RouteContent appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onRefresh={onRefresh} />}
           {workspaceStale && appState && <Toast tone="warning" className="tw-workspace-stale" data-testid="workspace-stale">Showing the last refreshed workspace. {workspaceStale} <Button variant="ghost" size="small" data-testid="workspace-retry" onClick={() => void onRefresh().catch(() => undefined)}>Retry</Button></Toast>}
         </main>
       </div>
@@ -52,14 +49,14 @@ export default function WorkbenchApp({
   );
 }
 
-function RouteContent({ appState, viewRoute, onNavigate, onRefresh, sessionId }: { appState: AppState; viewRoute: string; onNavigate: (route: string) => void; onRefresh: () => Promise<void>; sessionId: string | null }) {
+function RouteContent({ appState, viewRoute, onNavigate, onRefresh }: { appState: AppState; viewRoute: string; onNavigate: (route: string) => void; onRefresh: () => Promise<void> }) {
   if (viewRoute === "/settings") return <SettingsScreen appState={appState} onRefresh={onRefresh} />;
   if (viewRoute === "/engagements") return <EngagementsList appState={appState} onNavigate={onNavigate} onRefresh={onRefresh} />;
   if (viewRoute === "/home") return <HomeScreen appState={appState} onNavigate={onNavigate} />;
   if (viewRoute === "/todo" || viewRoute.startsWith("/todo/")) {
-    return <TasksScreen appState={appState} viewRoute={viewRoute} sessionId={sessionId} onNavigate={onNavigate} onRefresh={onRefresh} />;
+    return <TasksScreen appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onRefresh={onRefresh} />;
   }
-  if (viewRoute === "/calendar") return <CalendarScreen appState={appState} sessionId={sessionId} onNavigate={onNavigate} onRefresh={onRefresh} />;
-  if (viewRoute === "/reminders") return <RemindersScreen appState={appState} sessionId={sessionId} onRefresh={onRefresh} />;
+  if (viewRoute === "/calendar") return <CalendarScreen appState={appState} onNavigate={onNavigate} onRefresh={onRefresh} />;
+  if (viewRoute === "/reminders") return <RemindersScreen appState={appState} onRefresh={onRefresh} />;
   return <EngagementScreen appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onRefresh={onRefresh} />;
 }

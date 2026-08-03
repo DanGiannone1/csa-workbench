@@ -22,7 +22,7 @@ workbench-core = { workspace = true }
 members = ["backend/api", "backend/assistant", "backend/core"]
 
 [dependency-groups]
-dev = ["pytest>=9.0.0"]
+dev = ["pytest>=9.0.0", "workbench-assistant[copilot]"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

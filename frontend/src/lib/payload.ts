@@ -247,7 +247,6 @@ export function decodeAppState(value: unknown): AppState {
   const user = object(state.user, "application user");
   const persona = user.persona === undefined ? undefined : object(user.persona, "user.persona");
   return {
-    currentRoute: string(state.currentRoute, "currentRoute"),
     personalTasks,
     calendarEvents,
     reminders,

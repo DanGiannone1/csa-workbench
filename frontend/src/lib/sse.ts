@@ -6,7 +6,7 @@ const API_BASE =
 
 // A turn can legitimately go quiet for a while when the model reads a large
 // uploaded document and prepares the first response chunk.
-const INACTIVITY_TIMEOUT_MS = Number(
+export const INACTIVITY_TIMEOUT_MS = Number(
   process.env.NEXT_PUBLIC_SSE_INACTIVITY_TIMEOUT_MS || "600000",
 );
 

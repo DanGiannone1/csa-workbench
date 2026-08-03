@@ -273,9 +273,13 @@ def test_local_cors_accepts_only_the_documented_loopback_aliases() -> None:
 
 def test_manual_personal_routes_exist_without_scheduler_or_library_surfaces() -> None:
     routes = {route.path for route in orchestrator.app.routes}
-    assert "/sessions/{session_id}/tasks" in routes
-    assert "/sessions/{session_id}/events" in routes
-    assert "/sessions/{session_id}/schedules" in routes
+    assert "/app/state" in routes
+    assert "/me/tasks" in routes
+    assert "/me/events" in routes
+    assert "/me/reminders" in routes
+    assert not any(route.startswith("/sessions/{session_id}/tasks") for route in routes)
+    assert not any(route.startswith("/sessions/{session_id}/events") for route in routes)
+    assert not any(route.startswith("/sessions/{session_id}/schedules") for route in routes)
     assert not any(route.startswith("/sessions/{session_id}/library") for route in routes)
     assert not (ROOT / "scheduler.py").exists()
     assert not (ROOT / "email_acs.py").exists()
@@ -293,15 +297,14 @@ def test_supported_app_state_includes_private_and_engagement_records(monkeypatch
     }
     engagements = [{"id": "eng-product-launch", "name": "Product Launch"}]
     personal = {
-        "currentRoute": "/home", "personalTasks": [{"id": "t-1"}],
+        "personalTasks": [{"id": "t-1"}],
         "calendarEvents": [{"id": "e-1"}], "reminders": [{"id": "s-1"}],
     }
     monkeypatch.setattr(appdb, "get_user", lambda uid: user if uid == "dan" else None)
     monkeypatch.setattr(appdb, "load_personal_workspace", lambda uid: personal if uid == "dan" else None)
     monkeypatch.setattr(appdb, "list_engagements_for", lambda uid: engagements if uid == "dan" else [])
     state = appdb.supported_app_state_for("dan")
-    assert set(state) == {"currentRoute", "personalTasks", "calendarEvents", "reminders", "engagements", "user"}
-    assert state["currentRoute"] == "/home"
+    assert set(state) == {"personalTasks", "calendarEvents", "reminders", "engagements", "user"}
     assert state["personalTasks"] == personal["personalTasks"]
     assert state["calendarEvents"] == personal["calendarEvents"]
     assert state["reminders"] == personal["reminders"]
@@ -310,11 +313,7 @@ def test_supported_app_state_includes_private_and_engagement_records(monkeypatch
         "id": "dan", "username": "dan", "displayName": "Dan", "persona": user["persona"],
     }
 
-    async def owned(_session_id: str, _uid: str) -> None:
-        return None
-
-    monkeypatch.setattr(orchestrator, "_require_owned_session", owned)
-    assert asyncio.run(orchestrator.get_app_state("0123456789abcdef", "dan")) == state
+    assert asyncio.run(orchestrator.get_app_state("dan")) == state
 
     monkeypatch.setattr(appdb, "load_engagement", lambda _pid: {
         "name": "Product Launch", "members": [{"userId": "dan", "role": "editor"}],
@@ -747,6 +746,10 @@ def test_runtime_app_state_proxy_endpoint_and_manager_method_are_absent() -> Non
     assert not hasattr(SessionManager, "get_app_state")
 
 
+def test_runtime_creation_timeout_fits_inside_the_browser_startup_budget() -> None:
+    assert session_manager.RUNTIME_CREATE_READ_TIMEOUT_SECONDS * 1_000 < 60_000
+
+
 def test_library_search_is_not_started_or_routed() -> None:
     source = (ROOT / "backend" / "api" / "src" / "workbench_api" / "app.py").read_text()
     assert "import library" not in source
@@ -844,7 +847,7 @@ def test_deepagents_managed_identity_uses_refreshable_sync_and_async_token_provi
     monkeypatch.setattr(agent_deepagents, "_build_langchain_tools", lambda *_: [])
     monkeypatch.setattr(agent_deepagents, "create_deep_agent", lambda **_: object())
     monkeypatch.setattr(agent_deepagents, "deepagents_skill_config", lambda: {})
-    monkeypatch.setattr(agent_deepagents, "_user_prompt_line", lambda _: "")
+    monkeypatch.setattr(agent_deepagents, "user_prompt_line", lambda _: "")
 
     managed_session = agent_deepagents.AgentSession("/tmp", session_id="managed")
     asyncio.run(managed_session.__aenter__())

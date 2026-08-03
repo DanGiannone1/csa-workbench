@@ -24,8 +24,8 @@ function buildAgenda(events: CalendarEvent[], tasks: Task[]): AgendaItem[] {
   return items;
 }
 
-export default function CalendarScreen({ appState, sessionId, onNavigate, onRefresh }: {
-  appState: AppState; sessionId: string | null; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
+export default function CalendarScreen({ appState, onNavigate, onRefresh }: {
+  appState: AppState; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const events = appState.calendarEvents ?? [];
@@ -38,7 +38,7 @@ export default function CalendarScreen({ appState, sessionId, onNavigate, onRefr
     <div className="tw-screen" data-testid="calendar-screen">
       <h1 className="tw-h1">Calendar</h1>
       <p className="tw-subtle">Events and task deadlines, by day.</p>
-      <AddEventBar sessionId={sessionId} onRefresh={onRefresh} />
+      <AddEventBar onRefresh={onRefresh} />
       {error && <p className="tw-error" role="alert">{error}</p>}
       {items.length === 0 ? (
         <section className="tw-section"><div className="tw-empty-sm">Nothing scheduled yet. Add an event above, or ask the assistant.</div></section>
@@ -67,7 +67,7 @@ export default function CalendarScreen({ appState, sessionId, onNavigate, onRefr
                     </span>
                     {item.kind === "event" && (
                       <span onClick={(event) => event.stopPropagation()}>
-                        <ArmedDelete testid={`event-delete-${item.id}`} label={item.title} onConfirm={() => void run(() => deleteEvent(sessionId!, item.id))} />
+                        <ArmedDelete testid={`event-delete-${item.id}`} label={item.title} onConfirm={() => void run(() => deleteEvent(item.id))} />
                       </span>
                     )}
                   </div>
@@ -81,7 +81,7 @@ export default function CalendarScreen({ appState, sessionId, onNavigate, onRefr
   );
 }
 
-function AddEventBar({ sessionId, onRefresh }: { sessionId: string | null; onRefresh: () => Promise<void> }) {
+function AddEventBar({ onRefresh }: { onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -96,9 +96,9 @@ function AddEventBar({ sessionId, onRefresh }: { sessionId: string | null; onRef
   const timeBad = !!(start && end && end <= start);
   const ok = !!(title.trim() && date && !timeBad);
   const submit = () => {
-    if (!sessionId || !ok) return;
+    if (!ok) return;
     void run(async () => {
-      await createEvent(sessionId, { title: title.trim(), date, start, end });
+      await createEvent({ title: title.trim(), date, start, end });
       setTitle(""); setDate(""); setStart(""); setEnd(""); setOpen(false);
     });
   };

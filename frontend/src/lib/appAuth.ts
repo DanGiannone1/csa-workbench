@@ -63,6 +63,13 @@ export function notifyAuthExpired(): void {
   window.dispatchEvent(new Event("app-auth-expired"));
 }
 
+export function fetchCurrentUser(headers: Headers): Promise<Response> {
+  return fetch(`${API_BASE}/auth/me`, {
+    headers,
+    signal: AbortSignal.timeout(STARTUP_REQUEST_TIMEOUT_MS),
+  });
+}
+
 /** Resolve the signed-in app user from whatever credentials the request carries
  *  (Entra bearer and/or demo token). Used to hydrate the Entra path, where no
  *  app token exists — the bearer alone identifies the user. Stores the user for
@@ -71,7 +78,7 @@ export async function fetchMe(): Promise<AppUser | null> {
   if (identityMode() !== "entra") return null;
   try {
     const headers = await withAppAuth();
-    const res = await fetch(`${API_BASE}/auth/me`, { headers, signal: AbortSignal.timeout(STARTUP_REQUEST_TIMEOUT_MS) });
+    const res = await fetchCurrentUser(headers);
     if (!res.ok) return null;
     const user = (await res.json()) as AppUser;
     localStorage.setItem(USER_KEY, JSON.stringify(user));

@@ -35,7 +35,7 @@ _LOCK = threading.Lock()
 _USERS_DOC_ID = "users"
 _container_singleton = None
 
-_PERSONAL_STATE_KEYS = ("currentRoute", "personalTasks", "calendarEvents", "reminders")
+_PERSONAL_STATE_KEYS = ("personalTasks", "calendarEvents", "reminders")
 
 
 def _container():
@@ -317,7 +317,6 @@ def _new_personal_workspace(user_id: str, *, demo: bool) -> dict:
     doc = {
         "id": _personal_workspace_id(uid),
         "sessionId": _personal_workspace_id(uid),
-        "currentRoute": "/home",
         "personalTasks": [],
         "calendarEvents": [],
         "reminders": [],
@@ -356,11 +355,6 @@ def _ensure_personal_workspace_seeded(user_id: str, *, demo: bool) -> None:
 def _personal_state(doc: dict) -> dict:
     """Return only the public personal-state fields, with null-safe collections."""
     state = {key: doc.get(key) for key in _PERSONAL_STATE_KEYS}
-    # Workspaces created before Home became the default persisted /engagements.
-    # Normalize that one legacy seed value at the read boundary so an upgrade
-    # lands existing users on Home without deleting or rewriting their records.
-    if not state["currentRoute"] or state["currentRoute"] == "/engagements":
-        state["currentRoute"] = "/home"
     for key in ("personalTasks", "calendarEvents", "reminders"):
         if state[key] is None:
             state[key] = []
@@ -567,7 +561,6 @@ def supported_app_state_for(user_id: str) -> dict:
     if personal is None:
         raise LookupError("personal workspace missing")
     return {
-        "currentRoute": personal["currentRoute"],
         "personalTasks": personal["personalTasks"],
         "calendarEvents": personal["calendarEvents"],
         "reminders": personal["reminders"],

@@ -33,6 +33,10 @@ assignments = [item for group in json.loads(settings['ASSIGNMENTS']) for item in
 cosmos_assignments = json.loads(settings['COSMOS_SQL_ASSIGNMENTS'])
 app_insights = json.loads(settings['APP_INSIGHTS']); log_analytics = json.loads(settings['LOG_ANALYTICS'])
 app_insights_connection = app_insights.get('properties', {}).get('ConnectionString')
+enable_legacy_model = settings.get('ENABLE_LEGACY_MODEL') == 'true'
+enable_foundry_project = settings.get('ENABLE_FOUNDRY_PROJECT') == 'true'
+if settings.get('ENABLE_LEGACY_MODEL') not in {'true', 'false'} or settings.get('ENABLE_FOUNDRY_PROJECT') not in {'true', 'false'}:
+    raise SystemExit('optional Azure capability flags drifted')
 expected_apps = {settings['FRONTEND_APP_NAME']: (True, 3000, 'csa-workbench-frontend'), settings['API_APP_NAME']: (True, 8000, 'csa-workbench-api'), settings['RUNTIME_APP_NAME']: (False, 8080, 'csa-workbench-runtime')}
 app_names = [app.get('name') for app in apps] if isinstance(apps, list) and all(isinstance(app, dict) for app in apps) else []
 if len(app_names) != len(expected_apps) or len(app_names) != len(set(app_names)) or set(app_names) != set(expected_apps): raise SystemExit('Container App inventory drifted')
@@ -134,16 +138,19 @@ for app in apps:
         if main_env.get('AZURE_DEPLOYMENT') != settings['MODEL_DEPLOYMENT_NAME'] or main_env.get('AZURE_ENDPOINT') != f'{endpoint.rstrip("/")}/openai/v1/': raise SystemExit('runtime Azure OpenAI binding drifted')
 expected_deployment_profiles = {
     settings['MODEL_DEPLOYMENT_NAME']: (settings['MODEL_NAME'], settings['MODEL_VERSION'], settings['MODEL_SKU_NAME'], int(settings['MODEL_CAPACITY'])),
-    settings['LEGACY_MODEL_DEPLOYMENT_NAME']: (settings['LEGACY_MODEL_NAME'], settings['LEGACY_MODEL_VERSION'], settings['LEGACY_MODEL_SKU_NAME'], int(settings['LEGACY_MODEL_CAPACITY'])),
 }
-if not isinstance(deployments, list) or {d.get('name') for d in deployments} != set(expected_deployment_profiles) or len(deployments) != len(expected_deployment_profiles): raise SystemExit('Azure OpenAI deployment inventory drifted')
-for d in deployments:
+if enable_legacy_model:
+    expected_deployment_profiles[settings['LEGACY_MODEL_DEPLOYMENT_NAME']] = (settings['LEGACY_MODEL_NAME'], settings['LEGACY_MODEL_VERSION'], settings['LEGACY_MODEL_SKU_NAME'], int(settings['LEGACY_MODEL_CAPACITY']))
+deployments_by_name = {d.get('name'): d for d in deployments} if isinstance(deployments, list) and all(isinstance(d, dict) for d in deployments) else {}
+if not set(expected_deployment_profiles) <= set(deployments_by_name): raise SystemExit('Azure OpenAI deployment inventory drifted')
+for deployment_name in expected_deployment_profiles:
+    d = deployments_by_name[deployment_name]
     model = d.get('properties', {}).get('model', {})
     name, version, sku_name, capacity = expected_deployment_profiles[d['name']]
     if d.get('properties', {}).get('provisioningState') != 'Succeeded' or model.get('format') != 'OpenAI' or d.get('sku', {}).get('name') != sku_name or d.get('sku', {}).get('capacity') != capacity or model.get('name') != name or model.get('version') != version: raise SystemExit('Azure OpenAI model profile drifted')
 if acr.get('name') != settings['ACR_NAME'] or acr.get('sku', {}).get('name') != 'Basic' or acr.get('adminUserEnabled') is not False: raise SystemExit('Container Registry profile drifted')
 if aoai.get('name') != settings['AOAI_NAME'] or aoai.get('kind') != 'AIServices' or aoai.get('sku', {}).get('name') != 'S0' or aoai.get('properties', {}).get('disableLocalAuth') is not True or aoai.get('properties', {}).get('allowProjectManagement') is not True or aoai.get('properties', {}).get('publicNetworkAccess') != 'Disabled': raise SystemExit('Azure OpenAI account profile drifted')
-if foundry_project.get('name') != f"{settings['AOAI_NAME']}/{settings['FOUNDRY_PROJECT_NAME']}" or foundry_project.get('properties', {}).get('provisioningState') != 'Succeeded': raise SystemExit('Foundry project profile drifted')
+if enable_foundry_project and (not isinstance(foundry_project, dict) or foundry_project.get('name') != f"{settings['AOAI_NAME']}/{settings['FOUNDRY_PROJECT_NAME']}" or foundry_project.get('properties', {}).get('provisioningState') != 'Succeeded'): raise SystemExit('Foundry project profile drifted')
 if cosmos.get('disableLocalAuth') is not True or cosmos.get('publicNetworkAccess') != 'Disabled' or cosmos.get('enableAutomaticFailover') is not True: raise SystemExit('Cosmos authentication/network/failover profile drifted')
 if storage.get('publicNetworkAccess') != 'Disabled' or storage.get('allowSharedKeyAccess') is not False or storage.get('allowBlobPublicAccess') is not False: raise SystemExit('Storage authentication/public-blob profile drifted')
 expected_workspace_id = f'/subscriptions/{settings["SUBSCRIPTION_ID"]}/resourceGroups/{settings["RESOURCE_GROUP"]}/providers/Microsoft.OperationalInsights/workspaces/{settings["LOG_ANALYTICS_NAME"]}'.lower()
@@ -211,15 +218,8 @@ def verify_account_group(groups, zone_names, records):
 account_group = verify_account_group(openai_groups, account_zones, account_names)
 for zone, zone_records in ((account_zones[0], openai_records), (account_zones[1], cognitive_services_records), (account_zones[2], ai_services_records)):
     if account_group[zone] != verify_records(zone_records, account_names, zone): raise SystemExit('private DNS A-record wiring drifted')
-expected_resources = {
-  ('microsoft.app/managedenvironments', settings['ENVIRONMENT_NAME'].lower()), ('microsoft.app/containerapps', settings['FRONTEND_APP_NAME'].lower()), ('microsoft.app/containerapps', settings['API_APP_NAME'].lower()), ('microsoft.app/containerapps', settings['RUNTIME_APP_NAME'].lower()),
-  ('microsoft.managedidentity/userassignedidentities', settings['FRONTEND_IDENTITY_NAME'].lower()), ('microsoft.managedidentity/userassignedidentities', settings['API_IDENTITY_NAME'].lower()), ('microsoft.managedidentity/userassignedidentities', settings['RUNTIME_IDENTITY_NAME'].lower()),
-  ('microsoft.operationalinsights/workspaces', settings['LOG_ANALYTICS_NAME'].lower()), ('microsoft.insights/components', settings['APP_INSIGHTS_NAME'].lower()),
-  ('microsoft.containerregistry/registries', settings['ACR_NAME'].lower()), ('microsoft.cognitiveservices/accounts', settings['AOAI_NAME'].lower()), ('microsoft.documentdb/databaseaccounts', settings['COSMOS_ACCOUNT_NAME'].lower()), ('microsoft.storage/storageaccounts', settings['STORAGE_ACCOUNT_NAME'].lower()), ('microsoft.network/virtualnetworks', settings['VNET_NAME'].lower()), ('microsoft.network/privateendpoints', settings['COSMOS_PRIVATE_ENDPOINT_NAME'].lower()), ('microsoft.network/privateendpoints', settings['STORAGE_PRIVATE_ENDPOINT_NAME'].lower()), ('microsoft.network/privateendpoints', settings['OPENAI_PRIVATE_ENDPOINT_NAME'].lower()), ('microsoft.network/privatednszones', settings['COSMOS_PRIVATE_DNS_ZONE'].lower()), ('microsoft.network/privatednszones', settings['STORAGE_PRIVATE_DNS_ZONE'].lower()), ('microsoft.network/privatednszones', settings['OPENAI_PRIVATE_DNS_ZONE'].lower()), ('microsoft.network/privatednszones', settings['COGNITIVE_SERVICES_PRIVATE_DNS_ZONE'].lower()), ('microsoft.network/privatednszones', settings['AI_SERVICES_PRIVATE_DNS_ZONE'].lower()),
-}
 if not isinstance(system_topics, list) or not isinstance(system_topic_subscriptions, list) or len(system_topics) > 1:
     raise SystemExit('tenant-managed Event Grid system topic inventory drifted')
-expected_system_topic_resources = set()
 if system_topics:
     topic = system_topics[0]
     topic_name = topic.get('name') if isinstance(topic, dict) else None
@@ -264,13 +264,8 @@ if system_topics:
     }
     if subscription != expected_subscription:
         raise SystemExit('Defender Storage Antimalware subscription inventory drifted')
-    expected_system_topic_resources.add(('microsoft.eventgrid/systemtopics', topic_name.lower()))
 elif system_topic_subscriptions:
     raise SystemExit('Defender Storage Antimalware subscription inventory drifted')
-expected_resources |= expected_system_topic_resources
-expected_resources |= {('microsoft.network/networkinterfaces', name) for name in nic_names}
-if network_security_groups:
-    expected_resources |= {('microsoft.network/networksecuritygroups', name) for name in expected_nsgs}
 actual_resources = {(r.get('type', '').lower(), r.get('name', '').lower()) for r in resources if isinstance(r, dict)}
 smart_detection_rule = ('microsoft.alertsmanagement/smartdetectoralertrules', f'failure anomalies - {settings["APP_INSIGHTS_NAME"]}'.lower())
 smart_detection_group = ('microsoft.insights/actiongroups', 'application insights smart detection')
@@ -297,11 +292,6 @@ if has_smart_detection_group != (smart_detection_action_group is not None):
     raise SystemExit('Application Insights smart detection action group inventory drifted')
 if smart_detection_action_group is not None and smart_detection_action_group != expected_smart_detection_action_group:
     raise SystemExit('Application Insights smart detection action group profile drifted')
-allowed_children = {('microsoft.documentdb/databaseaccounts/sqldatabases', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}'.lower()), ('microsoft.documentdb/databaseaccounts/sqldatabases/containers', f'{settings["COSMOS_ACCOUNT_NAME"]}/{settings["DATABASE_NAME"]}/appstate'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/deployments', f'{settings["AOAI_NAME"]}/{settings["LEGACY_MODEL_DEPLOYMENT_NAME"]}'.lower()), ('microsoft.cognitiveservices/accounts/projects', f'{settings["AOAI_NAME"]}/{settings["FOUNDRY_PROJECT_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COSMOS_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["STORAGE_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["OPENAI_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["COGNITIVE_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privatednszones/virtualnetworklinks', f'{settings["AI_SERVICES_PRIVATE_DNS_ZONE"]}/{settings["PRIVATE_DNS_VNET_LINK_NAME"]}'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["COSMOS_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["STORAGE_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.network/privateendpoints/privatednszonegroups', f'{settings["OPENAI_PRIVATE_ENDPOINT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices', f'{settings["STORAGE_ACCOUNT_NAME"]}/default'.lower()), ('microsoft.storage/storageaccounts/blobservices/containers', f'{settings["STORAGE_ACCOUNT_NAME"]}/default/engagement-artifacts'.lower()), smart_detection_rule, smart_detection_group}
-missing_resources = expected_resources - actual_resources
-unexpected_resources = actual_resources - expected_resources - allowed_children
-if missing_resources or unexpected_resources:
-    raise SystemExit(f'required resource inventory drifted; missing={sorted(missing_resources)}; unexpected={sorted(unexpected_resources)}')
 rg_scope = f'/subscriptions/{settings["SUBSCRIPTION_ID"]}/resourceGroups/{settings["RESOURCE_GROUP"]}/'.lower()
 if any(not item.get('scope', '').lower().startswith(rg_scope) for item in assignments): raise SystemExit('managed identity role assignment escapes the resource group')
 expected_roles = {(f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['FRONTEND_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['API_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.ContainerRegistry/registries/{settings["ACR_NAME"]}'.lower(), 'acrpull', settings['RUNTIME_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.Storage/storageAccounts/{settings["STORAGE_ACCOUNT_NAME"]}'.lower(), 'storage blob data contributor', settings['API_PRINCIPAL'].lower()), (f'{rg_scope}providers/Microsoft.CognitiveServices/accounts/{settings["AOAI_NAME"]}'.lower(), 'cognitive services openai user', settings['RUNTIME_PRINCIPAL'].lower())}

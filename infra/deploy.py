@@ -53,6 +53,16 @@ def _capacity(env: Mapping[str, str], name: str) -> int:
     return value
 
 
+def _flag(env: Mapping[str, str], name: str, *, default: bool = False) -> bool:
+    raw = env.get(name)
+    if raw is None or raw == "":
+        return default
+    value = raw.lower()
+    if value not in {"true", "false"}:
+        raise DeploymentError(f"{name} must be 'true' or 'false'")
+    return value == "true"
+
+
 class Deployment:
     """Own the plan/apply policy and all Azure subprocess calls."""
 
@@ -68,13 +78,27 @@ class Deployment:
         self.model_version = _model_value(source, "MODEL_VERSION", 128)
         self.model_sku_name = _model_value(source, "MODEL_SKU_NAME", 64)
         self.model_capacity = _capacity(source, "MODEL_CAPACITY")
-        self.legacy_model_deployment_name = _model_value(source, "LEGACY_MODEL_DEPLOYMENT_NAME", 64)
-        self.legacy_model_name = _model_value(source, "LEGACY_MODEL_NAME", 128)
-        self.legacy_model_version = _model_value(source, "LEGACY_MODEL_VERSION", 128)
-        self.legacy_model_sku_name = _model_value(source, "LEGACY_MODEL_SKU_NAME", 64)
-        self.legacy_model_capacity = _capacity(source, "LEGACY_MODEL_CAPACITY")
-        if self.legacy_model_deployment_name == self.model_deployment_name:
-            raise DeploymentError("LEGACY_MODEL_DEPLOYMENT_NAME must differ from MODEL_DEPLOYMENT_NAME")
+        legacy_names = (
+            "LEGACY_MODEL_DEPLOYMENT_NAME", "LEGACY_MODEL_NAME", "LEGACY_MODEL_VERSION",
+            "LEGACY_MODEL_SKU_NAME", "LEGACY_MODEL_CAPACITY",
+        )
+        self.enable_legacy_model = _flag(
+            source, "ENABLE_LEGACY_MODEL", default=any(source.get(name, "") for name in legacy_names),
+        )
+        if self.enable_legacy_model:
+            self.legacy_model_deployment_name = _model_value(source, "LEGACY_MODEL_DEPLOYMENT_NAME", 64)
+            self.legacy_model_name = _model_value(source, "LEGACY_MODEL_NAME", 128)
+            self.legacy_model_version = _model_value(source, "LEGACY_MODEL_VERSION", 128)
+            self.legacy_model_sku_name = _model_value(source, "LEGACY_MODEL_SKU_NAME", 64)
+            self.legacy_model_capacity = _capacity(source, "LEGACY_MODEL_CAPACITY")
+            if self.legacy_model_deployment_name == self.model_deployment_name:
+                raise DeploymentError("LEGACY_MODEL_DEPLOYMENT_NAME must differ from MODEL_DEPLOYMENT_NAME")
+        else:
+            self.legacy_model_deployment_name = ""
+            self.legacy_model_name = ""
+            self.legacy_model_version = ""
+            self.legacy_model_sku_name = ""
+            self.legacy_model_capacity = 1
 
         self.location = source.get("LOCATION", "eastus2")
         self.acr_location = source.get("ACR_LOCATION", self.location)
@@ -100,6 +124,7 @@ class Deployment:
         self.openai_private_endpoint_name = f"{self.base}-openai-pe"
         self.private_dns_vnet_link_name = f"{self.base}-vnet-link"
         self.database_name = f"{self.base}-entra"
+        self.enable_foundry_project = _flag(source, "ENABLE_FOUNDRY_PROJECT")
         self.foundry_project_name = source.get("FOUNDRY_PROJECT_NAME", self.base)
         if any(character.isspace() or ord(character) < 32 for character in self.foundry_project_name) or len(self.foundry_project_name) > 64:
             raise DeploymentError("FOUNDRY_PROJECT_NAME must be a non-whitespace value of at most 64 characters")
@@ -273,11 +298,13 @@ class Deployment:
             "model_version": self.model_version,
             "model_sku_name": self.model_sku_name,
             "model_capacity": self.model_capacity,
+            "enable_legacy_model": self.enable_legacy_model,
             "legacy_model_deployment_name": self.legacy_model_deployment_name,
             "legacy_model_name": self.legacy_model_name,
             "legacy_model_version": self.legacy_model_version,
             "legacy_model_sku_name": self.legacy_model_sku_name,
             "legacy_model_capacity": self.legacy_model_capacity,
+            "enable_foundry_project": self.enable_foundry_project,
             "foundry_project_name": self.foundry_project_name,
             "entra_display_names": [
                 f"CSA Workbench [{self.slug}] Web",
@@ -298,7 +325,8 @@ class Deployment:
             f"instanceSlug={self.slug}", f"location={self.location}", f"acrLocation={self.acr_location}",
             f"azureOpenAiDeploymentName={self.model_deployment_name}", f"azureOpenAiModelName={self.model_name}",
             f"azureOpenAiModelVersion={self.model_version}", f"azureOpenAiModelSkuName={self.model_sku_name}",
-            f"azureOpenAiModelCapacity={self.model_capacity}", f"foundryProjectName={self.foundry_project_name}",
+            f"azureOpenAiModelCapacity={self.model_capacity}", f"enableFoundryProject={str(self.enable_foundry_project).lower()}",
+            f"foundryProjectName={self.foundry_project_name}", f"enableLegacyModel={str(self.enable_legacy_model).lower()}",
             f"legacyModelDeploymentName={self.legacy_model_deployment_name}", f"legacyModelName={self.legacy_model_name}",
             f"legacyModelVersion={self.legacy_model_version}", f"legacyModelSkuName={self.legacy_model_sku_name}",
             f"legacyModelCapacity={self.legacy_model_capacity}", f"acaInfrastructureNsgId={self.aca_nsg_id}",
@@ -406,7 +434,10 @@ class Deployment:
             "LOG_ANALYTICS": j(["az", "resource", "show", *rg, "-n", self.log_analytics_name, "--resource-type", "Microsoft.OperationalInsights/workspaces", "-o", "json"]),
             "ACR": j(["az", "acr", "show", *rg, "-n", values["acr_name"], "-o", "json"]),
             "AZURE_OPEN_AI": j(["az", "cognitiveservices", "account", "show", *rg, "-n", values["aoai_name"], "-o", "json"]),
-            "FOUNDRY_PROJECT": j(["az", "resource", "show", "--ids", f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.CognitiveServices/accounts/{values['aoai_name']}/projects/{self.foundry_project_name}", "-o", "json"]),
+            "FOUNDRY_PROJECT": (
+                j(["az", "resource", "show", "--ids", f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.CognitiveServices/accounts/{values['aoai_name']}/projects/{self.foundry_project_name}", "-o", "json"])
+                if self.enable_foundry_project else "null"
+            ),
             "COSMOS": j(["az", "cosmosdb", "show", *rg, "-n", values["cosmos_account_name"], "-o", "json"]),
             "STORAGE": j(["az", "storage", "account", "show", *rg, "-n", values["storage_account_name"], "-o", "json"]),
             "VNET": j(["az", "network", "vnet", "show", *rg, "-n", self.vnet_name, "-o", "json"]),
@@ -434,7 +465,8 @@ class Deployment:
             "MODEL_SKU_NAME": self.model_sku_name, "MODEL_CAPACITY": str(self.model_capacity),
             "LEGACY_MODEL_DEPLOYMENT_NAME": self.legacy_model_deployment_name, "LEGACY_MODEL_NAME": self.legacy_model_name,
             "LEGACY_MODEL_VERSION": self.legacy_model_version, "LEGACY_MODEL_SKU_NAME": self.legacy_model_sku_name,
-            "LEGACY_MODEL_CAPACITY": str(self.legacy_model_capacity), "FOUNDRY_PROJECT_NAME": self.foundry_project_name,
+            "LEGACY_MODEL_CAPACITY": str(self.legacy_model_capacity), "ENABLE_LEGACY_MODEL": str(self.enable_legacy_model).lower(),
+            "FOUNDRY_PROJECT_NAME": self.foundry_project_name, "ENABLE_FOUNDRY_PROJECT": str(self.enable_foundry_project).lower(),
             "SHA": self.sha, "RESOURCE_GROUP": self.resource_group, "SUBSCRIPTION_ID": self.subscription_id,
             "ENVIRONMENT_NAME": self.environment_name, "DATABASE_NAME": self.database_name, "VNET_NAME": self.vnet_name,
             "COSMOS_ACCOUNT_NAME": values["cosmos_account_name"], "STORAGE_ACCOUNT_NAME": values["storage_account_name"],
@@ -500,7 +532,8 @@ class Deployment:
         self.deployment_what_if(apps)
         self.execute([*apps, "--only-show-errors"], quiet=True)
         self.verify_inventory(outputs)
-        print(f"Deployed isolated instance {self.slug} with immutable images tagged {self.sha}")
+        verify_deployment(self.env)
+        print(f"Deployed and verified isolated instance {self.slug} with immutable images tagged {self.sha}")
 
 
 def _azure_output(command: Sequence[str], env: Mapping[str, str]) -> str:

@@ -66,6 +66,74 @@ def test_what_if_changes_only_the_azure_operation_token(monkeypatch: pytest.Monk
     ]]
 
 
+def _minimum_deployment_environment() -> dict[str, str]:
+    return {
+        "INSTANCE_SLUG": "mvp1",
+        "MODEL_DEPLOYMENT_NAME": "primary",
+        "MODEL_NAME": "model",
+        "MODEL_VERSION": "2026-01-01",
+        "MODEL_SKU_NAME": "GlobalStandard",
+        "MODEL_CAPACITY": "30",
+    }
+
+
+def test_optional_azure_capabilities_are_off_by_default() -> None:
+    from infra.deploy import Deployment
+
+    deployment = Deployment(_minimum_deployment_environment())
+
+    assert deployment.enable_legacy_model is False
+    assert deployment.enable_foundry_project is False
+    assert deployment.legacy_model_deployment_name == ""
+
+
+def test_existing_legacy_model_configuration_remains_backward_compatible() -> None:
+    from infra.deploy import Deployment
+
+    environment = {
+        **_minimum_deployment_environment(),
+        "LEGACY_MODEL_DEPLOYMENT_NAME": "rollback",
+        "LEGACY_MODEL_NAME": "legacy-model",
+        "LEGACY_MODEL_VERSION": "2025-01-01",
+        "LEGACY_MODEL_SKU_NAME": "GlobalStandard",
+        "LEGACY_MODEL_CAPACITY": "10",
+    }
+
+    deployment = Deployment(environment)
+
+    assert deployment.enable_legacy_model is True
+    assert deployment.legacy_model_deployment_name == "rollback"
+
+
+def _plan_id(environment: dict[str, str]) -> str:
+    from infra.deploy import Deployment
+
+    deployment = Deployment(environment)
+    deployment.validate_account_and_revision = lambda: None
+    deployment.governance_preflight = lambda: None
+    deployment.recovery_preflight = lambda: None
+    return deployment.make_plan()[1]
+
+
+def test_plan_confirmation_binds_optional_azure_capabilities() -> None:
+    base = _minimum_deployment_environment()
+    foundry = {**base, "ENABLE_FOUNDRY_PROJECT": "true"}
+    legacy = {
+        **base,
+        "ENABLE_LEGACY_MODEL": "true",
+        "LEGACY_MODEL_DEPLOYMENT_NAME": "rollback",
+        "LEGACY_MODEL_NAME": "legacy-model",
+        "LEGACY_MODEL_VERSION": "2025-01-01",
+        "LEGACY_MODEL_SKU_NAME": "GlobalStandard",
+        "LEGACY_MODEL_CAPACITY": "10",
+    }
+
+    default_plan = _plan_id(base)
+
+    assert _plan_id(foundry) != default_plan
+    assert _plan_id(legacy) != default_plan
+
+
 def test_windows_azure_cli_uses_its_python_in_utf8_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     from scripts import host_commands
 
@@ -233,3 +301,53 @@ def test_post_deploy_verification_checks_entra_session_without_exposing_token(
     assert deploy.verify_deployment({"INSTANCE_SLUG": "mvp1", "IDENTITY_MODE": "entra"}) == 0
     assert ("DELETE", "https://api.example/sessions/session-1") in http_calls
     assert any("get-access-token" in call for call in azure_calls)
+
+
+def test_apply_verifies_the_running_application_before_reporting_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from infra import deploy
+
+    deployment = object.__new__(deploy.Deployment)
+    deployment.env = {"INSTANCE_SLUG": "mvp1", "IDENTITY_MODE": "entra"}
+    deployment.slug = "mvp1"
+    deployment.resource_group = "csa-wb-mvp1-rg"
+    deployment.frontend_app_name = "csa-wb-mvp1-frontend"
+    deployment.api_app_name = "csa-wb-mvp1-api"
+    deployment.runtime_app_name = "csa-wb-mvp1-runtime"
+    deployment.tenant_id = "tenant"
+    deployment.identity_mode = "entra"
+    deployment.sha = "a" * 40
+    deployment.make_plan = lambda: ({}, "plan-1")
+    deployment.foundation_command = lambda: ["az", "deployment", "group", "create"]
+    deployment.delete_approved_recovery_targets = lambda: None
+    deployment.deployment_what_if = lambda _command: None
+    deployment.execute = lambda *_args, **_kwargs: None
+    values = {
+        "environmentDefaultDomain": "example.test",
+        "acrLoginServer": "acr.example.test",
+        "acrName": "acr",
+        "azureOpenAiName": "ai",
+        "azureOpenAiEndpoint": "https://ai.example.test",
+        "frontendIdentityId": "frontend-id",
+        "apiIdentityId": "api-id",
+        "runtimeIdentityId": "runtime-id",
+        "apiIdentityPrincipalId": "api-principal",
+        "cosmosAccountName": "cosmos",
+        "storageAccountName": "storage",
+        "appInsightsConnectionString": "InstrumentationKey=test",
+    }
+    deployment.foundation_output = lambda name: values[name]
+    deployment.output = lambda _command: json.dumps({
+        "api_client_id": "api-client",
+        "web_client_id": "web-client",
+        "runtime_client_id": "runtime-client",
+    })
+    deployment._apps_command = lambda _outputs: ["az", "deployment", "group", "create"]
+    deployment.verify_inventory = lambda _outputs: None
+    verified: list[dict[str, str]] = []
+    monkeypatch.setattr(deploy, "verify_deployment", lambda env: verified.append(dict(env)) or 0)
+
+    deployment.apply("apply:plan-1:csa-wb-mvp1-rg")
+
+    assert verified == [deployment.env]

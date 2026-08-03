@@ -75,11 +75,10 @@ decoderRejects(() => decodeSessionUpload({ path: "/tmp/a", filename: "a.md", siz
 decoderRejects(() => decodeFileWrite({ filename: "draft.md", size: -1 }), "file-write decoder rejects invalid byte size");
 decoderRejects(() => decodeFilesPayload({ files: [{ filename: "draft.md", size: "large", modified_at: "now", has_markdown: true }] }), "file decoder rejects malformed file metadata");
 decoderRejects(() => decodeContextBundle({ user: {}, persona: {}, conventions: [], engagementName: null, workingContext: {}, precedence: [] }), "context decoder rejects malformed user");
-decoderRejects(() => decodeAppState({ currentRoute: "/engagements", engagements: [{ id: "eng-1", status: "blue", members: [], conventions: [], tasks: [], library: [], activity: [] }], user: { id: "u", username: "u", displayName: "U" } }), "state decoder rejects unsupported engagement status");
+decoderRejects(() => decodeAppState({ engagements: [{ id: "eng-1", status: "blue", members: [], conventions: [], tasks: [], library: [], activity: [] }], user: { id: "u", username: "u", displayName: "U" } }), "state decoder rejects unsupported engagement status");
 decoderRejects(() => decodeEngagement({ id: "eng-1", name: "Record", description: "", customer: "", status: "green", statusNote: "", startDate: "", targetDate: "", members: [{ userId: "u", role: "admin" }], conventions: [], tasks: [], library: [], activity: [], createdAt: "now", createdBy: "u" }), "engagement decoder rejects unsupported role");
 
 const blankPersonaState = decodeAppState({
-  currentRoute: "/engagements",
   personalTasks: [], calendarEvents: [], reminders: [],
   engagements: [{ id: "eng-1", name: "Record", description: "", customer: "", status: "green", statusNote: "", startDate: "", targetDate: "", members: [], conventions: [], tasks: [], library: [], activity: [], createdAt: "now", createdBy: "u" }],
   user: { id: "u", username: "u", displayName: "U", persona: { role: "Product lead", tone: "concise", outputPrefs: "", language: "English" } },
@@ -89,7 +88,6 @@ expect(blankPersonaState.user.persona?.outputPrefs === undefined, "state decoder
 // Personal workspace: app state carries the actor's own Tasks/Calendar/Reminders
 // alongside shared Engagements — the decoder must accept the full shape.
 const richAppState = decodeAppState({
-  currentRoute: "/home",
   personalTasks: [{
     id: "t-1", title: "Draft the plan", status: "In progress", priority: "High", group: "Work",
     dueDate: "2030-02-28", notes: "private", createdAt: "2030-01-01T00:00:00+00:00",
@@ -110,17 +108,16 @@ expect(richAppState.calendarEvents.length === 1 && richAppState.calendarEvents[0
 expect(richAppState.reminders.length === 1 && richAppState.reminders[0].lastStatus === "sent", "state decoder accepts reminders with delivery status");
 
 decoderRejects(() => decodeAppState({
-  currentRoute: "/home",
   personalTasks: [{ id: "t-1", title: "x", status: "Unknown", priority: "High", group: "Work" }],
   calendarEvents: [], reminders: [], engagements: [], user: { id: "u", username: "u", displayName: "U" },
 }), "state decoder rejects malformed personalTasks");
 decoderRejects(() => decodeAppState({
-  currentRoute: "/home", personalTasks: [],
+  personalTasks: [],
   calendarEvents: [{ id: "e-1", title: "x", date: "2030-01-01", start: "", end: "", type: "Other", notes: "" }],
   reminders: [], engagements: [], user: { id: "u", username: "u", displayName: "U" },
 }), "state decoder rejects malformed calendarEvents");
 decoderRejects(() => decodeAppState({
-  currentRoute: "/home", personalTasks: [], calendarEvents: [],
+  personalTasks: [], calendarEvents: [],
   reminders: [{ id: "s-1", title: "x", message: "", frequency: "monthly", dueDate: "2030-01-01", time: "09:00", timezone: "UTC", daysOfWeek: [], enabled: true, nextDueAt: null, createdAt: "now" }],
   engagements: [], user: { id: "u", username: "u", displayName: "U" },
 }), "state decoder rejects malformed reminders");
