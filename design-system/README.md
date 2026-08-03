@@ -1,16 +1,20 @@
 # CSA Workbench design system
 
 `src/tokens.css` is the single production source for color, depth, focus, motion, and typography.
-The warm light palette is intentional; dark mode and palette selection do not ship. The frontend
-imports this file once from `frontend/src/app/globals.css`. Component code uses semantic token names
-such as `surface-1`, `text-primary`, and `brand-primary`; it does not define a second palette.
+The palette is the reference prototype's **ink** scheme — a blue-violet brand on cool light
+surfaces — chosen by the product owner; dark mode and palette selection deliberately do not ship.
+Type pairs Source Serif 4 for display and reading surfaces with Instrument Sans for the interface;
+controls are quiet and sentence-case per the reference. The frontend imports the token file once
+from `frontend/src/app/globals.css`. Component code uses semantic token names such as `surface-1`,
+`text-primary`, and `brand-primary`; it does not define a second palette.
 
 ## Components
 
 Production React primitives live in `frontend/src/components/ui/`:
 
 - `Button` for primary, secondary, ghost, and destructive controls;
-- `Surface` and `Card` for bounded content;
+- `Surface` and `Card` for bounded content (`level="flat"` for surfaces mounted flush inside a
+  rail or panel);
 - `Field` for labels, hints, and validation;
 - `Status` for neutral, informational, success, warning, and danger states;
 - `Tabs` and `Tab` for page sections;

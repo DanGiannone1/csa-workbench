@@ -10,9 +10,16 @@ way to perform supported actions through the same application services.
 ## What you can do
 
 - Create and share customer Engagements with owner, editor, and viewer roles.
-- Track Engagement status, dates, tasks, conventions, and artifacts.
+- Keep the full delivery record on each Engagement: status with its stated reason, a
+  "where it stands" summary, business value, objectives, key dates, customer contacts,
+  an append-only typed timeline (meetings, decisions, risks, notes), and documents in
+  bronze / silver / gold tiers with explicit promotion.
 - Manage private Tasks, Calendar events, and Reminders.
-- Ask the assistant to read or update supported records and open supported pages.
+- Open a session to a ranked brief of what needs attention today, computed from the
+  record — with items that route straight into it.
+- Ask the assistant to read or update supported records and open supported pages; every
+  assistant action goes through the same authorized application services as the UI, and
+  every visible chat state is driven by a typed AG-UI event.
 - Prepare an Engagement meeting brief or run a personal weekly review.
 
 ## Main workflow
@@ -26,8 +33,21 @@ events, and Reminders remain available only to the signed-in user throughout tha
 
 Testing follows a four-layer model — unit checks, integration checks, deterministic agent evals
 against the running product, and LLM-as-judge review — described in the
-[Testing Charter](testing/testing-charter.md). The agent-eval pipeline end to end, including the
-Azure AI Foundry integration, is in [testing/agent-evals.md](testing/agent-evals.md).
+[Testing Charter](testing/testing-charter.md). The agent-eval pipeline end to end — gold
+contracts, per-case fixture resets, evidence capture, the scorecard, and the Azure AI Foundry
+integration — is in [testing/agent-evals.md](testing/agent-evals.md); its **Running it** section
+is a copy-paste quickstart with the exact environment, the expected output, and the common
+failure messages. Every eval run leaves a signed evidence bundle, and
+[docs/guides/eval-showcase.md](docs/guides/eval-showcase.md) renders results for presentation.
+
+## Design system
+
+The visual system lives in [design-system/](design-system/README.md): one production token
+source (`src/tokens.css`), semantic React primitives in `frontend/src/components/ui/`, and a
+test (`tests/design_system.test.mjs`) that keeps hard-coded colors, gradients, and ad hoc
+styles out of production code. The original design prototype is preserved read-only under
+`design-system/reference/` as the traceable source of the product's look and interaction
+patterns.
 
 ## Run it locally
 

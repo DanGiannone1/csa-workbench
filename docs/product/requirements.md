@@ -10,6 +10,16 @@ use the assistant to perform supported actions through the same rules as the web
 1. The application provides Engagements, Home, Tasks, Calendar, Reminders, Assistant, and Settings.
 2. A signed-in user can create an Engagement and becomes its owner.
 3. Engagement members see the same shared record according to owner, editor, and viewer permissions.
+   The record carries the delivery facts a stand-in would need: a green/yellow/red status that must
+   state its reason when not green, a dated "where it stands" summary, the business value, the
+   engagement value, objectives, key dates, customer contacts (separate from the delivery team),
+   and an append-only typed timeline (meeting, decision, risk, note) attributed to its author and
+   source. Documents sit in bronze (raw upload), silver (working), or gold (explicitly promoted,
+   recording who and when) tiers.
+3a. A session opens to a deterministic ranked brief of what needs attention today — hard key dates
+    first, then off-track records, then overdue work — computed server-side from the user's visible
+    record, with items that route into it. The brief is the application speaking: no model call, no
+    tool chrome.
 4. Each user's Tasks, Calendar events, and Reminders remain private to that user.
 5. The web application provides a manual path for every supported operation.
 6. The assistant uses typed tools and structured results. Assistant text alone cannot change records
