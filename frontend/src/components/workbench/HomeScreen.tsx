@@ -65,7 +65,7 @@ export default function HomeScreen({ appState, onNavigate }: {
               <EngagementPortfolioRow
                 key={engagement.id}
                 engagement={engagement}
-                userId={appState.user?.id}
+                today={today}
                 onNavigate={onNavigate}
               />
             ))}

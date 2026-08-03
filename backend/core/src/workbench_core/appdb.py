@@ -445,10 +445,9 @@ ENGAGEMENT_ITEM_KINDS = {
     "action": ("actions", "a"),
 }
 
-# The prototype record model (#31): the timeline is the append-only log, typed;
-# artifacts carry a tier — bronze (raw upload, immutable), silver (working),
-# gold (explicitly promoted, with who/when).
-TIMELINE_ENTRY_TYPES = ["meeting", "decision", "risk", "note"]
+# The prototype record model (#31): artifacts carry a tier — bronze (raw upload,
+# immutable), silver (working), gold (explicitly promoted, with who/when). The
+# timeline entry vocabulary lives with its validation in engagements.py.
 ARTIFACT_TIERS = ["bronze", "silver", "gold"]
 
 # Domain fields added to every engagement doc (older docs get these on read).

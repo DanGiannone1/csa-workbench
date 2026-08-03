@@ -17,10 +17,10 @@ interface MessageListProps {
 // tasks, calendar, and meeting prep — not engagements alone. Each maps to a real read/CRUD tool
 // or skill; the assistant has no file-writing tool, so nothing here promises a saved document.
 const SUGGESTIONS = [
-  { icon: "gauge", label: "Review my engagements", description: "See the Engagements available to you", prompt: "List my engagements." },
-  { icon: "checklist", label: "What's overdue?", description: "Find tasks past their due date", prompt: "Which of my tasks are overdue?" },
-  { icon: "calendar", label: "What's on my calendar?", description: "See your upcoming events", prompt: "What's on my calendar this week?" },
-  { icon: "strategy", label: "Prep for a meeting", description: "Get a briefing for an engagement status meeting", prompt: "Prep me for one of my engagement meetings — ask me which engagement to focus on." },
+  { label: "Review my engagements", description: "See the Engagements available to you", prompt: "List my engagements." },
+  { label: "What's overdue?", description: "Find tasks past their due date", prompt: "Which of my tasks are overdue?" },
+  { label: "What's on my calendar?", description: "See your upcoming events", prompt: "What's on my calendar this week?" },
+  { label: "Prep for a meeting", description: "Get a briefing for an engagement status meeting", prompt: "Prep me for one of my engagement meetings — ask me which engagement to focus on." },
 ];
 
 export default function MessageList({ messages, onSuggestion, brief, onOpenBriefItem }: MessageListProps) {

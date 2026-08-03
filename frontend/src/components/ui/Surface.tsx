@@ -2,7 +2,8 @@ import type { HTMLAttributes, ReactNode } from "react";
 
 export interface SurfaceProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
-  level?: "base" | "subtle" | "raised";
+  /** "flat" removes card chrome for surfaces mounted flush inside a rail/panel. */
+  level?: "base" | "subtle" | "raised" | "flat";
 }
 
 export function Surface({ children, level = "base", className = "", ...props }: SurfaceProps) {

@@ -112,6 +112,7 @@ export function EngagementsList({
   onRefresh: () => Promise<void>;
 }) {
   const engagements = appState.engagements ?? [];
+  const today = new Date().toISOString().slice(0, 10);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [customer, setCustomer] = useState("");
@@ -273,7 +274,7 @@ export function EngagementsList({
               <EngagementPortfolioRow
                 key={engagement.id}
                 engagement={engagement}
-                userId={appState.user?.id}
+                today={today}
                 onNavigate={onNavigate}
               />
             ))}
@@ -288,19 +289,19 @@ export function EngagementsList({
 // inline, a one-line "why", and quiet metadata on the right.
 export function EngagementPortfolioRow({
   engagement,
+  today,
   onNavigate,
 }: {
   engagement: Engagement;
-  userId?: string;
+  today: string;
   onNavigate: (route: string) => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
   const overdueCount = (engagement.tasks ?? []).filter((task) => isOverdue(task, today)).length;
-  const right = [
-    overdueCount ? `${overdueCount} overdue` : "",
+  const overdueText = overdueCount ? `${overdueCount} overdue` : "";
+  const restText = [
     `${openTasks(engagement)} open`,
     engagement.targetDate ? `target ${engagement.targetDate}` : "",
-  ].filter(Boolean);
+  ].filter(Boolean).join(" · ");
   return (
     <button
       type="button"
@@ -323,10 +324,9 @@ export function EngagementPortfolioRow({
         </span>
       </span>
       <span className="tw-pf-right">
-        {overdueCount > 0 && <span className="tw-alert">{right[0]}</span>}
-        {(overdueCount > 0 ? right.slice(1) : right).map((part, index) => (
-          <span key={part}>{(index > 0 || overdueCount > 0) ? " · " : ""}{part}</span>
-        ))}
+        {overdueText && <span className="tw-alert">{overdueText}</span>}
+        {overdueText && restText ? " · " : ""}
+        {restText}
       </span>
     </button>
   );
@@ -600,6 +600,11 @@ function money(value: number): string {
   return `$${Math.round(value)}`;
 }
 
+// One initials formula for every avatar, per the reference's shared helper.
+function initials(name: string): string {
+  return name.split(" ").map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
+}
+
 function TimelineEntryRow({ entry }: { entry: TimelineEntry }) {
   return (
     <div className="tw-entry">
@@ -830,7 +835,7 @@ function RecordOverview({ engagement, editable, today, onNavigate, onRefresh }: 
           {contacts.map((contact) => (
             <div className="tw-contact" key={contact.name}>
               <span className="tw-avatar" style={{ width: 24, height: 24, fontSize: 10 }}>
-                {contact.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                {initials(contact.name)}
               </span>
               <span style={{ minWidth: 0 }}>
                 <span className="tw-c-n">{contact.name}</span>
@@ -844,7 +849,7 @@ function RecordOverview({ engagement, editable, today, onNavigate, onRefresh }: 
           {engagement.members.map((member) => (
             <div className="tw-contact" key={member.userId}>
               <span className="tw-avatar" style={{ width: 24, height: 24, fontSize: 10 }}>
-                {member.userId.slice(0, 2).toUpperCase()}
+                {initials(member.userId)}
               </span>
               <span style={{ minWidth: 0 }}>
                 <span className="tw-c-n">{member.userId}</span>
@@ -1649,6 +1654,15 @@ function EngagementArtifacts({
       setError(friendlyError(err, "Artifact action failed."));
     }
   };
+  const promote = async (artifact: Artifact) => {
+    setError("");
+    try {
+      await promoteArtifact(engagement.id, artifact.id);
+      await onRefresh();
+    } catch (err) {
+      setError(friendlyError(err, "Artifact action failed."));
+    }
+  };
   return (
     <section className="tw-section">
       <div className="tw-section-heading">
@@ -1719,17 +1733,7 @@ function EngagementArtifacts({
                         data-testid={`artifact-promote-${artifact.id}`}
                         disabled={busy}
                         title="Promote to gold — curated and vetted"
-                        onClick={() =>
-                          void (async () => {
-                            setError("");
-                            try {
-                              await promoteArtifact(engagement.id, artifact.id);
-                              await onRefresh();
-                            } catch (err) {
-                              setError(friendlyError(err, "Artifact action failed."));
-                            }
-                          })()
-                        }
+                        onClick={() => void promote(artifact)}
                       >
                         Promote to gold
                       </button>

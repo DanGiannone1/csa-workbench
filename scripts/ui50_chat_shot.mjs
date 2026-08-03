@@ -1,28 +1,12 @@
 // Live AG-UI verification for issue #50: send a real message, capture the
 // in-flight (tool trace/thinking) state and the finished reply.
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { chromium } from "playwright";
+// Usage: DEMO_PASSWORD=... SHOT_DIR=... node scripts/ui50_chat_shot.mjs
+import { runWalk, signIn } from "./ui_shot_lib.mjs";
 
-const APP = process.env.MVP_APP_URL || "http://localhost:13000";
-const OUT = process.env.SHOT_DIR || ".ui50-shots";
-mkdirSync(OUT, { recursive: true });
-
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
-const shot = async (name) => {
-  await page.screenshot({ path: join(OUT, `${name}.png`) });
-  console.log(`shot ${name}`);
-};
-
-try {
-  await page.goto(APP, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.getByTestId("signin-username").fill("dan");
-  await page.getByTestId("signin-password").fill(process.env.DEMO_PASSWORD);
-  await page.getByTestId("signin-submit").click();
-  await page.getByTestId("home-screen").waitFor({ timeout: 90_000 });
+await runWalk(async (page, shot) => {
+  await signIn(page);
   await page.waitForTimeout(1500);
-  await shot("01b-home-avatar-fixed");
+  await shot("01b-home");
 
   await page.getByTestId("starter-prompt-0").click(); // "Review my engagements"
   await page.waitForTimeout(2500);
@@ -33,10 +17,4 @@ try {
   await page.waitForTimeout(800);
   await shot("14-chat-reply");
   console.log("CHAT OK");
-} catch (error) {
-  await shot("98-chat-failure");
-  console.error("FAILED:", error.message);
-  process.exitCode = 1;
-} finally {
-  await browser.close();
-}
+});

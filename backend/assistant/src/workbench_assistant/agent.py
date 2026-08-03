@@ -52,7 +52,7 @@ from copilot.session_events import (
 
 from workbench_core import (
     EngagementService, PersonalNotFound, PersonalWorkspaceError, PersonalWorkspaceService,
-    ProductToolResult, engagement_product_result,
+    ProductToolResult, engagement_detail_text, engagement_product_result,
 )
 from workbench_core import appdb
 from workbench_core.appdb_repository import AppdbEngagementRepository
@@ -223,59 +223,6 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
     def _engagements() -> list[dict]:
         return engagement_service.list(user_id).record["engagements"]
 
-    def _engagement_detail_text(record: dict) -> str:
-        """Model-visible detail for one Engagement: the facts a user would ask about.
-        The typed ProductToolResult stays the control-plane truth; this is the data."""
-        lines = [
-            f"Engagement [{record['id']}] {record.get('name', '')}",
-            f"customer={record.get('customer') or 'n/a'} | status={record.get('status', 'green')}"
-            + (f" ({record['statusNote']})" if record.get("statusNote") else "")
-            + f" | start={record.get('startDate') or 'n/a'} | target={record.get('targetDate') or 'n/a'}",
-            "members: " + (", ".join(f"{m.get('userId')}({m.get('role')})" for m in record.get("members") or []) or "none"),
-        ]
-        if record.get("description"):
-            lines.append(f"description: {record['description']}")
-        if record.get("businessValue"):
-            lines.append(f"businessValue: {record['businessValue']}")
-        if record.get("value"):
-            lines.append(f"value: ${record['value']:,.0f}")
-        if record.get("currentState"):
-            lines.append(f"currentState (as of {record.get('stateDate') or 'n/a'}): {record['currentState']}")
-        if record.get("objectives"):
-            lines.append("objectives: " + "; ".join(record["objectives"]))
-        if record.get("keyDates"):
-            lines.append("keyDates: " + "; ".join(
-                f"{k.get('date')} {k.get('label')}{' (done)' if k.get('done') else ''}"
-                for k in record["keyDates"]))
-        if record.get("contacts"):
-            lines.append("customer contacts: " + "; ".join(
-                f"{c.get('name')} ({c.get('role')})" for c in record["contacts"]))
-        timeline = record.get("timeline") or []
-        if timeline:
-            lines.append("timeline (newest first):")
-            for entry in timeline[:10]:
-                src = f" [from {entry['source']}]" if entry.get("source") else ""
-                lines.append(f"- [{entry.get('id')}] {entry.get('date')} {entry.get('type')}: "
-                             f"{entry.get('title')} — {entry.get('author')}{src}")
-        for label, key, fields in (
-            ("tasks", "tasks", ("title", "status", "priority", "dueDate")),
-            ("actions", "actions", ("title", "status", "owner", "dueDate")),
-            ("milestones", "milestones", ("title", "status", "dueDate")),
-            ("risks", "risks", ("title", "severity", "status")),
-        ):
-            items = record.get(key) or []
-            if items:
-                lines.append(f"{label}:")
-                for item in items:
-                    parts = [str(item.get(field)) for field in fields if item.get(field)]
-                    lines.append(f"- [{item.get('id')}] " + " | ".join(parts))
-        artifacts = record.get("library") or []
-        lines.append(f"artifacts: {len(artifacts)}")
-        conventions = record.get("conventions") or []
-        if conventions:
-            lines.append("conventions: " + "; ".join(c.get("text", "") for c in conventions))
-        return "\n".join(lines)
-
     def _tool_result(result: ProductToolResult, text: str) -> ToolResult:
         return ToolResult(text_result_for_llm=text, tool_telemetry={"product_result": result.to_dict()})
 
@@ -313,7 +260,7 @@ def _build_flow_tools(working_dir: str, user_id: str) -> list:
     def get_engagement(params: GetEngagementCommand) -> ToolResult:
         outcome = engagement_service.get(user_id, params.engagement_id)
         result = engagement_product_result(outcome)
-        text = _engagement_detail_text(outcome.record) if outcome.record else result.message
+        text = engagement_detail_text(outcome.record) if outcome.record else result.message
         return _tool_result(result, text)
 
     @define_tool(name="update_engagement", description="Update description, customer, dates, business value, USD value, or the 'where it stands' currentState as an editor/owner; changing name requires owner access. Omit fields to leave them unchanged; empty optional fields clear them.")

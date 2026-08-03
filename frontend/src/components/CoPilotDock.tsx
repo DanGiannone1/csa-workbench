@@ -11,6 +11,7 @@ export default function CoPilotDock({ onCollapse }: { onCollapse: () => void }) 
   const router = useRouter();
   return (
     <AssistantPanel
+      flat
       onOpenWorkspace={() => router.push("/assistant")}
       headerActions={
         <>

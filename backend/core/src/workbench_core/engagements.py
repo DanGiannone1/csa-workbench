@@ -16,7 +16,6 @@ ROLE_RANK = {"viewer": 0, "editor": 1, "owner": 2}
 ROLES = tuple(ROLE_RANK)
 STATUSES = ("green", "yellow", "red")
 TIMELINE_TYPES = ("meeting", "decision", "risk", "note")
-ARTIFACT_TIERS = ("bronze", "silver", "gold")
 
 
 @dataclass(frozen=True)
@@ -416,17 +415,8 @@ class EngagementService:
             elif normalized["status"] not in STATUSES:
                 errors["status"] = "must be green, yellow, or red"
         for field in ("startDate", "targetDate", "stateDate"):
-            if normalized.get(field):
-                if len(normalized[field]) != 10:
-                    errors[field] = "must be an ISO calendar date"
-                    continue
-                try:
-                    parsed = date.fromisoformat(normalized[field])
-                except ValueError:
-                    errors[field] = "must be an ISO calendar date"
-                    continue
-                if parsed.isoformat() != normalized[field]:
-                    errors[field] = "must be an ISO calendar date"
+            if normalized.get(field) and self._iso_or_none(normalized[field]) is None:
+                errors[field] = "must be an ISO calendar date"
         # "Where it stands" always carries its as-of date: stamp today unless given.
         if normalized.get("currentState") and not normalized.get("stateDate"):
             normalized["stateDate"] = date.today().isoformat()

@@ -17,7 +17,7 @@ import { useSession } from "./SessionProvider";
 // `headerActions` lets each surface add its own controls (expand/collapse, back-to-app).
 // `onOpenWorkspace` (dock only) surfaces a compact artifact card so a generated deliverable
 // isn't orphaned in the dock — one click opens it in the workspace canvas.
-export default function AssistantPanel({ headerActions, onOpenWorkspace }: { headerActions?: React.ReactNode; onOpenWorkspace?: () => void }) {
+export default function AssistantPanel({ headerActions, onOpenWorkspace, flat = false }: { headerActions?: React.ReactNode; onOpenWorkspace?: () => void; flat?: boolean }) {
   const {
     state, statusMessage, isChatUploading, chatUploadName,
     handleSend, handleStop, handleChatUpload, doNewChat, startSession, navigateView,
@@ -64,8 +64,11 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
   }, [closeNewSessionDialog, doNewChat]);
 
   return (
-    <div className="flex h-full flex-col gap-3 min-w-0">
-      <Surface className="h-14 flex items-center justify-between px-5 shrink-0">
+    <div className={`flex h-full flex-col min-w-0 ${flat ? "gap-0" : "gap-3"}`}>
+      <Surface
+        level={flat ? "flat" : "base"}
+        className={`h-14 flex items-center justify-between px-5 shrink-0 ${flat ? "border-b border-border-subtle" : ""}`}
+      >
         <div className="flex items-center gap-2.5 font-bold tracking-tight">
           <div className={`p-1.5 rounded-lg bg-brand-primary text-text-on-brand relative ${agentWorking ? "agent-working" : ""}`}>
             <BespokeIcon icon={Sparkles} size={16} />
@@ -94,7 +97,7 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
         </div>
       </Surface>
 
-      <Surface level="raised" className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <Surface level={flat ? "flat" : "raised"} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {state.sessionError ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
             <p className="text-sm text-text-muted">{state.sessionError}</p>

@@ -62,6 +62,7 @@ html, body {
 }
 .ui-surface-subtle { background: var(--surface-2); }
 .ui-surface-raised { box-shadow: var(--shadow-raised); }
+.ui-surface-flat { border: 0; border-radius: 0; box-shadow: none; }
 .ui-card { border-radius: 1.25rem; }
 
 /* Quiet, sentence-case controls per the design reference. */
@@ -519,9 +520,9 @@ html, body {
   margin: 0.75rem 0; background: var(--border-subtle); border: 1px solid var(--border-subtle);
   border-radius: 0.85rem; overflow: hidden; box-shadow: var(--shadow-resting);
 }
-.tw-stats > *, .tw-stat {
-  border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
-  background: var(--surface-1) !important; padding: 0.8rem 1rem;
+.tw-stats > * {
+  border: 0; border-radius: 0; box-shadow: none;
+  background: var(--surface-1); padding: 0.8rem 1rem;
 }
 .tw-stat-value { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
 .tw-stat-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; margin-top: 0.1rem; }
@@ -536,11 +537,8 @@ html, body {
 .tw-doc-pending { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
 
 /* The assistant dock and floating launcher, per the design reference's rail + FAB.
-   Inside the dock the panel reads as one flat rail: surfaces lose card chrome. */
+   The panel itself opts into flat surfaces via AssistantPanel's `flat` prop. */
 .tw-dock { border-left: 1px solid var(--border-subtle); background: var(--surface-1); }
-.tw-dock > * { gap: 0; }
-.tw-dock .ui-surface { border: 0; border-radius: 0; box-shadow: none; }
-.tw-dock .ui-surface:first-child { border-bottom: 1px solid var(--border-subtle); }
 .tw-fab { width: 44px; height: 44px; border-radius: 999px; box-shadow: var(--shadow-raised); }
 
 /* Portfolio rows, per the design reference's `pf-row`. */

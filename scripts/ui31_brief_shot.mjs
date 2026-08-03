@@ -1,27 +1,10 @@
 // Live verification of the async session-start brief: it renders without any
 // user turn, and clicking an item routes into the record.
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { chromium } from "playwright";
+// Usage: DEMO_PASSWORD=... SHOT_DIR=... node scripts/ui31_brief_shot.mjs
+import { runWalk, signIn } from "./ui_shot_lib.mjs";
 
-const APP = process.env.MVP_APP_URL || "http://localhost:13000";
-const OUT = process.env.SHOT_DIR || ".ui31-shots";
-mkdirSync(OUT, { recursive: true });
-
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
-const shot = async (name) => {
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: join(OUT, `${name}.png`) });
-  console.log(`shot ${name}`);
-};
-
-try {
-  await page.goto(APP, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  await page.getByTestId("signin-username").fill("dan");
-  await page.getByTestId("signin-password").fill(process.env.DEMO_PASSWORD);
-  await page.getByTestId("signin-submit").click();
-  await page.getByTestId("home-screen").waitFor({ timeout: 90_000 });
+await runWalk(async (page, shot) => {
+  await signIn(page);
 
   // The brief must appear with no user interaction at all.
   await page.getByTestId("session-brief").waitFor({ timeout: 30_000 });
@@ -38,10 +21,4 @@ try {
     await shot("16-brief-item-navigated");
   }
   console.log("BRIEF OK");
-} catch (error) {
-  await shot("97-brief-failure");
-  console.error("FAILED:", error.message);
-  process.exitCode = 1;
-} finally {
-  await browser.close();
-}
+});

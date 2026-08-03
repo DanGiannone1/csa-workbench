@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import unittest
 
+from fastapi import HTTPException
+from fastapi.testclient import TestClient
+
+from workbench_api import app as orchestrator
 from workbench_core import compute_brief
 
 TODAY = "2026-08-02"
@@ -66,6 +70,48 @@ class BriefTests(unittest.TestCase):
         ]}, TODAY)
         self.assertEqual(brief["items"], [
             {"label": "1 of your own task overdue", "tone": "yellow", "path": "/todo"}])
+
+
+class _AllowRequest:
+    async def authenticate(self, _request):
+        return None
+
+
+class BriefEndpointTests(unittest.TestCase):
+    """GET /sessions/{id}/brief: session-owned, computed from the caller's state."""
+
+    def _client(self, monkey_state):
+        async def owned(session_id: str, uid: str) -> None:
+            if session_id != "session-dan" or uid != "dan":
+                raise HTTPException(status_code=404, detail="Session not found")
+
+        self._restore = (orchestrator.api_authenticator, orchestrator._require_owned_session,
+                         orchestrator.appdb.supported_app_state_for,
+                         dict(orchestrator.app.dependency_overrides))
+        orchestrator.api_authenticator = _AllowRequest()
+        orchestrator._require_owned_session = owned
+        orchestrator.appdb.supported_app_state_for = lambda uid: monkey_state
+        orchestrator.app.dependency_overrides[orchestrator.current_user] = lambda: "dan"
+        return TestClient(orchestrator.app)
+
+    def tearDown(self):
+        if hasattr(self, "_restore"):
+            (orchestrator.api_authenticator, orchestrator._require_owned_session,
+             orchestrator.appdb.supported_app_state_for, overrides) = self._restore
+            orchestrator.app.dependency_overrides = overrides
+
+    def test_brief_returns_ranked_items_for_owned_session(self):
+        client = self._client({"engagements": [eng("eng-a", "red", "Halted")], "personalTasks": []})
+        response = client.get("/sessions/session-dan/brief")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertIn("message", body)
+        self.assertEqual(body["items"][0]["path"], "/engagements/eng-a")
+        self.assertEqual(body["items"][0]["tone"], "red")
+
+    def test_brief_hidden_for_unowned_session(self):
+        client = self._client({"engagements": [], "personalTasks": []})
+        self.assertEqual(client.get("/sessions/session-ava/brief").status_code, 404)
 
 
 if __name__ == "__main__":
