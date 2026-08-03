@@ -16,6 +16,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "@/lib/types";
 import { useAppAuth } from "@/components/AppAuthProvider";
+import Drawer from "@/components/ui/Drawer";
+import { Overlay } from "@/components/ui/Overlay";
 
 // The CSA Workbench left-nav rail, shared by the host app and the Assistant workspace so
 // the workspace reads as a page *of* CSA Workbench (not a separate chatbot). Host items
@@ -126,8 +128,9 @@ export default function WorkbenchNav({
   };
 
   const navigation = (
-    <nav
+    <Drawer
       ref={drawerRef}
+      open={drawerOpen}
       className={`tw-nav ${drawerOpen ? "tw-nav-drawer-open" : ""}`}
       id="workbench-nav"
       aria-label="Workspace navigation"
@@ -180,7 +183,7 @@ export default function WorkbenchNav({
           className="flex items-center gap-2 px-2 py-1.5"
           data-testid="user-chip"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/20 text-[11px] font-bold uppercase text-brand-primary">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/20 text-[11px] font-bold uppercase text-text-brand-on-subtle">
             {user.displayName.slice(0, 1)}
           </span>
           <span
@@ -200,7 +203,7 @@ export default function WorkbenchNav({
           </button>
         </div>
       </div>
-    </nav>
+    </Drawer>
   );
 
   return (
@@ -218,12 +221,11 @@ export default function WorkbenchNav({
         <Menu size={20} />
       </button>
       {drawerOpen && (
-        <button
-          type="button"
+        <Overlay
           className="tw-nav-backdrop"
           data-testid="nav-backdrop"
-          aria-label="Close navigation"
-          onClick={closeDrawer}
+          label="Close navigation"
+          onDismiss={closeDrawer}
         />
       )}
       {navigation}

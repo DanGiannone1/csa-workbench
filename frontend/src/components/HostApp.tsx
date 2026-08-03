@@ -5,6 +5,8 @@ import { Sparkles } from "lucide-react";
 import WorkbenchApp from "./workbench/WorkbenchApp";
 import CoPilotDock from "./CoPilotDock";
 import BespokeIcon from "./ui/BespokeIcon";
+import Button from "./ui/Button";
+import { Overlay } from "./ui/Overlay";
 import { useSession } from "./SessionProvider";
 
 // The host route ("/"): the CSA Workbench app is primary and full-width; the assistant
@@ -60,11 +62,6 @@ export default function HostApp() {
 
   return (
     <div className="relative flex h-screen w-full bg-app p-3 gap-3 text-text-primary font-sans overflow-clip" data-testid="host-shell">
-      <div className="pointer-events-none absolute inset-0 overflow-clip" aria-hidden="true">
-        <div className="ambient-orb-1 animate-blob" />
-        <div className="ambient-orb-2 animate-blob" />
-      </div>
-
       <div className="relative z-10 flex h-full w-full gap-3" data-testid="host-layout">
         <div className="flex-1 min-w-0 h-full">
           <WorkbenchApp
@@ -94,12 +91,7 @@ export default function HostApp() {
       {/* Narrow: the dock overlays the host (with a tap-to-dismiss backdrop) instead of squeezing it. */}
       {dockOpen && narrow && (
         <>
-          <button
-            type="button"
-            className="fixed inset-0 z-20 bg-app/50 backdrop-blur-sm"
-            aria-label="Close assistant"
-            onClick={closeDock}
-          />
+          <Overlay className="z-20" label="Close assistant" onDismiss={closeDock} />
           <div
             ref={compactSheetRef}
             role="dialog"
@@ -115,27 +107,24 @@ export default function HostApp() {
       )}
 
       {!dockOpen && !navDrawerOpen && (
-        <button
-          type="button"
+        <Button
           data-testid="dock-launcher"
           ref={launcherRef}
           onClick={() => setDockOpen(true)}
-          className={`interactive-control fixed bottom-6 right-6 z-20 inline-flex items-center gap-2.5 rounded-2xl border border-border-subtle bg-surface-1/90 backdrop-blur-2xl px-4 py-3 shadow-[0_16px_40px_rgba(0,0,0,0.12)] hover:border-brand-primary transition-all`}
+          className="fixed bottom-6 right-6 z-20 gap-2.5 px-4 py-3"
         >
           <span
-            className={`p-1.5 rounded-lg bg-gradient-to-br from-brand-primary to-brand-accent ${agentWorking ? "agent-working" : ""}`}
+            className={`p-1.5 rounded-lg bg-brand-primary text-text-on-brand ${agentWorking ? "agent-working" : ""}`}
           >
             <BespokeIcon
               icon={Sparkles}
               size={15}
-              className="text-white"
-              glowColor="rgba(255,255,255,0.4)"
             />
           </span>
           <span className="text-[12px] font-bold uppercase tracking-widest text-text-secondary">
             {agentWorking ? "Assistant · Working…" : "Ask the Assistant"}
           </span>
-        </button>
+        </Button>
       )}
     </div>
   );

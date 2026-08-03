@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import artifact_store
+from workbench_api import artifact_store
 
 
 def test_artifact_blob_default_matches_the_provisioned_engagement_container(monkeypatch) -> None:

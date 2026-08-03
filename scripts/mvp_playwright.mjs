@@ -10,8 +10,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
-import { evaluateCase, evidencePath, parseSse, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, terminalEvents, validEventSequence } from "./mvp_evidence.mjs";
+import { axeColorContrastOptions, axeColorContrastPasses, compactAxeContrastResults } from "./axe_contrast.mjs";
+import { completedStreamEvidence, evidencePath, exactEngagementUpdate, onlyEngagementMayChange, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, stateFingerprint } from "./mvp_evidence.mjs";
 
 const startedAt = new Date().toISOString();
 const REMOTE = process.env.MVP_ALLOW_REMOTE === "1";
@@ -22,6 +24,16 @@ const runId = process.env.MVP_RUN_ID || new Date().toISOString().replace(/[:.]/g
 const runTag = runId.replace(/[^A-Za-z0-9_-]/g, "").slice(-12) || randomUUID().slice(0, 8);
 const out = evidencePath("playwright", runId, EVIDENCE_ENVIRONMENT);
 const expectedFixtureVersion = JSON.parse(readFileSync("tests/evals/mvp-cases.json", "utf8")).fixtureVersion;
+// Keep both sides of each responsive boundary in the recorded browser evidence.
+// The sizes are deliberately concrete: desktop >=1200, compact 768–1199, phone <=767.
+const RESPONSIVE_VIEWPORTS = Object.freeze([
+  { name: "desktop-1440", width: 1440, height: 900, layout: "desktop" },
+  { name: "desktop-1200", width: 1200, height: 900, layout: "desktop" },
+  { name: "compact-1199", width: 1199, height: 900, layout: "compact" },
+  { name: "compact-768", width: 768, height: 900, layout: "compact" },
+  { name: "phone-767", width: 767, height: 844, layout: "phone" },
+  { name: "phone-390", width: 390, height: 844, layout: "phone" },
+]);
 if (!process.env.DEMO_PASSWORD) throw new Error("DEMO_PASSWORD is required; this runner never supplies a static password.");
 // Remote (live Azure demo) runs rely on the instance's idempotent boot-seed instead of the
 // local-only reset_demo_state.py fixture; local runs still require the guarded reset.
@@ -35,6 +47,16 @@ function resetFixture() {
 }
 
 const checks = [];
+async function checkColorContrast(page, state, report, include) {
+  let builder = new AxeBuilder({ page });
+  if (include) builder = builder.include(include);
+  const result = await builder.options(axeColorContrastOptions()).analyze();
+  const findings = compactAxeContrastResults(result);
+  report.colorContrast ??= [];
+  report.colorContrast.push({ state, rule: "color-contrast", include: include ?? null, ...findings });
+  const pass = axeColorContrastPasses(findings);
+  check(`MVP-P53-color-contrast-${state}`, pass, pass ? "" : JSON.stringify(findings));
+}
 function check(id, pass, detail = "") { checks.push({ id, pass: !!pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${id}${detail ? ` — ${detail}` : ""}`); }
 async function eventually(predicate, timeout = 15_000) {
   const until = Date.now() + timeout;
@@ -72,6 +94,88 @@ async function raw(page, path, method, body) {
 }
 async function noHorizontalOverflow(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth);
+}
+async function directStreamEvidence(page, prompt) {
+  // This uses a fresh owned session so the browser's real conversation remains the
+  // user journey under test. It is read-only: the prompt asks the model to retrieve
+  // the record that the browser turn already changed.
+  const response = await page.evaluate(async ({ api, prompt }) => {
+    const token = localStorage.getItem("pa_auth_token");
+    const headers = { "content-type": "application/json", ...(token ? { "X-Auth-Token": token } : {}) };
+    let probeSessionId = null;
+    try {
+      const created = await fetch(`${api}/sessions`, { method: "POST", headers, body: JSON.stringify({}) });
+      if (!created.ok) return { status: created.status, body: "" };
+      probeSessionId = (await created.json()).session_id;
+      const stream = await fetch(`${api}/sessions/${probeSessionId}/messages`, {
+        method: "POST", headers, body: JSON.stringify({ prompt, navigation_version: 0 }),
+      });
+      return { status: stream.status, body: await stream.text() };
+    } finally {
+      if (probeSessionId) await fetch(`${api}/sessions/${probeSessionId}`, { method: "DELETE", headers });
+    }
+  }, { api: API, prompt });
+  if (response.status !== 200) throw new Error(`Direct assistant stream returned HTTP ${response.status}.`);
+  const evidence = completedStreamEvidence(response.body);
+  return {
+    terminalType: evidence.terminal.type,
+    assistantTextPresent: evidence.assistantText.trim().length > 0,
+    assistantTextCharacters: evidence.assistantText.length,
+    toolCalls: evidence.toolCalls.map((call) => ({
+      name: call.name,
+      operation: call.result?.operation ?? null,
+      status: call.result?.status ?? null,
+      code: call.result?.code ?? null,
+    })),
+  };
+}
+async function responsiveLayout(page) {
+  return page.evaluate(() => {
+    const visible = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+    };
+    const content = document.querySelector('[data-testid="workbench-content"]');
+    return {
+      noHorizontalOverflow: document.documentElement.scrollWidth <= window.innerWidth && document.body.scrollWidth <= window.innerWidth,
+      dockVisible: visible('[data-testid="copilot-dock"]'),
+      launcherVisible: visible('[data-testid="dock-launcher"]'),
+      navigationToggleVisible: visible('[data-testid="nav-toggle"]'),
+      contentPaddingLeft: content ? Math.round(parseFloat(getComputedStyle(content).paddingLeft)) : null,
+    };
+  });
+}
+function matchesResponsiveLayout(observation, layout) {
+  if (!observation.noHorizontalOverflow) return false;
+  if (layout === "desktop") return observation.dockVisible && !observation.launcherVisible && !observation.navigationToggleVisible;
+  if (layout === "compact") return !observation.dockVisible && observation.launcherVisible && observation.navigationToggleVisible && observation.contentPaddingLeft === 20;
+  return !observation.dockVisible && observation.launcherVisible && observation.navigationToggleVisible && observation.contentPaddingLeft === 16;
+}
+async function captureResponsiveMatrix(page, report) {
+  report.responsiveMatrix = [];
+  for (const viewport of RESPONSIVE_VIEWPORTS) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    let observation = await responsiveLayout(page);
+    try {
+      observation = await eventually(async () => {
+        const candidate = await responsiveLayout(page);
+        return matchesResponsiveLayout(candidate, viewport.layout) ? candidate : null;
+      }, 3_000);
+    } catch {
+      // Record the observed layout and let the normal evidence check report the mismatch.
+    }
+    report.responsiveMatrix.push({ viewport, observation });
+    check(`MVP-P48-responsive-${viewport.name}`, matchesResponsiveLayout(observation, viewport.layout), JSON.stringify(observation));
+    await capture(page, `${out}/responsive-${viewport.name}.png`);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await eventually(async () => {
+    const observation = await responsiveLayout(page);
+    return matchesResponsiveLayout(observation, "desktop") ? observation : null;
+  });
 }
 async function capture(page, path) {
   await page.evaluate(async () => {
@@ -166,29 +270,13 @@ async function finalCardHitPoints(page) {
   });
 }
 async function newPage(browser, viewport, user) {
-  const context = await browser.newContext({ viewport });
+  const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
   await signIn(page, user);
   return { context, page, errors };
 }
-function throwOnCompletedRunError(sseBodies) {
-  for (const body of sseBodies) {
-    // response.text() can expose an incomplete final frame if transport handling
-    // changes. Only a frame closed by the SSE blank-line delimiter is complete.
-    if (typeof body !== "string" || !/\r?\n\r?\n$/.test(body)) continue;
-    let events;
-    try { events = parseSse(body); } catch { continue; }
-    const terminals = terminalEvents(events);
-    if (validEventSequence(events) && terminals[0]?.type === "RUN_ERROR") {
-      // The typed terminal proves the turn failed, but its message may contain
-      // provider diagnostics. Keep evidence output free of stream details.
-      throw new Error("Agent turn ended with RUN_ERROR; typed error details intentionally omitted.");
-    }
-  }
-}
-
 mkdirSync(out, { recursive: true });
 const report = { schemaVersion: 1, kind: "mvp-playwright", runId, sourceRevision: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), fixture: null, environment: EVIDENCE_ENVIRONMENT, harness: process.env.AGENT_BACKEND || "deepagents", model: process.env.AZURE_DEPLOYMENT || "UNSPECIFIED", app: APP, api: API, startedAt };
 let browser;
@@ -223,6 +311,8 @@ try {
   await dan.page.getByTestId("engagements-screen").waitFor({ state: "visible" });
   await capture(dan.page, `${out}/wide-dan-portfolio.png`);
   check("MVP-P2-wide-no-horizontal-overflow", await noHorizontalOverflow(dan.page));
+  await checkColorContrast(dan.page, "wide-engagements", report);
+  await captureResponsiveMatrix(dan.page, report);
 
   await dan.page.getByTestId("add-engagement-btn").click();
   await dan.page.getByTestId("engagement-save-btn").click();
@@ -306,6 +396,7 @@ try {
   await sam.page.getByTestId("viewer-note").waitFor({ state: "visible" });
   check("MVP-P13-viewer-has-no-editor-affordance", await sam.page.getByTestId("engagement-detail-editor").count() === 0);
   check("MVP-P14-viewer-note-visible", await sam.page.getByTestId("viewer-note").isVisible());
+  await checkColorContrast(sam.page, "compact-viewer", report);
   await capture(sam.page, `${out}/compact-sam-viewer.png`);
   check("MVP-P15-compact-no-horizontal-overflow", await noHorizontalOverflow(sam.page));
 
@@ -319,15 +410,10 @@ try {
   report.rejectedYellowValidation = { engagementId, before: beforeRejectedYellow, after: afterRejectedYellow };
   check("MVP-P17-validation-no-state-change", !!beforeRejectedYellow && sameCanonical(beforeRejectedYellow, afterRejectedYellow));
 
-  // Capture the real SSE payload from the browser turn, then require a structured
-  // committed result and the corresponding authoritative state.  The rendered label
-  // and assistant response are intentionally not examined as the oracle.
-  const sseBodies = [];
-  dan.page.on("response", async (response) => {
-    if (response.url().includes(`/sessions/`) && response.url().endsWith("/messages")) {
-      try { sseBodies.push(await response.text()); } catch { /* recorded as missing below */ }
-    }
-  });
+  // The completed turn marker is the browser proof: it is rendered only after the
+  // frontend receives RUN_FINISHED. Raw stream evidence comes from a fresh direct
+  // API probe below because the frontend correctly cancels its own reader at that
+  // terminal event, which makes passive network-body capture incomplete.
   const turnMetaBefore = await dan.page.getByTestId("turn-meta").count();
   const agentBefore = await state(dan.page);
   const layoutBefore = await wideLayout(dan.page);
@@ -337,34 +423,53 @@ try {
   const layoutsDuring = [await wideLayout(dan.page)];
   await eventually(async () => {
     layoutsDuring.push(await wideLayout(dan.page));
-    throwOnCompletedRunError(sseBodies);
     return (await dan.page.getByTestId("turn-meta").count()) > turnMetaBefore;
   }, 180_000);
   check("MVP-P28-wide-layout-during-agent", !!layoutBefore && layoutsDuring.length > 0 && layoutsDuring.every((layout) => stableWideLayout(layout, layoutBefore)));
-  const events = await eventually(() => {
-    for (const body of sseBodies) {
-      const candidate = parseSse(body);
-      if (terminalEvents(candidate).length === 1 && candidate.at(-1) === terminalEvents(candidate)[0]) return candidate;
-    }
-    return null;
-  }, 30_000);
   const agentState = await state(dan.page);
-  const agentOracle = evaluateCase({
-    expectation: {
-      operation: "update", status: "committed", resourceId: engagementId, stateChanged: true,
-      onlyEngagementMayChange: engagementId,
-      exactEngagementUpdate: { id: engagementId, actor: "dan", detail: "status, statusNote" },
-      engagementAfter: { id: engagementId, status: "yellow", statusNote: "Agent structured evidence refresh" },
-    },
-    before: agentBefore, after: agentState, events,
-  });
+  const agentTarget = engagementFrom(agentState, engagementId);
+  const agentOracle = { checks: {
+    stateChanged: stateFingerprint(agentBefore) !== stateFingerprint(agentState),
+    engagementAfter: agentTarget?.status === "yellow" && agentTarget?.statusNote === "Agent structured evidence refresh",
+    onlyEngagementMayChange: onlyEngagementMayChange(agentBefore, agentState, engagementId),
+    exactEngagementUpdate: exactEngagementUpdate(agentBefore, agentState, { id: engagementId, actor: "dan", detail: "status, statusNote" }),
+  } };
+  agentOracle.pass = Object.values(agentOracle.checks).every(Boolean);
   report.agentMutationOracle = agentOracle;
   check("MVP-P18-agent-e4-oracle", agentOracle.pass, JSON.stringify(agentOracle.checks));
   check("MVP-P20-agent-ui-refreshed", await dan.page.getByTestId("engagement-status-badge").innerText().then((value) => value.trim().toLowerCase() === "yellow"));
+  const directEvidence = await directStreamEvidence(
+    dan.page,
+    `Use the supported product tool to retrieve Engagement ${engagementId}. Do not make any changes. State its current status and status reason briefly.`,
+  );
+  report.directStreamValidation = directEvidence;
+  check(
+    "MVP-P52-direct-stream-terminal-and-evidence",
+    directEvidence.terminalType === "RUN_FINISHED" && directEvidence.assistantTextPresent && directEvidence.toolCalls.length > 0,
+    JSON.stringify({ terminalType: directEvidence.terminalType, assistantTextPresent: directEvidence.assistantTextPresent, toolCallCount: directEvidence.toolCalls.length }),
+  );
   const layoutAfter = await wideLayout(dan.page);
   check("MVP-P29-wide-layout-after-agent", !!layoutBefore && stableWideLayout(layoutAfter, layoutBefore));
   check("MVP-P30-wide-no-horizontal-overflow-after-agent", await noHorizontalOverflow(dan.page));
   await capture(dan.page, `${out}/wide-agent-updated-engagement.png`);
+
+  // This dialog appears only after a real conversation exists. Its overlay and focus
+  // restoration are recorded directly from the product surface, without test doubles.
+  await dan.page.getByTestId("new-chat-button").click();
+  const newSessionDialog = dan.page.getByRole("dialog", { name: "Start a new session?" });
+  await newSessionDialog.waitFor({ state: "visible" });
+  const dialogConfirm = newSessionDialog.getByRole("button", { name: "Start new session" });
+  const dialogOverlay = dan.page.locator(".ui-overlay-layer");
+  check(
+    "MVP-P49-new-session-dialog-overlay-focus",
+    await dialogOverlay.isVisible() && await dialogConfirm.evaluate((element) => document.activeElement === element),
+  );
+  await checkColorContrast(dan.page, "dialog", report, '[role="dialog"]');
+  await capture(dan.page, `${out}/wide-dan-new-session-dialog-overlay.png`);
+  await dan.page.keyboard.press("Escape");
+  check("MVP-P50-new-session-dialog-escape-restores-focus", await eventually(() =>
+    dan.page.getByTestId("new-chat-button").evaluate((element) => document.activeElement === element)));
+  await capture(dan.page, `${out}/wide-dan-new-session-focus-restored.png`);
 
   const narrow = await newPage(browser, { width: 390, height: 844 }, "dan");
   await narrow.page.getByTestId("nav-toggle").click();
@@ -372,9 +477,11 @@ try {
   check("MVP-P22-narrow-drawer-focuses", await eventually(() => narrow.page.evaluate(() => document.activeElement?.closest("#workbench-nav") !== null)));
   check("MVP-P31-narrow-drawer-hides-launcher", await eventually(() => narrow.page.getByTestId("dock-launcher").count().then((count) => count === 0)));
   check("MVP-P32-narrow-drawer-sign-out-unobstructed", await signOutUnobstructed(narrow.page));
+  await checkColorContrast(narrow.page, "phone-drawer", report, "#workbench-nav");
   await capture(narrow.page, `${out}/narrow-dan-drawer-open.png`);
   await narrow.page.keyboard.press("Escape");
   check("MVP-P23-narrow-escape-restores-focus", await eventually(() => narrow.page.getByTestId("nav-toggle").evaluate((element) => document.activeElement === element)));
+  await capture(narrow.page, `${out}/narrow-dan-drawer-focus-restored.png`);
   check("MVP-P24-narrow-no-horizontal-overflow", await noHorizontalOverflow(narrow.page));
   const critical = await narrow.page.getByTestId("nav-toggle").boundingBox();
   check("MVP-P25-narrow-critical-control-not-clipped", !!critical && critical.x >= 0 && critical.y >= 0 && critical.x + critical.width <= 390 && critical.y + critical.height <= 844);
@@ -424,6 +531,7 @@ try {
       assistantNarrowLayout.artifacts.y > assistantNarrowLayout.chat.y,
     JSON.stringify(assistantNarrowLayout),
   );
+  await checkColorContrast(narrow.page, "phone-assistant", report);
   await capture(narrow.page, `${out}/narrow-assistant-workspace.png`);
 
   // ── Personal work: Home/Tasks/Calendar/Reminders are the actor's private, owner-only
@@ -517,6 +625,18 @@ try {
     reminderCreateValid && reminderNextCellText !== "—" && !!pausedReminder && reminderPausedRendered,
     JSON.stringify({ created: createdReminder, nextCellText: reminderNextCellText, paused: pausedReminder }),
   );
+
+  // Expire Sam's disposable browser session through the real API, then navigate in
+  // the real UI. The retained view renders the product's stale-workspace Toast; no
+  // network interception or component mock is involved.
+  await sam.page.setViewportSize({ width: 1440, height: 900 });
+  const samSessionId = await sessionId(sam.page);
+  const deletedSamSession = samSessionId ? await raw(sam.page, `/sessions/${samSessionId}`, "DELETE") : { status: 0 };
+  await sam.page.getByTestId("nav--home").click();
+  const staleWorkspaceToast = sam.page.getByTestId("workspace-stale");
+  await staleWorkspaceToast.waitFor({ state: "visible" });
+  check("MVP-P51-real-stale-workspace-toast", deletedSamSession.status === 204 && await staleWorkspaceToast.isVisible(), String(deletedSamSession.status));
+  await capture(sam.page, `${out}/wide-sam-stale-workspace-toast.png`);
 
   // Isolation: Ava's own personal aggregates must never contain Dan's records.
   const avaPersonalState = await state(ava.page);

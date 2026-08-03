@@ -10,12 +10,7 @@ against the Cosmos emulator. Usage:
 
 from __future__ import annotations
 
-import sys
 import os
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "session-container"))
 
 WL = "eng-acme-ai-chatbot"
 failures = 0
@@ -31,7 +26,7 @@ def ok(name: str, cond: bool, extra: str = "") -> None:
 def main() -> int:
     from fastapi.testclient import TestClient
 
-    import app as app_module
+    from workbench_api import app as app_module
     password = os.environ.get("DEMO_PASSWORD", "")
     if not password:
         raise RuntimeError("DEMO_PASSWORD is required for the demo probe")

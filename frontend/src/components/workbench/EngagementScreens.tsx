@@ -38,20 +38,14 @@ import {
 } from "@/lib/api";
 import { parseEngagementRoute } from "@/lib/engagementRoute";
 import { friendlyError } from "@/lib/utils";
+import Status from "@/components/ui/Status";
+import { Tab, Tabs } from "@/components/ui/Tabs";
 
 const statusLabel: Record<EngagementStatus, string> = {
   green: "Green",
   yellow: "Yellow",
   red: "Red",
 };
-
-function statusClass(status: EngagementStatus) {
-  return status === "red"
-    ? "tw-badge-red"
-    : status === "yellow"
-      ? "tw-badge-orange"
-      : "tw-badge-green";
-}
 
 function StatusBadge({
   status,
@@ -60,10 +54,11 @@ function StatusBadge({
   status: EngagementStatus;
   testid?: string;
 }) {
+  const tone = status === "red" ? "danger" : status === "yellow" ? "warning" : "success";
   return (
-    <span className={`tw-badge ${statusClass(status)}`} data-testid={testid}>
+    <Status tone={tone} data-testid={testid}>
       {statusLabel[status]}
-    </span>
+    </Status>
   );
 }
 
@@ -546,20 +541,19 @@ function EngagementHeader({
           its delivery record, team, tasks, conventions, or artifacts.
         </p>
       )}
-      <nav className="tw-tabs" data-testid="engagement-tabs" aria-label="Engagement sections">
+      <Tabs className="tw-tabs" data-testid="engagement-tabs" aria-label="Engagement sections">
         {tabs.map(([tab, label]) => (
-          <button
+          <Tab
             key={tab}
-            type="button"
-            aria-current={sub === tab ? "page" : undefined}
+            active={sub === tab}
             className={`tw-tab ${sub === tab ? "tw-tab-active" : ""}`}
             data-testid={`engagement-tab-${tab || "overview"}`}
             onClick={() => onNavigate(tab ? `${base}/${tab}` : base)}
           >
             {label}
-          </button>
+          </Tab>
         ))}
-      </nav>
+      </Tabs>
     </>
   );
 }

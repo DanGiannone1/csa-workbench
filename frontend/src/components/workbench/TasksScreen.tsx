@@ -332,7 +332,7 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
                   style={{ background: "none", border: "none", padding: 0, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "inherit", flex: 1, minWidth: 0, textAlign: "left" }}
                   onClick={() => { if (sessionId && !busy) void run(() => toggleSubtask(sessionId, task.id, index, !subtask.done)); }}
                 >
-                  {subtask.done ? <CheckCircle2 size={15} className="text-green-500" /> : <Circle size={15} />}
+                  {subtask.done ? <CheckCircle2 size={15} className="text-brand-success" /> : <Circle size={15} />}
                   <span className={subtask.done ? "line-through opacity-60" : ""}>{subtask.text}</span>
                 </button>
                 <button

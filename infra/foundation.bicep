@@ -21,6 +21,24 @@ param azureOpenAiModelSkuName string
 @minValue(1)
 @maxValue(1000000)
 param azureOpenAiModelCapacity int
+@minLength(2)
+@maxLength(64)
+param foundryProjectName string
+@minLength(1)
+@maxLength(64)
+param legacyModelDeploymentName string
+@minLength(1)
+@maxLength(128)
+param legacyModelName string
+@minLength(1)
+@maxLength(128)
+param legacyModelVersion string
+@minLength(1)
+@maxLength(64)
+param legacyModelSkuName string
+@minValue(1)
+@maxValue(1000000)
+param legacyModelCapacity int
 @description('Existing tenant-governance NSG ID to preserve on the ACA infrastructure subnet, or empty when absent.')
 param acaInfrastructureNsgId string = ''
 @description('Existing tenant-governance NSG ID to preserve on the private-endpoints subnet, or empty when absent.')
@@ -39,12 +57,15 @@ var runtimeIdentityName = '${baseName}-runtime-identity'
 var virtualNetworkName = '${baseName}-vnet'
 var cosmosPrivateEndpointName = '${baseName}-cosmos-pe'
 var storagePrivateEndpointName = '${baseName}-storage-pe'
+var openAiPrivateEndpointName = '${baseName}-openai-pe'
 var privateDnsVnetLinkName = '${baseName}-vnet-link'
 var databaseName = '${baseName}-entra'
 var acrName = globalStem
 var cosmosAccountName = globalStem
 var storageAccountName = globalStem
 var azureOpenAiName = 'csawb-${uniqueString(subscription().subscriptionId, instanceSlug)}'
+var logAnalyticsName = '${baseName}-logs'
+var appInsightsName = '${baseName}-insights'
 
 resource resourceGroup 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: resourceGroupName
@@ -63,6 +84,7 @@ module platform 'platform.bicep' = {
     virtualNetworkName: virtualNetworkName
     cosmosPrivateEndpointName: cosmosPrivateEndpointName
     storagePrivateEndpointName: storagePrivateEndpointName
+    openAiPrivateEndpointName: openAiPrivateEndpointName
     privateDnsVnetLinkName: privateDnsVnetLinkName
     databaseName: databaseName
     cosmosAccountName: cosmosAccountName
@@ -75,12 +97,23 @@ module platform 'platform.bicep' = {
     azureOpenAiModelVersion: azureOpenAiModelVersion
     azureOpenAiModelSkuName: azureOpenAiModelSkuName
     azureOpenAiModelCapacity: azureOpenAiModelCapacity
+    foundryProjectName: foundryProjectName
+    legacyModelDeploymentName: legacyModelDeploymentName
+    legacyModelName: legacyModelName
+    legacyModelVersion: legacyModelVersion
+    legacyModelSkuName: legacyModelSkuName
+    legacyModelCapacity: legacyModelCapacity
     acaInfrastructureNsgId: acaInfrastructureNsgId
     privateEndpointNsgId: privateEndpointNsgId
+    logAnalyticsName: logAnalyticsName
+    appInsightsName: appInsightsName
   }
 }
 
 output resourceGroupName string = resourceGroup.name
+output logAnalyticsName string = logAnalyticsName
+output appInsightsName string = appInsightsName
+output appInsightsConnectionString string = platform.outputs.appInsightsConnectionString
 output environmentName string = environmentName
 output frontendAppName string = frontendAppName
 output apiAppName string = apiAppName
@@ -88,6 +121,7 @@ output runtimeAppName string = runtimeAppName
 output virtualNetworkName string = virtualNetworkName
 output cosmosPrivateEndpointName string = cosmosPrivateEndpointName
 output storagePrivateEndpointName string = storagePrivateEndpointName
+output openAiPrivateEndpointName string = openAiPrivateEndpointName
 output privateDnsVnetLinkName string = privateDnsVnetLinkName
 output databaseName string = databaseName
 output environmentDefaultDomain string = platform.outputs.environmentDefaultDomain
@@ -101,6 +135,7 @@ output acrLoginServer string = platform.outputs.acrLoginServer
 output azureOpenAiName string = platform.outputs.azureOpenAiName
 output azureOpenAiEndpoint string = platform.outputs.azureOpenAiEndpoint
 output azureOpenAiDeploymentName string = platform.outputs.azureOpenAiDeploymentName
+output foundryProjectName string = platform.outputs.foundryProjectName
 output frontendIdentityName string = frontendIdentityName
 output frontendIdentityId string = platform.outputs.frontendIdentityId
 output frontendIdentityClientId string = platform.outputs.frontendIdentityClientId

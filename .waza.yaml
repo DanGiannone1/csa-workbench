@@ -1,5 +1,5 @@
 paths:
-  skills: session-container/product-skills
+  skills: backend/assistant/product-skills
   evals: tests/evals/waza
   results: evidence/mvp/local-synthetic/waza
 
@@ -16,4 +16,4 @@ tokens:
   fallbackLimit: 1000
   limits:
     overrides:
-      session-container/product-skills/engagement-meeting-prep/SKILL.md: 1000
+      backend/assistant/product-skills/engagement-meeting-prep/SKILL.md: 1000

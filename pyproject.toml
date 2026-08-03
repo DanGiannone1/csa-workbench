@@ -1,20 +1,28 @@
 [project]
 name = "csa-workbench"
 version = "0.1.0"
-description = "CSA Workbench — engagement workspace with Azure OpenAI and isolated session containers"
+description = "Workspace for the CSA Workbench API, assistant, and shared core"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    # aiohttp is not imported directly: it is the transport azure-core loads at
-    # runtime for the azure.identity.aio / azure.storage aio clients used here.
-    "aiohttp>=3.11.0",
-    "azure-communication-email>=1.0.0",
-    "azure-cosmos>=4.16.1",
-    "azure-identity>=1.25.2",
-    "azure-storage-blob>=12.28.0",
-    "fastapi>=0.133.0",
-    "httpx>=0.28.0",
-    "python-dotenv>=1.2.1",
-    "python-multipart>=0.0.20",
-    "uvicorn[standard]>=0.41.0",
+    "workbench-api",
+    "workbench-assistant",
+    "workbench-core",
 ]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+workbench-api = { workspace = true }
+workbench-assistant = { workspace = true }
+workbench-core = { workspace = true }
+
+[tool.uv.workspace]
+members = ["backend/api", "backend/assistant", "backend/core"]
+
+[dependency-groups]
+dev = ["pytest>=9.0.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

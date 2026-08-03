@@ -1,0 +1,23 @@
+[project]
+name = "workbench-core"
+version = "0.1.0"
+description = "Shared domain, persistence, security, and protocol code for CSA Workbench"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-communication-email>=1.0.0",
+    "azure-cosmos>=4.16.1",
+    "azure-identity>=1.25.2",
+    "fastapi>=0.133.0",
+    "tzdata>=2025.2",
+]
+
+[project.optional-dependencies]
+tracing = [
+    "azure-monitor-opentelemetry>=1.6.0",
+    "opentelemetry-instrumentation-fastapi>=0.51b0",
+    "opentelemetry-sdk>=1.30.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

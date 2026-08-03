@@ -107,7 +107,7 @@ function inputs(overrides = {}) {
   const product = {
     schemaVersion: 5, kind: "mvp-agent-eval", runId: "product-run", startedAt: "2026-07-22T11:59:00Z", completedAt: "2026-07-22T12:00:00Z", sourceRevision: "c".repeat(40), scope: "all",
     fixture, environment: "local-synthetic", harness: "deepagents", model: "product-model",
-    skill: { name: "engagement-meeting-prep", version: "1.0.0", path: "session-container/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },
+    skill: { name: "engagement-meeting-prep", version: "1.0.0", path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },
     api: "http://127.0.0.1:18000",
     results: MVP_EVAL_MANIFEST.atomicCaseIds.map((id, index) => ({ id, pass: true, fixture, latencyMs: 100 + index, ...atomicCheckEvidence(id) })),
     workflows: MVP_EVAL_MANIFEST.workflowIds.map((id, index) => ({ id, pass: true, fixture, latencyMs: 200 + index, groundingReview: { status: "REVIEW_REQUIRED" }, ...workflowCheckEvidence(id, 300 + index * 10) })),
@@ -121,10 +121,10 @@ function inputs(overrides = {}) {
     tasks: ["WAZA-MP-1-direct-trigger", "WAZA-MP-2-paraphrased-trigger", "WAZA-MP-3-list-does-not-trigger", "WAZA-MP-4-update-does-not-trigger"].map((test_id) => ({ test_id, status: "passed" })),
     metrics: {},
     csaMvpProvenance: {
-      runner: "scripts/waza_eval.sh", wazaVersion: "0.38.3", sourceRevision: product.sourceRevision,
+      runner: "scripts/workbench.py", wazaVersion: "0.38.3", sourceRevision: product.sourceRevision,
       sourceRevisionAfter: product.sourceRevision, sourceDirtyBefore: false, sourceDirtyAfter: false,
       tag: "gate", eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml", recordedAt: "2026-07-22T12:01:00Z",
-      skill: { name: "engagement-meeting-prep", path: "session-container/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },
+      skill: { name: "engagement-meeting-prep", path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },
     },
   };
   const grounding = {

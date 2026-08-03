@@ -18,8 +18,12 @@ Private network
 ```
 
 The resource group also contains a Basic Azure Container Registry, Azure OpenAI account and model
-deployment, virtual network, private DNS zones, Cosmos DB account, and Storage account. Each
-Container App scales from zero to one replica.
+deployment, virtual network, private DNS zones, Cosmos DB account, Storage account, Log Analytics
+workspace, and Application Insights. Each Container App scales from zero to one replica.
+
+The API and runtime send OpenTelemetry traces to the instance Application Insights through the
+`APPLICATIONINSIGHTS_CONNECTION_STRING` environment variable. Tracing activates only when that
+variable is present, so local development is unaffected.
 
 ## Data services
 
@@ -49,7 +53,7 @@ and compliance telemetry. A demo-mode API omits the unused sidecar; the runtime 
 
 ## Deployment process
 
-`infra/deploy.sh` coordinates configuration checks, Azure planning, Entra setup, image builds,
+`uv run python -m scripts.workbench deploy` coordinates configuration checks, Azure planning, Entra setup, image builds,
 deployment, and post-deployment inspection. It requires a clean worktree and explicit model values.
 Application images use the full Git commit SHA rather than `latest`. The Microsoft authentication
 sidecar is pinned to an immutable OCI digest, and the post-deployment inventory rejects sidecar
@@ -57,7 +61,8 @@ image or configuration drift.
 
 Planning is the default and does not change Azure. Applying requires the exact confirmation printed
 by the current plan. The script recomputes the plan before making changes and rejects stale or
-copied confirmations.
+copied confirmations. `infra/deploy.py` owns that policy; the shell file is only a compatibility
+wrapper and contains no second deployment implementation.
 
 See the [deployment guide](../../guides/deployment.md) for the complete procedure.
 
@@ -65,11 +70,14 @@ See the [deployment guide](../../guides/deployment.md) for the complete procedur
 
 Scale-to-zero removes an always-running compute minimum but does not make the deployment free. Costs
 can come from active Container Apps, including the authentication sidecars, Cosmos requests and
-storage, Blob operations, private endpoints, the registry, image builds, and model use. Sidecars
-scale to zero with their parent app.
+storage, Blob operations, private endpoints, the registry, image builds, model use, and Log
+Analytics trace ingestion with its 30-day retention. Sidecars scale to zero with their parent app.
 
-The MVP does not provision Application Insights, a Log Analytics workspace, NAT Gateway, Azure
-Firewall, Front Door, API Management, VPN, Azure AI Search, or a warm assistant pool.
+The MVP does not provision a NAT Gateway, Azure Firewall, Front Door, API Management, VPN, Azure AI
+Search, or a warm assistant pool. Application Insights receives traces only: both applications turn
+the OpenTelemetry log and metric exporters off, and container console logs and data-plane diagnostic
+settings remain unprovisioned. Azure automatically creates a Failure Anomalies smart-detector alert
+rule for the component, which the deployment inspection tolerates.
 
 ## Local differences
 

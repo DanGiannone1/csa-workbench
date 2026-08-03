@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import quote, urlparse
 
+from scripts.host_commands import command_for_host
+
 INSTANCE_SLUG_RE = re.compile(r"^[a-z][a-z0-9]{2,9}$")
 AZURE_CLI_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
 API_SCOPE_ID = "6f4a54b6-4c0d-4b22-bbeb-61b46fbcf5bf"
@@ -56,7 +58,7 @@ class AzureCliGraph:
     base_url = "https://graph.microsoft.com/v1.0/"
 
     def _run(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-        command = ["az", "rest", "--method", method, "--url", self.base_url + path]
+        command = command_for_host(["az", "rest", "--method", method, "--url", self.base_url + path])
         if body is not None:
             command.extend(["--body", json.dumps(body, separators=(",", ":"))])
         completed = subprocess.run(command, check=False, text=True, capture_output=True)

@@ -1,23 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-import sys
 import unittest
 from pathlib import Path
-
-
-ROOT = Path(__file__).resolve().parent.parent
-SESSION = ROOT / "session-container"
-for path in (ROOT, SESSION):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
 
 from deepagents.middleware.filesystem import _check_fs_permission  # noqa: E402
 from deepagents.middleware.skills import _list_skills  # noqa: E402
 
-from agent import SYSTEM_PROMPT as COPILOT_SYSTEM_PROMPT  # noqa: E402
-from agent_deepagents import SYSTEM_PROMPT, _EXCLUDED_BUILTINS, _model_visible_text  # noqa: E402
-from skill_runtime import (  # noqa: E402
+from workbench_assistant.agent import SYSTEM_PROMPT as COPILOT_SYSTEM_PROMPT
+from workbench_assistant.agent_deepagents import SYSTEM_PROMPT, _EXCLUDED_BUILTINS, _model_visible_text
+from workbench_assistant.skill_runtime import (
     INTERNAL_SKILL_TOOLS,
     PRODUCT_SKILLS_ROOT,
     SKILL_NAMES,
@@ -65,7 +57,7 @@ class SkillRuntimeTests(unittest.TestCase):
 
     def test_only_a_full_read_is_recorded_as_skill_invocation(self):
         for name in SKILL_NAMES:
-            line_count = len(skill_path(name).read_text().splitlines(keepends=True))
+            line_count = len(skill_path(name).read_text(encoding="utf-8").splitlines(keepends=True))
             self.assertIsNone(
                 skill_name_for_read({"file_path": skill_virtual_path(name), "offset": 0, "limit": line_count - 1}),
             )

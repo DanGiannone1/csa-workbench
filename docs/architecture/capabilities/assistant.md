@@ -32,7 +32,7 @@ The model can call twenty tools:
 | Calendar | `list_events`, `create_event`, `update_event`, `delete_event` |
 | Reminders | `list_reminders`, `create_reminder`, `update_reminder`, `delete_reminder` |
 
-All tool schemas come from `session-container/mvp_tool_schemas.py`. No tool accepts a user ID, role,
+All tool schemas come from `backend/assistant/src/workbench_assistant/mvp_tool_schemas.py`. No tool accepts a user ID, role,
 or session ID.
 
 ## Product skills

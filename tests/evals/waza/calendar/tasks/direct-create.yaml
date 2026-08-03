@@ -1,0 +1,17 @@
+id: WAZA-CAL-1-direct-create
+name: Direct calendar request
+description: A direct calendar request loads the calendar skill and selects create_event; arguments and the saved outcome are not graded here.
+tags: [advisory, routing, positive]
+inputs:
+  prompt: Schedule a Focus block named Proposal review on 2026-08-10 from 09:00 to 10:00.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    name: invokes_calendar
+    config: { mode: exact_match, required_skills: [calendar], allow_extra: false }
+  - type: tool_constraint
+    name: calendar_only
+    config:
+      expect_tools: [{ tool: ".*create_event$" }]
+      reject_tools: [{ tool: ".*create_task$" }]

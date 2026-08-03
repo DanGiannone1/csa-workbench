@@ -1,0 +1,16 @@
+id: WAZA-WR-2-single-task-does-not-trigger
+name: Single task request does not load weekly review
+description: A one-off task update must remain an ordinary task operation.
+tags: [advisory, routing, negative]
+inputs:
+  prompt: Add a High priority task to review the proposal.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    name: forbids_weekly_review
+    config: { forbidden_skills: [weekly-review] }
+  - type: tool_constraint
+    name: no_review_workflow_actions
+    config:
+      reject_tools: [{ tool: ".*(list_tasks|update_task|list_events|create_event)$" }]

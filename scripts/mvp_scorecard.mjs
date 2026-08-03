@@ -217,7 +217,7 @@ export function summarizeWaza(wazaReport) {
   const gatePass = countsConsistent
     && schemaVersion === "1.2"
     && engine === "copilot-sdk"
-    && provenance?.runner === "scripts/waza_eval.sh"
+    && provenance?.runner === "scripts/workbench.py"
     && provenance?.wazaVersion === "0.38.3"
     && provenance?.tag === "gate"
     && provenance?.eval === "tests/evals/waza/engagement-meeting-prep/eval.yaml"

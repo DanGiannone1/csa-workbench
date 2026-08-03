@@ -1,7 +1,8 @@
 # Azure deployment
 
-This guide creates one isolated CSA Workbench instance with `infra/deploy.sh`. Planning is read-only.
-Deployment changes Azure resources and requires the user's explicit approval.
+This guide creates one isolated CSA Workbench instance with the repository's Python command.
+Planning is read-only. Deployment changes Azure resources and requires the user's explicit approval.
+The plan and apply commands are identical in PowerShell on Windows and in Terminal on macOS or Linux.
 
 ## Human-to-agent quick start
 
@@ -29,7 +30,7 @@ request to inspect or plan is not authorization to apply.
 
 ## Before starting
 
-1. Read the current `infra/deploy.sh`.
+1. Read the current `infra/deploy.py` deployment policy.
 2. Confirm the approved work record required by the [Master SDLC](../governance/master-sdlc.md).
 3. Use a clean worktree.
 4. Sign in to the intended Azure tenant and subscription.
@@ -43,13 +44,32 @@ az account show --query '{subscription:name,subscriptionId:id,tenantId:tenantId,
 
 For a VNet-integrated Container Apps environment, some subscriptions must first register
 `Microsoft.Network/AllowBringYourOwnPublicIpAddress` and then re-register the `Microsoft.Network`
-provider. `infra/deploy.sh` does not perform that subscription-level registration. The agent may
+provider. The repository deployment command does not perform that subscription-level registration. The agent may
 inspect its state, but must stop and obtain explicit approval before registering it, or ask the human
 to complete the prerequisite in the selected subscription. Authorization to apply the instance plan
 does not implicitly authorize provider or feature registration. After the human-approved prerequisite
-completes, rerun `az account show` and `./infra/deploy.sh plan`; never reuse an earlier confirmation.
+completes, rerun `az account show` and the plan command below; never reuse an earlier confirmation.
 
 ## Required values
+
+PowerShell on Windows:
+
+```powershell
+$env:INSTANCE_SLUG='your-instance-slug'
+$env:MODEL_DEPLOYMENT_NAME='your-model-deployment-name'
+$env:MODEL_NAME='your-model-name'
+$env:MODEL_VERSION='your-model-version'
+$env:MODEL_SKU_NAME='your-model-sku-name'
+$env:MODEL_CAPACITY='your-model-capacity'
+$env:LEGACY_MODEL_DEPLOYMENT_NAME='your-legacy-deployment-name'
+$env:LEGACY_MODEL_NAME='your-legacy-model-name'
+$env:LEGACY_MODEL_VERSION='your-legacy-model-version'
+$env:LEGACY_MODEL_SKU_NAME='your-legacy-model-sku-name'
+$env:LEGACY_MODEL_CAPACITY='your-legacy-model-capacity'
+$env:IDENTITY_MODE='entra'
+```
+
+Terminal on macOS or Linux:
 
 ```bash
 export INSTANCE_SLUG='your-instance-slug'
@@ -58,6 +78,11 @@ export MODEL_NAME='your-model-name'
 export MODEL_VERSION='your-model-version'
 export MODEL_SKU_NAME='your-model-sku-name'
 export MODEL_CAPACITY='your-model-capacity'
+export LEGACY_MODEL_DEPLOYMENT_NAME='your-legacy-deployment-name'
+export LEGACY_MODEL_NAME='your-legacy-model-name'
+export LEGACY_MODEL_VERSION='your-legacy-model-version'
+export LEGACY_MODEL_SKU_NAME='your-legacy-model-sku-name'
+export LEGACY_MODEL_CAPACITY='your-legacy-model-capacity'
 export IDENTITY_MODE='entra'
 ```
 
@@ -68,8 +93,8 @@ The resource group is `csa-wb-<instance-slug>-rg`.
 
 ## Plan
 
-```bash
-./infra/deploy.sh plan
+```text
+uv run python -m scripts.workbench deploy plan
 ```
 
 Planning authenticates to Azure, inspects the selected target, checks whether recovery is needed,
@@ -97,15 +122,15 @@ or cost choice that was not already approved.
 
 Run apply only when the user requested deployment and the current plan matches that request:
 
-```bash
-./infra/deploy.sh apply --confirm 'apply:<plan-id>:<resource-group>'
+```text
+uv run python -m scripts.workbench deploy apply --confirm "apply:<plan-id>:<resource-group>"
 ```
 
 Apply recomputes and checks the plan before changing Azure. A stale confirmation fails. When
-recovery is needed, the script removes only the exact Container Apps and environment named in the
+recovery is needed, the command removes only the exact Container Apps and environment named in the
 current plan before creating the approved resources.
 
-The script creates Entra registrations, builds Git-SHA-tagged images, deploys the Azure components,
+The command creates Entra registrations, builds Git-SHA-tagged images, deploys the Azure components,
 and inspects the resulting resource group, network, identities, and application settings.
 
 The final inspection requires exactly the three expected Container Apps with the configured access,
@@ -121,66 +146,37 @@ private-endpoint provisioning are long-running Azure control-plane operations; l
 output during those operations is not evidence that the deployment is stuck. Do not start a second
 apply while the first is still active.
 
-## Check application health
+## Verify the deployed application
 
-After apply, resolve the public endpoints and call them:
+Run the same command on Windows, macOS, or Linux:
 
-```bash
-export RESOURCE_GROUP="csa-wb-${INSTANCE_SLUG}-rg"
-export FRONTEND_FQDN="$(az containerapp show -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-frontend" --query properties.configuration.ingress.fqdn -o tsv)"
-export API_FQDN="$(az containerapp show -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --query properties.configuration.ingress.fqdn -o tsv)"
-curl --fail --retry 12 --retry-all-errors --max-time 30 "https://${FRONTEND_FQDN}/"
-curl --fail --retry 12 --retry-all-errors --max-time 30 "https://${API_FQDN}/health"
+```text
+uv run python -m scripts.workbench deploy verify
 ```
 
-## Demo-mode browser check
-
-Use only a new or dedicated demo instance. This command changes demo records and must not target an
-Entra or shared environment.
-
-```bash
-export MVP_ALLOW_REMOTE=1
-export MVP_APP_URL="https://${FRONTEND_FQDN}"
-export MVP_API_URL="https://${API_FQDN}"
-export IDENTITY_MODE=demo
-export AZURE_DEPLOYMENT='<deployed-model-name>'
-npm run playwright:mvp
-```
-
-`DEMO_PASSWORD` must already be available without printing it.
+The command resolves the deployed addresses from Azure, checks the public frontend and API, and
+keeps credentials out of terminal output. With `IDENTITY_MODE=entra`, it obtains a delegated token,
+checks `/auth/me`, creates a session through the API, and deletes that session. The session round
+trip proves the API can call the private runtime with its managed identity. It does not replace an
+interactive browser redirect or MFA check when that experience is release-critical.
 
 For a demo-mode instance, the running `DEMO_PASSWORD` is the sign-in password for every demo
 account — the database stores no credentials (instances seeded before this scheme scrub their
 old hashes on the next startup). Use a generated value of 32–64 characters (the login form caps
 at 128): besides a one-second delay on failed sign-ins, the password's strength is the only
-brute-force protection. Keep the value in the untracked `.env`. To look it up or rotate it on a
-deployed instance:
+brute-force protection. Keep the value in the untracked `.env`. To rotate it, change
+`DEMO_PASSWORD`, then run the normal deployment plan and apply commands again.
 
-```bash
-az containerapp secret show -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --secret-name demo-password --query value -o tsv
-az containerapp secret set  -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --secrets demo-password='<new-value>'
-az containerapp revision restart -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --revision "$(az containerapp revision list -g "$RESOURCE_GROUP" -n "csa-wb-${INSTANCE_SLUG}-api" --query '[?properties.active].name' -o tsv)"
+For a new or dedicated demo instance, set `IDENTITY_MODE=demo`, `DEMO_PASSWORD`, and
+`AZURE_DEPLOYMENT` using the PowerShell or Terminal syntax shown under Required values. Then, only
+with approval to change demo records, run:
+
+```text
+uv run python -m scripts.workbench deploy verify --browser
 ```
 
-## Entra API check
-
-```bash
-export API_CLIENT_ID="$(az ad app list --display-name "CSA Workbench [${INSTANCE_SLUG}] API" --query '[0].appId' -o tsv)"
-test -n "$API_CLIENT_ID"
-ACCESS_TOKEN="$(az account get-access-token --scope "api://${API_CLIENT_ID}/access_as_user" --query accessToken -o tsv)"
-ENTRA_ME="$(curl --fail --retry 6 --retry-all-errors --max-time 30 -H "Authorization: Bearer ${ACCESS_TOKEN}" "https://${API_FQDN}/auth/me")"
-ENTRA_ME="$ENTRA_ME" python3 -c 'import json,os; value=json.loads(os.environ["ENTRA_ME"]); assert value.get("identity") == "entra" and value.get("id", "").startswith("u-")'
-unset ENTRA_ME
-
-SESSION_JSON="$(curl --fail --retry 6 --retry-all-errors --max-time 30 -X POST -H "Authorization: Bearer ${ACCESS_TOKEN}" -H 'Content-Type: application/json' -d '{}' "https://${API_FQDN}/sessions")"
-SESSION_ID="$(SESSION_JSON="$SESSION_JSON" python3 -c 'import json,os; value=json.loads(os.environ["SESSION_JSON"]); assert value.get("status") == "active"; print(value["session_id"])')"
-curl --fail --retry 6 --retry-all-errors --max-time 30 -X DELETE -H "Authorization: Bearer ${ACCESS_TOKEN}" "https://${API_FQDN}/sessions/${SESSION_ID}"
-unset ACCESS_TOKEN SESSION_JSON SESSION_ID
-```
-
-The session round trip proves the API can call the private runtime with its managed identity. This
-CLI check validates the API's delegated Entra path; it does not replace an interactive browser
-redirect/MFA check when that experience is release-critical.
+The command supplies the resolved remote URLs to the browser journey. It refuses to run that journey
+without the demo password and deployed model name and must never target an Entra or shared instance.
 
 The successful API and session requests also exercise Microsoft Identity Web key discovery in the
 API and runtime sidecars. Preserve the deployment inventory output and sanitized `mise-auth`
@@ -196,7 +192,7 @@ ID. Treat the scope URI and emitted audience as distinct values.
 
 A deployment is complete only after all of the following pass:
 
-- the post-deployment inventory and private-network checks in `infra/deploy.sh`;
+- the post-deployment inventory and private-network checks in `infra/inventory_verifier.py`;
 - public frontend and API health checks, with the runtime remaining private;
 - immutable image tags matching the deployed Git SHA;
 - immutable Microsoft auth-sidecar digests and a successful sidecar-backed validation request;
@@ -218,5 +214,6 @@ loop.
 
 ## GitHub Actions
 
-`.github/workflows/deploy.yml` runs repository checks and Bicep compilation. It has no Azure
-credential and does not deploy. The guarded local script is the deployment path.
+`.github/workflows/deploy.yml` runs repository checks on Windows, macOS, and Linux plus Bicep
+compilation. It has no Azure credential and does not deploy. The guarded Python command is the
+deployment path.

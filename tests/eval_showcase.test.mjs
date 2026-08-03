@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -19,6 +19,13 @@ import {
 } from "../scripts/eval_showcase.mjs";
 import { createShowcaseServer, parseShowcaseArgs } from "../scripts/eval_showcase_server.mjs";
 
+const htmlEscape = (value) => value
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;")
+  .replaceAll('"', "&quot;")
+  .replaceAll("'", "&#39;");
+
 test("Waza task parsing exposes prompt, routing, and tool constraints without transcript content", () => {
   const source = `id: WAZA-1\nname: Direct trigger\ndescription: Route correctly.\ntags: [gate, routing]\ninputs:\n  prompt: Prep me for Product Launch.\ngraders:\n  - type: skill_invocation\n    config:\n      required_skills: [engagement-meeting-prep]\n  - type: tool_constraint\n    config:\n      expect_tools:\n        - { tool: ".*list_engagements$" }\n      reject_tools:\n        - { tool: ".*update_engagement$" }\n`;
   assert.deepEqual(parseWazaTask(source), {
@@ -34,6 +41,20 @@ test("Waza task parsing exposes prompt, routing, and tool constraints without tr
   });
 });
 
+test("Waza task parsing consumes the checked-in inline and block YAML shapes", () => {
+  const cases = [
+    ["../tests/evals/waza/tasks/tasks/direct-create.yaml", [".*create_task$"], [".*create_event$"], ["tasks"]],
+    ["../tests/evals/waza/calendar/tasks/direct-create.yaml", [".*create_event$"], [".*create_task$"], ["calendar"]],
+    ["../tests/evals/waza/weekly-review/tasks/full-review.yaml", [".*list_tasks$", ".*update_task$", ".*list_events$", ".*create_event$"], [".*create_task$"], ["weekly-review"]],
+  ];
+  for (const [relativePath, expectedTools, rejectedTools, requiredSkills] of cases) {
+    const task = parseWazaTask(readFileSync(new URL(relativePath, import.meta.url), "utf8"));
+    assert.deepEqual(task.expectedTools, expectedTools);
+    assert.deepEqual(task.rejectedTools, rejectedTools);
+    assert.deepEqual(task.requiredSkills, requiredSkills);
+  }
+});
+
 test("latest evidence discovery chooses the newest matching artifact and ignores unrelated files", () => {
   const root = mkdtempSync(join(tmpdir(), "csa-showcase-latest-"));
   try {
@@ -45,7 +66,10 @@ test("latest evidence discovery chooses the newest matching artifact and ignores
     utimesSync(oldPath, old, old);
     writeFileSync(join(root, "evidence", "new", "results.json"), "{}\n");
     writeFileSync(join(root, "evidence", "new", "ignore.txt"), "ignored\n");
-    assert.equal(findLatestEvidence(root, "evidence", "results.json"), join(root, "evidence", "new", "results.json"));
+    assert.equal(
+      realpathSync(findLatestEvidence(root, "evidence", "results.json")),
+      realpathSync(join(root, "evidence", "new", "results.json")),
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -73,6 +97,8 @@ test("automatic discovery rejects product and Waza evidence symlinks that escape
 test("the repository model renders both evaluation lanes and presenter guidance without local evidence", () => {
   const model = buildShowcaseModel({ revision: "test-revision", discoverEvidence: false });
   assert.equal(model.product.available, false);
+  assert.equal(model.product.tasks.length, 7);
+  assert.equal(model.product.workflows.length, 1);
   assert.equal(model.waza.available, false);
   assert.equal(model.waza.tasks.length, 6);
   assert.equal(model.methodology.length, 4);
@@ -98,6 +124,17 @@ test("the repository model renders both evaluation lanes and presenter guidance 
   assert.doesNotMatch(html, /AZURE_ENDPOINT|DEMO_PASSWORD|COSMOS_KEY/);
   assert.doesNotMatch(html, /system\.message/);
   assert.match(html, /No recorded test result is loaded yet/);
+  assert.match(html, /Fixture-only review/);
+  assert.match(html, /Expected output/);
+  assert.match(html, /Actual output/);
+  assert.equal((html.match(/Actual output/g) ?? []).length, 11, "every atomic case and workflow turn needs an actual-output slot");
+  assert.equal((html.match(/Optional technical evidence/g) ?? []).length, 11, "technical evidence should be drill-down for every client example");
+  const atomicDefinitions = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url), "utf8"));
+  const workflowDefinitions = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url), "utf8"));
+  for (const definition of atomicDefinitions.cases) assert.ok(html.includes(htmlEscape(definition.clientExpectedOutput)));
+  for (const turn of workflowDefinitions.workflows.flatMap((workflow) => workflow.turns)) {
+    assert.ok(html.includes(htmlEscape(turn.clientExpectedOutput)));
+  }
   assert.doesNotMatch(html, /focused skill passed; the full journey exposed a miss/i);
 });
 
@@ -207,7 +244,7 @@ test("product evidence retains the exact skill name, version, and hash", () => {
   assert.deepEqual(projectProductSkill({
     name: "engagement-meeting-prep",
     version: "1.0.0",
-    path: "session-container/product-skills/engagement-meeting-prep/SKILL.md",
+    path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md",
     sha256: "f27459ac7c7377b5f53d6fe889080967a62e40d4d4430764f51c8419a046348c",
     ignoredExtraField: "not presenter-visible",
   }), {

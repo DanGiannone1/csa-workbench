@@ -1,7 +1,9 @@
 # Contributing to CSA Workbench
 
-Start with [AGENTS.md](AGENTS.md) when using Codex or [CLAUDE.md](CLAUDE.md) when using Claude. Then
-read the [documentation guide](docs/README.md) and the [governance guide](docs/governance/README.md).
+Start with [AGENTS.md](AGENTS.md) for any developer agent. Claude also uses
+[CLAUDE.md](CLAUDE.md); GitHub Copilot also uses
+[`.github/copilot-instructions.md`](.github/copilot-instructions.md). Then read the
+[documentation guide](docs/README.md) and the [governance guide](docs/governance/README.md).
 
 Before making a change:
 

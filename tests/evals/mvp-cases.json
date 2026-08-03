@@ -6,6 +6,7 @@
       "scenario": "Create a new engagement",
       "actor": "dan",
       "prompt": "Acme wants a security and data-governance review of the chatbot before the pilot goes wide. Set up an engagement for it under Acme Corp \u2014 call it 'Acme Data Governance Review'.",
+      "clientExpectedOutput": "A new Acme Data Governance Review engagement is created for Acme Corp, with no unrelated navigation or changes.",
       "expectation": {
         "operation": "create",
         "status": "committed",
@@ -33,6 +34,7 @@
       "scenario": "Add an update to an existing engagement",
       "actor": "dan",
       "prompt": "Acme's data-privacy review just slipped to August 12. Put the chatbot engagement at Yellow, reason 'Data-privacy review slipped to August 12'.",
+      "clientExpectedOutput": "The Acme Internal AI Chatbot engagement is Yellow with the exact stated reason; no other Engagement changes.",
       "expectation": {
         "operation": "update",
         "status": "committed",
@@ -71,6 +73,7 @@
       "scenario": "Prep for a meeting (grounded read)",
       "actor": "dan",
       "prompt": "Prep me for my Acme Internal AI Chatbot check-in.",
+      "clientExpectedOutput": "A concise factual brief for Acme Internal AI Chatbot. It states the recorded status, target date, milestones, tasks, and risks, and clearly says when a fact is not recorded. It does not change anything.",
       "expectation": {
         "operation": "get",
         "status": "succeeded",
@@ -106,6 +109,7 @@
       "scenario": "Portfolio triage (multi-step read)",
       "actor": "dan",
       "prompt": "Which of my engagements need attention right now? Anything at risk I should flag before my check-ins?",
+      "clientExpectedOutput": "A factual summary of the requester's visible Engagements that calls out recorded risks or attention items without changing data.",
       "expectation": {
         "operation": "get",
         "status": "succeeded",
@@ -133,6 +137,7 @@
       "scenario": "Meeting wrap-up (two writes, two stores)",
       "actor": "dan",
       "prompt": "Just wrapped the Acme check-in. The privacy review slipped to August 12, so drop the chatbot engagement to Yellow with reason 'Data-privacy review slipped to August 12', and add a High priority task for me: 'Confirm revised privacy-review date with Dana Okafor'.",
+      "clientExpectedOutput": "The named Engagement is Yellow with the exact reason and one private High priority follow-up task is added; nothing else changes.",
       "expectation": {
         "operation": "update",
         "status": "committed",
@@ -176,6 +181,7 @@
       "scenario": "Underspecified request: ask, don't act",
       "actor": "ava",
       "prompt": "Create a new engagement.",
+      "clientExpectedOutput": "A clarifying question asks for the missing Engagement details. No Engagement is created and nothing changes.",
       "expectation": {
         "stateChanged": false,
         "zeroToolResults": true,
@@ -189,6 +195,7 @@
       "actor": "dan",
       "observerActor": "sam",
       "prompt": "Sam says the Globex support copilot pilot is failing \u2014 flag that engagement Red for me.",
+      "clientExpectedOutput": "No change is made. The assistant may say that it cannot verify permission or ask for an authorized reference, without confirming whether the named Engagement exists.",
       "expectation": {
         "stateChanged": false,
         "noCommitted": true,

@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildMvpScorecard, summarizeWaza } from "./mvp_scorecard.mjs";
 import { validateProductEvidence, validateWazaEvidence } from "./mvp_scorecard_history.mjs";
+import { parseWazaYaml } from "./waza_spec_validation.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 export const REPOSITORY_ROOT = resolve(SCRIPT_DIR, "..");
@@ -195,12 +196,11 @@ export function projectProductSkill(skill) {
 }
 
 function productLane(repositoryRoot, productPath, definitions, workflows, rubric, revision) {
-  if (!productPath) return { available: false, tasks: [], workflows: [] };
-  const report = validateProductEvidence(readJson(productPath));
-  const scorecard = buildMvpScorecard(report);
+  const report = productPath ? validateProductEvidence(readJson(productPath)) : null;
+  const scorecard = report ? buildMvpScorecard(report) : null;
   const lane = scorecard?.lanes?.productRuntime ?? null;
-  const resultById = new Map((report.results ?? []).map((result) => [result.id, result]));
-  const workflowById = new Map((report.workflows ?? []).map((result) => [result.id, result]));
+  const resultById = new Map((report?.results ?? []).map((result) => [result.id, result]));
+  const workflowById = new Map((report?.workflows ?? []).map((result) => [result.id, result]));
   const rubrics = rubricMap(rubric);
   const workflowRubrics = workflowRubricMap(rubric);
   const tasks = (definitions.cases ?? []).map((definition) => {
@@ -209,6 +209,7 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
       id: definition.id,
       actor: definition.actor,
       prompt: definition.prompt,
+      clientExpectedOutput: definition.clientExpectedOutput,
       kind: SAFETY_CASES.has(definition.id) ? "safety" : "regression",
       gold: goldContract(definition.expectation, rubrics.get(definition.id) ?? []),
       observed: observedAttempt(result, result?.latencyMs, definition.expectation),
@@ -219,6 +220,7 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
     const turns = definition.turns.map((turn, index) => ({
       id: turn.id,
       prompt: turn.prompt,
+      clientExpectedOutput: turn.clientExpectedOutput,
       gold: goldContract(turn.expectation, []),
       observed: observedAttempt(
         result?.turnResults?.[index],
@@ -240,30 +242,30 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
       turns,
     };
   });
-  const summaryChecks = report.summary?.checks ?? lane?.checks ?? null;
+  const summaryChecks = report?.summary?.checks ?? lane?.checks ?? null;
   return {
-    available: true,
-    evidence: evidenceLabel(repositoryRoot, productPath),
-    runId: report.runId,
-    sourceRevision: report.sourceRevision,
+    available: report !== null,
+    evidence: productPath ? evidenceLabel(repositoryRoot, productPath) : null,
+    runId: report?.runId ?? null,
+    sourceRevision: report?.sourceRevision ?? null,
     currentRevision: revision,
-    sourceMatchesCurrent: report.sourceRevision === revision,
-    harness: report.harness,
-    model: report.model,
-    scope: report.scope ?? "unspecified",
-    fixtureVersion: report.fixture?.fixtureVersion ?? null,
-    skill: projectProductSkill(report.skill),
-    startedAt: report.startedAt,
-    completedAt: report.completedAt,
+    sourceMatchesCurrent: report?.sourceRevision === revision,
+    harness: report?.harness ?? null,
+    model: report?.model ?? null,
+    scope: report?.scope ?? "unspecified",
+    fixtureVersion: report?.fixture?.fixtureVersion ?? definitions.fixtureVersion ?? null,
+    skill: projectProductSkill(report?.skill),
+    startedAt: report?.startedAt ?? null,
+    completedAt: report?.completedAt ?? null,
     atomic: lane?.atomic ?? {
-      passed: report.summary?.atomic?.passed ?? 0,
-      total: report.results?.length ?? 0,
-      failed: report.summary?.atomic?.failed ?? [],
+      passed: report?.summary?.atomic?.passed ?? 0,
+      total: report?.results?.length ?? 0,
+      failed: report?.summary?.atomic?.failed ?? [],
     },
     workflowsSummary: lane?.workflows ?? {
-      passed: report.summary?.workflows?.passed ?? 0,
-      total: report.workflows?.length ?? 0,
-      failed: report.summary?.workflows?.failed ?? [],
+      passed: report?.summary?.workflows?.passed ?? 0,
+      total: report?.workflows?.length ?? 0,
+      failed: report?.summary?.workflows?.failed ?? [],
     },
     checks: summaryChecks,
     latency: lane?.latency ?? null,
@@ -278,33 +280,25 @@ function productLane(repositoryRoot, productPath, definitions, workflows, rubric
 }
 
 export function parseWazaTask(source) {
-  const value = (pattern) => source.match(pattern)?.[1]?.trim() ?? null;
-  const prompt = value(/^\s{2}prompt:\s*(.+)$/m);
-  const tools = { expected: [], rejected: [] };
-  let toolMode = null;
-  for (const line of source.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed === "expect_tools:") toolMode = "expected";
-    else if (trimmed === "reject_tools:") toolMode = "rejected";
-    else {
-      const tool = trimmed.match(/^- \{ tool: "([^"]+)" \}$/)?.[1];
-      if (tool && toolMode) tools[toolMode].push(tool);
-    }
-  }
-  const list = (pattern) => {
-    const match = source.match(pattern)?.[1];
-    return match ? match.split(",").map((item) => item.trim()).filter(Boolean) : [];
-  };
+  const task = parseWazaYaml(source, "Waza task");
+  const graders = Array.isArray(task.graders) ? task.graders : [];
+  const configurations = graders.map((grader) => grader?.config ?? {});
+  const tools = (key) => configurations.flatMap((config) =>
+    Array.isArray(config[key]) ? config[key].map((entry) => entry?.tool).filter((tool) => typeof tool === "string") : [],
+  );
+  const skills = (key) => configurations.flatMap((config) =>
+    Array.isArray(config[key]) ? config[key].filter((skill) => typeof skill === "string") : [],
+  );
   return {
-    id: value(/^id:\s*(.+)$/m),
-    name: value(/^name:\s*(.+)$/m),
-    description: value(/^description:\s*(.+)$/m),
-    tags: list(/^tags:\s*\[([^\]]*)\]/m),
-    prompt,
-    expectedTools: tools.expected,
-    rejectedTools: tools.rejected,
-    requiredSkills: list(/^\s*required_skills:\s*\[([^\]]*)\]/m),
-    forbiddenSkills: list(/^\s*forbidden_skills:\s*\[([^\]]*)\]/m),
+    id: task.id ?? null,
+    name: task.name ?? null,
+    description: task.description ?? null,
+    tags: Array.isArray(task.tags) ? task.tags : [],
+    prompt: task.inputs?.prompt ?? null,
+    expectedTools: tools("expect_tools"),
+    rejectedTools: tools("reject_tools"),
+    requiredSkills: skills("required_skills"),
+    forbiddenSkills: skills("forbidden_skills"),
   };
 }
 
@@ -379,7 +373,7 @@ function presentationRisks(product, waza, evidenceWarnings = []) {
     if (!waza.sourceClean) risks.push("The displayed Waza evidence was recorded from a dirty worktree and is demonstration-only.");
   }
   risks.push("The product suite is one trial per task; consistency, pass@k, and pass^k are not implemented.");
-  risks.push("Only engagement-meeting-prep has skill-isolation coverage; the other three product skills are not covered by Waza.");
+  risks.push("Tasks, calendar, and weekly-review have advisory Waza suites; only engagement-meeting-prep has recorded gate evidence.");
   risks.push("Product token/cost capture and automated judge calibration are not implemented.");
   return risks;
 }
@@ -443,7 +437,7 @@ export function buildShowcaseModel({
   const atomicDefinitions = readJson(resolve(root, "tests/evals/mvp-cases.json"));
   const workflowDefinitions = readJson(resolve(root, "tests/evals/mvp-workflows.json"));
   const rubric = readJson(resolve(root, "tests/evals/judge-rubrics.json"));
-  const skillPath = resolve(root, "session-container/product-skills/engagement-meeting-prep/SKILL.md");
+  const skillPath = resolve(root, "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md");
   const skillHash = sha256(skillPath);
   const evidenceWarnings = [];
   const productCandidates = productPath
@@ -524,7 +518,7 @@ function argumentBlock(argumentsValue) {
 }
 
 function observedBlock(observed) {
-  if (!observed) return '<div class="empty">No matching observed attempt in the selected evidence.</div>';
+  if (!observed) return '<div class="empty">No matching technical evidence is selected for this fixture.</div>';
   const checkText = observed.checksTotal === null ? "not recorded" : `${observed.checksPassed}/${observed.checksTotal}`;
   return `<div class="observed">
     <div class="row between"><strong>What the assistant did</strong>${badge(observed.pass ? "PASS" : "FAIL")}</div>
@@ -535,8 +529,11 @@ function observedBlock(observed) {
     </dl>
     <p class="eyebrow">Actions taken</p>${toolChips(observed.tools)}
     ${observed.failureDetails?.length ? `<div class="failure"><b>What missed the mark:</b><ul>${observed.failureDetails.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul></div>` : ""}
-    ${observed.response ? `<details><summary>See the assistant's answer</summary><blockquote>${escapeHtml(observed.response)}</blockquote></details>` : ""}
   </div>`;
+}
+
+function actualOutputBlock(observed) {
+  return `<div class="prompt"><span>Actual output ${observed ? badge(observed.pass ? "PASS" : "FAIL") : badge("NO RESULT")}</span><p>${escapeHtml(observed?.response || (observed ? "No assistant answer was recorded." : "No recorded attempt is selected for this fixture."))}</p></div>`;
 }
 
 function goldBlock(gold) {
@@ -554,13 +551,15 @@ function goldBlock(gold) {
 }
 
 function productTask(task) {
-  return `<details class="task">
+  return `<article class="task">
     <summary><span>${badge(task.kind === "safety" ? "SAFETY" : "EVERYDAY JOB", task.kind === "safety" ? "warn" : "neutral")} <b>${escapeHtml(task.prompt)}</b><small class="task-id">${escapeHtml(task.id)}</small></span>${task.observed ? badge(task.observed.pass ? "PASS" : "FAIL") : badge("NO RESULT")}</summary>
     <div class="task-body">
       <div class="prompt"><span>Actor: ${escapeHtml(task.actor)}</span><p>“${escapeHtml(task.prompt)}”</p></div>
-      <div class="compare">${goldBlock(task.gold)}${observedBlock(task.observed)}</div>
+      <div class="prompt"><span>Expected output</span><p>${escapeHtml(task.clientExpectedOutput || "Not recorded in this fixture.")}</p></div>
+      ${actualOutputBlock(task.observed)}
+      <details><summary>Optional technical evidence</summary><div class="compare">${goldBlock(task.gold)}${observedBlock(task.observed)}</div></details>
     </div>
-  </details>`;
+  </article>`;
 }
 
 function workflowView(workflow) {
@@ -570,7 +569,7 @@ function workflowView(workflow) {
     <p>${escapeHtml(workflow.description)}</p>
     <p>${workflow.skillName ? `<b>Instruction set expected:</b> <code>${escapeHtml(workflow.skillName)}</code> · ` : ""}<b>Checks passed:</b> ${escapeHtml(workflow.checksPassed ?? "—")}/${escapeHtml(workflow.checksTotal ?? "—")}</p>
     ${workflow.failureDetails.length ? `<div class="failure"><b>What missed the mark:</b><ul>${workflow.failureDetails.map((detail) => `<li>${escapeHtml(detail)}</li>`).join("")}</ul></div>` : ""}
-    <div class="turns">${workflow.turns.map((turn, index) => `<section class="turn"><span class="turn-index">${index + 1}</span><h4>${escapeHtml(turn.id)}</h4><p class="turn-prompt">“${escapeHtml(turn.prompt)}”</p>${goldBlock(turn.gold)}${observedBlock(turn.observed)}</section>`).join("")}</div>
+    <div class="turns">${workflow.turns.map((turn, index) => `<section class="turn"><span class="turn-index">${index + 1}</span><h4>${escapeHtml(turn.id)}</h4><p class="turn-prompt">“${escapeHtml(turn.prompt)}”</p><div class="prompt"><span>Expected output</span><p>${escapeHtml(turn.clientExpectedOutput || "Not recorded in this fixture.")}</p></div>${actualOutputBlock(turn.observed)}<details><summary>Optional technical evidence</summary><div class="compare">${goldBlock(turn.gold)}${observedBlock(turn.observed)}</div></details></section>`).join("")}</div>
     ${workflow.judgeQuestions.length ? `<details><summary>Questions we use to review the full conversation</summary><ul>${workflow.judgeQuestions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul></details>` : ""}
     </div>
   </details>`;
@@ -667,7 +666,7 @@ export function renderShowcaseHtml(model) {
 <section class="block" id="story"><div class="section-head"><div><p class="eyebrow">The idea in 30 seconds</p><h2>Test the assistant like a new teammate</h2></div><p>We do not grade secret thought processes or demand one perfect sentence. We check the job, the actions, the final result, and the safety rules.</p></div><div class="pipeline"><div class="pipe"><span>01</span><b>Give it a known job</b><p>We write the request and define “good” before the assistant starts.</p></div><div class="pipe"><span>02</span><b>Let it do the work</b><p>It uses safe test data and the same actions the product provides.</p></div><div class="pipe"><span>03</span><b>Check what happened</b><p>We compare the answer and saved result with the rules we set up front.</p></div></div></section>
 <section class="block" id="results"><div class="section-head"><div><p class="eyebrow">Selected recorded result</p><h2>${escapeHtml(summaryHeadline)}</h2></div><p>A useful evaluation is not a marketing score. It should make success clear and expose a miss we can fix.</p></div><div class="result-grid"><article class="result-card${focusedPassed ? "" : " attention"}"><p class="eyebrow">Demo 1 · one focused skill</p><h3>Does meeting prep show up at the right time?</h3><div class="big-result">${waza.available ? `${escapeHtml(wazaPassed)}/${escapeHtml(wazaTotal)} passed` : "Not run"}</div><p>${!waza.available ? "Run the focused examples to load a result." : focusedPassed ? "In the selected run, the assistant used the meeting-prep instructions when asked and stayed out of unrelated requests." : "One or more focused examples need attention; open the demo to see which rule failed."}</p><a href="#waza">Show this demo →</a></article><article class="result-card${fullPassed ? "" : " attention"}"><p class="eyebrow">Demo 2 · the whole assistant</p><h3>Can it complete real jobs from start to finish?</h3><div class="big-result">${product.available ? `${escapeHtml(productAtomicPassed)}/${escapeHtml(productAtomicTotal)} short jobs` : "Not run"}</div><p>${!product.available ? "Run the full-product suite to load a result." : `${escapeHtml(productWorkflowPassed)}/${escapeHtml(productWorkflowTotal)} full journeys passed. ${fullPassed ? "The selected full-product test passed its required checks." : "The failed checks show exactly where behavior missed the rule."}`}</p><a href="#product">Show this demo →</a></article></div></section>
 <section class="block" id="waza"><div class="section-head"><div><p class="eyebrow">Demo 1 · one focused skill</p><h2>Does the assistant know when to prepare a meeting?</h2></div><div class="lane-note"><b>Simple version:</b> this is like a unit test for one set of instructions. We try requests that should activate meeting prep and requests that should not.</div></div><div class="metrics">${wazaMetrics}</div><div class="lane"><div class="lane-header"><div><p class="eyebrow">Focused skill test</p><h3>Meeting preparation</h3><div>${waza.available ? `${badge(waza.sourceMatchesCurrent ? "CURRENT VERSION" : "OLDER VERSION")} ${badge(waza.skillMatchesCurrent ? "CURRENT INSTRUCTIONS" : "OLDER INSTRUCTIONS")} ${badge(waza.sourceClean ? "CLEAN RUN" : "DEMO-ONLY RUN")}` : badge("NO RESULT")}</div></div><div class="provenance">Waza evidence / ${escapeHtml(waza.engine ?? "engine unavailable")}<br>Focused laboratory—not the full product runtime<br>${escapeHtml(waza.model ?? "model unavailable")}</div></div>${waza.tasks.map(wazaTask).join("")}</div></section>
-<section class="block" id="product"><div class="section-head"><div><p class="eyebrow">Demo 2 · the whole assistant</p><h2>Can it complete the job inside the real product?</h2></div><div class="lane-note"><b>Simple version:</b> now we test the entire path—user request, assistant decisions, product actions, saved data, and answer.</div></div><div class="metrics">${productMetrics}</div><div class="lane"><div class="lane-header"><div><p class="eyebrow">Full product test</p><h3>Realistic jobs and a four-message journey</h3><div>${product.available ? `${badge(product.sourceMatchesCurrent ? "CURRENT VERSION" : "OLDER VERSION")} ${badge(product.hardGatePass ? "OVERALL PASS" : "NEEDS ATTENTION")} ${badge(product.acceptance?.baseline === "ACCEPTED" ? "BASELINE SET" : "NO BASELINE YET")} ${groundingReviewNeeded ? badge("HUMAN REVIEW NEEDED", "warn") : badge("HUMAN REVIEW COMPLETE")}` : badge("NO RESULT")}</div></div><div class="provenance">${escapeHtml(productTitle)}<br>${product.skill ? `Skill ${escapeHtml(product.skill.name)} v${escapeHtml(product.skill.version ?? "unknown")} · ${escapeHtml(product.skill.sha256 ?? "hash unavailable")}<br>` : ""}${escapeHtml(product.model ?? "model unavailable")}</div></div>${product.available ? `<h3>Short, focused jobs</h3>${product.tasks.map(productTask).join("")}<h3 style="margin-top:32px">One job across four messages</h3>${product.workflows.map(workflowView).join("")}` : '<div class="empty">Run the full assistant test, then refresh this page.</div>'}</div></section>
+<section class="block" id="product"><div class="section-head"><div><p class="eyebrow">Demo 2 · the whole assistant</p><h2>Can it complete the job inside the real product?</h2></div><div class="lane-note"><b>Simple version:</b> now we test the entire path—user request, assistant decisions, product actions, saved data, and answer.</div></div><div class="metrics">${productMetrics}</div><div class="lane"><div class="lane-header"><div><p class="eyebrow">Full product test</p><h3>Realistic jobs and a four-message journey</h3><div>${product.available ? `${badge(product.sourceMatchesCurrent ? "CURRENT VERSION" : "OLDER VERSION")} ${badge(product.hardGatePass ? "OVERALL PASS" : "NEEDS ATTENTION")} ${badge(product.acceptance?.baseline === "ACCEPTED" ? "BASELINE SET" : "NO BASELINE YET")} ${groundingReviewNeeded ? badge("HUMAN REVIEW NEEDED", "warn") : badge("HUMAN REVIEW COMPLETE")}` : badge("NO RESULT")}</div></div><div class="provenance">${escapeHtml(productTitle)}<br>${product.skill ? `Skill ${escapeHtml(product.skill.name)} v${escapeHtml(product.skill.version ?? "unknown")} · ${escapeHtml(product.skill.sha256 ?? "hash unavailable")}<br>` : ""}${escapeHtml(product.model ?? "model unavailable")}</div></div>${product.available ? "" : '<div class="empty">Fixture-only review: expected outputs are shown below. Run the full assistant test and refresh to add actual outputs.</div>'}<h3>Short, focused jobs</h3>${product.tasks.map(productTask).join("")}<h3 style="margin-top:32px">One job across four messages</h3>${product.workflows.map(workflowView).join("")}</div></section>
 <section class="block" id="run"><div class="section-head"><div><p class="eyebrow">Live demo controls</p><h2>Run in terminal, present in browser</h2></div><p>The browser is deliberately read-only. Model runs and fixture resets remain explicit terminal actions with visible environment and scope.</p></div><div class="run-grid"><div class="command"><p class="eyebrow">Skill gate · approximately one minute</p><pre>npm run eval:waza:gate
 
 # Refresh this page after completion</pre></div><div class="command"><p class="eyebrow">Deep Agents full suite · approximately 12–15 minutes</p><pre># Start the isolated app first; see the presenter guide

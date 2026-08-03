@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Sparkles, FileText, ArrowRight } from "lucide-react";
 import BespokeIcon from "./ui/BespokeIcon";
-import GlassPanel from "./ui/GlassPanel";
+import Button from "./ui/Button";
+import Dialog from "./ui/Dialog";
+import { OverlayLayer } from "./ui/Overlay";
+import { Surface } from "./ui/Surface";
+import Toast from "./ui/Toast";
 import MessageList from "./MessageList";
 import InputBar from "./InputBar";
 import { useSession } from "./SessionProvider";
@@ -61,10 +65,10 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
 
   return (
     <div className="flex h-full flex-col gap-3 min-w-0">
-      <header className="h-14 flex items-center justify-between px-5 bg-surface-1/70 backdrop-blur-2xl rounded-2xl border border-border-subtle shrink-0">
+      <Surface className="h-14 flex items-center justify-between px-5 shrink-0">
         <div className="flex items-center gap-2.5 font-bold tracking-tight">
-          <div className={`p-1.5 rounded-lg bg-gradient-to-br from-brand-primary to-brand-accent relative ${agentWorking ? "agent-working" : ""}`}>
-            <BespokeIcon icon={Sparkles} size={16} className="text-white" glowColor="rgba(255,255,255,0.4)" />
+          <div className={`p-1.5 rounded-lg bg-brand-primary text-text-on-brand relative ${agentWorking ? "agent-working" : ""}`}>
+            <BespokeIcon icon={Sparkles} size={16} />
           </div>
           <div className="flex flex-col leading-tight">
             <span className="text-text-primary text-[15px]">Assistant</span>
@@ -75,26 +79,26 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button
             ref={newSessionLauncherRef}
             type="button"
             data-testid="new-chat-button"
             onClick={handleNewChat}
             disabled={state.isStreaming || state.isInitializing || isChatUploading}
-            className="interactive-control inline-flex items-center justify-center rounded-xl bg-surface-2 border border-border-subtle px-3.5 py-2 text-[11px] font-bold uppercase tracking-widest text-text-secondary hover:text-text-primary hover:border-brand-primary transition-all disabled:opacity-45"
+            size="small"
           >
             <Plus size={14} strokeWidth={3} className="mr-1" />
             New Session
-          </button>
+          </Button>
           {headerActions}
         </div>
-      </header>
+      </Surface>
 
-      <GlassPanel variant="light" className="flex-1 flex flex-col min-h-0">
+      <Surface level="raised" className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {state.sessionError ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
             <p className="text-sm text-text-muted">{state.sessionError}</p>
-            <button type="button" onClick={() => void startSession()} className="interactive-control rounded-xl bg-brand-primary px-4 py-2 text-xs font-bold uppercase tracking-widest text-white">Retry</button>
+            <Button variant="primary" size="small" onClick={() => void startSession()}>Retry</Button>
           </div>
         ) : (
           <>
@@ -102,13 +106,13 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
               messages={state.messages}
               onSuggestion={state.isStreaming || state.isInitializing ? undefined : handleSend}
             />
-            {statusMessage && <div className="px-5 pb-1 text-[11px] text-text-muted">{statusMessage}</div>}
+            {statusMessage && <Toast className="mx-4 mb-1">{statusMessage}</Toast>}
             {onOpenWorkspace && artifacts.length > 0 && (
-              <button
+              <Button
                 type="button"
                 data-testid="dock-artifact-card"
                 onClick={onOpenWorkspace}
-                className="interactive-control mx-4 mb-2 flex items-center gap-3 rounded-xl border border-brand-primary/40 bg-surface-2/60 px-3.5 py-2.5 text-left hover:border-brand-primary transition-all"
+                className="mx-4 mb-2 justify-start px-3.5 py-2.5 text-left"
               >
                 <span className="p-1.5 rounded-lg bg-brand-primary/15 text-brand-accent shrink-0"><FileText size={15} /></span>
                 <span className="flex flex-col min-w-0 flex-1">
@@ -116,7 +120,7 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
                   <span className="text-[10px] uppercase tracking-widest text-text-muted">{artifacts.length} artifact{artifacts.length === 1 ? "" : "s"} · open in workspace</span>
                 </span>
                 <ArrowRight size={15} className="text-text-muted shrink-0" />
-              </button>
+              </Button>
             )}
             {state.lastBundle && (
               <details className="ctx-inspector" data-testid="context-inspector">
@@ -144,20 +148,20 @@ export default function AssistantPanel({ headerActions, onOpenWorkspace }: { hea
             />
           </>
         )}
-      </GlassPanel>
+      </Surface>
 
       {confirmNewChat && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-app/80 backdrop-blur-md px-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="new-session-title" aria-describedby="new-session-description" className="w-full max-w-sm rounded-[2rem] border border-border-subtle bg-surface-1 p-8 shadow-[0_24px_60px_rgba(0,0,0,0.15)] relative overflow-hidden">
+        <OverlayLayer className="z-50 flex items-center justify-center px-4">
+          <Dialog aria-labelledby="new-session-title" aria-describedby="new-session-description" className="w-full max-w-sm p-8 relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-1 bg-brand-primary" />
             <h2 id="new-session-title" className="text-lg font-bold text-text-primary uppercase tracking-wide">Start a new session?</h2>
             <p id="new-session-description" className="mt-3 text-sm text-text-muted leading-relaxed">This clears this conversation and its session files. Your Engagements and their durable artifacts stay available.</p>
             <div className="mt-8 flex flex-col gap-2">
-              <button ref={newSessionConfirmRef} type="button" disabled={newSessionPending} onClick={() => void confirmNewSession()} className="interactive-control w-full rounded-xl bg-brand-primary py-3 text-xs font-bold uppercase tracking-widest text-white hover:brightness-110 disabled:opacity-45">{newSessionPending ? "Starting…" : "Start new session"}</button>
-              <button ref={newSessionCancelRef} type="button" disabled={newSessionPending} onClick={closeNewSessionDialog} className="interactive-control w-full rounded-xl border border-border-subtle py-3 text-xs font-bold uppercase tracking-widest text-text-muted hover:bg-surface-2 disabled:opacity-45">Cancel</button>
+              <Button ref={newSessionConfirmRef} variant="primary" disabled={newSessionPending} onClick={() => void confirmNewSession()} className="w-full">{newSessionPending ? "Starting…" : "Start new session"}</Button>
+              <Button ref={newSessionCancelRef} disabled={newSessionPending} onClick={closeNewSessionDialog} className="w-full">Cancel</Button>
             </div>
-          </div>
-        </div>
+          </Dialog>
+        </OverlayLayer>
       )}
     </div>
   );

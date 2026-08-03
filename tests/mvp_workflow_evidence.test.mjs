@@ -41,7 +41,7 @@ const wazaGate = (overrides = {}) => ({
   summary: { total_tests: 4, succeeded: 4, failed: 0, errors: 0, skipped: 0 },
   tasks: WAZA_GATE_TASK_IDS.map((test_id) => ({ test_id, status: "passed" })),
   csaMvpProvenance: {
-    runner: "scripts/waza_eval.sh",
+    runner: "scripts/workbench.py",
     wazaVersion: "0.38.3",
     tag: "gate",
     eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml",

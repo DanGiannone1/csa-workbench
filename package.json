@@ -2,22 +2,29 @@
   "name": "csa-workbench",
   "private": true,
   "devDependencies": {
-    "@playwright/test": "^1.52.0"
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.52.0",
+    "ajv": "8.20.0",
+    "yaml": "2.9.0"
   },
   "scripts": {
-    "test:mvp-evidence": "node --test tests/mvp_evidence.test.mjs tests/mvp_workflow_evidence.test.mjs tests/mvp_scorecard_history.test.mjs tests/eval_showcase.test.mjs",
-    "verify": "bash scripts/verify.sh",
-    "verify:ci": "CSA_VERIFY_SKIP_BICEP=1 bash scripts/verify.sh",
-    "eval:mvp": "node scripts/mvp_agent_eval.mjs",
-    "eval:mvp:scorecard": "node scripts/mvp_scorecard_merge.mjs",
-    "eval:mvp:history": "node scripts/mvp_scorecard_history.mjs",
-    "eval:showcase": "node scripts/eval_showcase_server.mjs",
-    "eval:foundry": "uv run --project session-container --with azure-ai-projects --with azure-identity python scripts/foundry_eval_upload.py",
-    "eval:demo": "node scripts/eval_demo.mjs",
-    "eval:waza:check": "scripts/waza_eval.sh check",
-    "eval:waza:gate": "scripts/waza_eval.sh gate",
-    "eval:waza:advisory": "scripts/waza_eval.sh advisory",
-    "eval:waza": "scripts/waza_eval.sh run",
-    "playwright:mvp": "node scripts/mvp_playwright.mjs"
+    "setup": "uv run --no-sync python -m scripts.workbench setup",
+    "dev": "uv run python -m scripts.workbench dev",
+    "test:design-system": "node --test tests/design_system.test.mjs",
+    "test:mvp-evidence": "node --test tests/mvp_evidence.test.mjs tests/mvp_workflow_evidence.test.mjs tests/mvp_scorecard_history.test.mjs tests/eval_showcase.test.mjs tests/eval_docs.test.mjs tests/waza_runner.test.mjs",
+    "verify": "uv run python -m scripts.workbench verify",
+    "verify:ci": "uv run python -m scripts.workbench verify --skip-bicep --skip-waza",
+    "eval:mvp": "uv run python -m scripts.workbench eval mvp",
+    "eval:mvp:scorecard": "uv run python -m scripts.workbench eval scorecard",
+    "eval:mvp:history": "uv run python -m scripts.workbench eval history",
+    "eval:showcase": "uv run python -m scripts.workbench eval showcase",
+    "eval:foundry": "uv run python -m scripts.workbench eval foundry",
+    "eval:demo": "uv run python -m scripts.workbench eval demo",
+    "eval:waza:check": "uv run python -m scripts.workbench eval waza check",
+    "eval:waza:validate": "node scripts/waza_spec_validation.mjs",
+    "eval:waza:gate": "uv run python -m scripts.workbench eval waza gate",
+    "eval:waza:advisory": "uv run python -m scripts.workbench eval waza advisory",
+    "eval:waza": "uv run python -m scripts.workbench eval waza run",
+    "playwright:mvp": "uv run python -m scripts.workbench eval playwright"
   }
 }

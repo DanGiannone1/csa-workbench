@@ -16,7 +16,7 @@ config:
   required_skills:
     - engagement-meeting-prep
   skill_directories:
-    - ../../../../session-container/product-skills/engagement-meeting-prep
+    - ../../../../backend/assistant/product-skills/engagement-meeting-prep
 
 mcp_mocks:
   - name: csa

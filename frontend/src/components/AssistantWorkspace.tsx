@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { FileText, PanelLeftClose, Home } from "lucide-react";
 import AssistantPanel from "./AssistantPanel";
 import ArtifactCanvas from "./ArtifactCanvas";
+import Button from "./ui/Button";
+import { Surface } from "./ui/Surface";
 import WorkbenchNav from "./workbench/WorkbenchNav";
 import { useSession } from "./SessionProvider";
 import { isHostRoute } from "@/lib/navigation";
@@ -60,14 +62,11 @@ export default function AssistantWorkspace() {
 
   return (
     <div className={`relative flex h-screen w-full bg-app p-3 gap-3 text-text-primary font-sans ${stacked ? "overflow-y-auto" : "overflow-hidden"}`} data-testid="assistant-workspace">
-      <div className="ambient-orb-1 animate-blob" />
-      <div className="ambient-orb-2 animate-blob" />
-
-      <div className={`relative z-10 flex w-full gap-3 ${stacked ? "min-h-full flex-col" : "h-full"}`}>
+      <div className={`relative z-10 flex w-full gap-3 ${stacked ? "h-fit min-h-full flex-col" : "h-full"}`}>
         {/* Host app shell rail — so the workspace reads as a page OF CSA Workbench, not a
             separate chatbot. Hidden on narrow viewports (the Back control covers returning). */}
         {!narrow && (
-          <div className="flex h-full w-[210px] shrink-0 flex-col rounded-2xl border border-border-subtle bg-surface-1/70 backdrop-blur-2xl overflow-hidden">
+          <Surface className="flex h-full w-[210px] shrink-0 flex-col overflow-hidden">
             <div className="tw-appbar-brand px-4 h-14 flex items-center shrink-0 border-b border-border-subtle">
               <div className="tw-logo"><Home size={16} strokeWidth={2.5} /></div>
               <div className="flex flex-col leading-tight ml-2">
@@ -78,36 +77,38 @@ export default function AssistantWorkspace() {
             <div className="flex-1 overflow-y-auto">
               <WorkbenchNav appState={state.appState} viewRoute={state.viewRoute} onNavigate={navigateHostView} assistantActive />
             </div>
-          </div>
+          </Surface>
         )}
 
         <div className={`${!showArtifacts ? "flex-1 min-w-0 h-full" : stacked ? "w-full min-h-[500px] h-[62svh] shrink-0" : narrow ? "w-1/2 min-w-[320px] shrink-0 h-full" : "w-[40%] min-w-[400px] max-w-[600px] shrink-0 h-full"}`}>
           <AssistantPanel
             headerActions={
               <>
-                <button
+                <Button
                   type="button"
                   data-testid="artifacts-toggle"
                   aria-pressed={showArtifacts}
                   onClick={() => setArtifactPreference({ sessionId: state.sessionId, visible: !showArtifacts })}
                   title={showArtifacts ? "Hide artifacts" : "Show artifacts"}
-                  className="interactive-control inline-flex h-8 items-center gap-1.5 rounded-lg bg-surface-2 border border-border-subtle px-2.5 text-text-secondary hover:text-text-primary hover:border-brand-primary transition-all"
+                  size="small"
+                  className="h-8 px-2.5"
                 >
                   <FileText size={14} strokeWidth={2.5} />
                   <span className="text-[11px] font-bold uppercase tracking-widest">{showArtifacts ? "Hide" : "Artifacts"}</span>
                   {!showArtifacts && artifacts.length > 0 && (
-                    <span data-testid="artifacts-toggle-count" className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold text-white">{artifacts.length}</span>
+                    <span data-testid="artifacts-toggle-count" className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold text-text-on-brand">{artifacts.length}</span>
                   )}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   data-testid="workspace-back"
                   onClick={() => router.push("/")}
                   title="Back to CSA Workbench"
-                  className="interactive-control inline-flex h-8 w-8 items-center justify-center rounded-lg bg-surface-2 border border-border-subtle text-text-secondary hover:text-text-primary hover:border-brand-primary transition-all"
+                  size="icon"
+                  className="h-8 w-8"
                 >
                   <PanelLeftClose size={14} strokeWidth={2.5} />
-                </button>
+                </Button>
               </>
             }
           />
