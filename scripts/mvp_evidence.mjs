@@ -526,6 +526,14 @@ export function validEventSequence(events) {
     set_engagement_status: "update",
     share_engagement: "share",
     navigate: "navigate",
+    // Record-collection tools (#31) report their own literal tool name, like the
+    // personal-workspace tools below.
+    add_timeline_entry: "add_timeline_entry",
+    add_key_date: "add_key_date",
+    toggle_key_date: "toggle_key_date",
+    add_objective: "add_objective",
+    add_contact: "add_contact",
+    promote_artifact: "promote_artifact",
     // Personal-workspace tools report their own literal tool name as the result operation
     // (see the personal tool handlers), unlike the canonical Engagement verbs above.
     list_tasks: "list_tasks",
@@ -659,11 +667,11 @@ export function evaluateCase({ expectation, before, after, events, rawRecords = 
   );
   const target = expectation.engagementAfter;
   const expectedArgumentTarget = expectation.argumentTargetId ?? expectation.resourceId;
+  // Subset match over the resulting record, so a case can assert any slice of it
+  // (status/statusNote, a timeline entry, a key date, …) without a bespoke grader.
   const targetAfter = !target || (() => {
     const engagement = (after.engagements ?? []).find((entry) => entry.id === target.id);
-    return !!engagement
-      && engagement.status === target.status
-      && (target.statusNote === undefined || engagement.statusNote === target.statusNote);
+    return !!engagement && containsExpected(engagement, target);
   })();
   const modelVisibleOutputChecks = groundedModelVisibleOutputChecks(expectation, before, toolCalls, rawRecords);
   const checks = {
