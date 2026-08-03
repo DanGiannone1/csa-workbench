@@ -177,7 +177,7 @@ async def lifespan(app: FastAPI):
     # Only a demo instance creates deterministic actors and Engagement fixtures.
     try:
         if identity_config.is_demo:
-            await asyncio.to_thread(appdb.ensure_seeded, identity_config.demo_password)
+            await asyncio.to_thread(appdb.ensure_seeded)
             logger.info("Demo actors and engagements seeded")
         else:
             await asyncio.to_thread(appdb.validate_identity_registry, "entra", identity_config.tenant_id)

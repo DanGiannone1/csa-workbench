@@ -79,6 +79,8 @@ def reset_guard(env: dict[str, str]) -> dict[str, str]:
     """Validate the entire destructive target before importing storage code."""
     if env.get("IDENTITY_MODE", "").strip().lower() != "demo":
         raise ValueError("reset is allowed only when IDENTITY_MODE=demo")
+    # Seeding no longer needs the password, but every caller signs in right after
+    # a reset — fail fast here rather than after the wipe.
     if not env.get("DEMO_PASSWORD", "").strip():
         raise ValueError("DEMO_PASSWORD is required for a demo reset")
     if env.get(RESET_OPT_IN, "") != "YES":
@@ -185,7 +187,7 @@ def reset() -> dict:
     if workspace_root.exists():
         shutil.rmtree(workspace_root)
     appdb._container_singleton = None
-    appdb.ensure_seeded(os.environ["DEMO_PASSWORD"])
+    appdb.ensure_seeded()
     # Seed artifacts use the same code path as the application, without importing
     # the FastAPI lifespan or touching an Azure blob backend (guarded above).
     from workbench_api import app as orchestrator

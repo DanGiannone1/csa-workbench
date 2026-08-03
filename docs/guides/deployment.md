@@ -160,6 +160,13 @@ checks `/auth/me`, creates a session through the API, and deletes that session. 
 trip proves the API can call the private runtime with its managed identity. It does not replace an
 interactive browser redirect or MFA check when that experience is release-critical.
 
+For a demo-mode instance, the running `DEMO_PASSWORD` is the sign-in password for every demo
+account — the database stores no credentials (instances seeded before this scheme scrub their
+old hashes on the next startup). Use a generated value of 32–64 characters (the login form caps
+at 128): besides a one-second delay on failed sign-ins, the password's strength is the only
+brute-force protection. Keep the value in the untracked `.env`. To rotate it, change
+`DEMO_PASSWORD`, then run the normal deployment plan and apply commands again.
+
 For a new or dedicated demo instance, set `IDENTITY_MODE=demo`, `DEMO_PASSWORD`, and
 `AZURE_DEPLOYMENT` using the PowerShell or Terminal syntax shown under Required values. Then, only
 with approval to change demo records, run:

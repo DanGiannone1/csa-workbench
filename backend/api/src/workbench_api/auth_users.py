@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import os
 import secrets
 import threading
@@ -20,6 +21,9 @@ AUTH_HEADER = "X-Auth-Token"
 # Idle demo sessions die after 12h — long enough for any demo, short enough to not
 # accumulate forever in memory.
 _TOKEN_TTL_SECONDS = 12 * 3600
+# A failed sign-in costs one second — the only brute-force brake on a shared
+# demo password now that no key-derivation work happens per attempt.
+_FAILED_LOGIN_DELAY_SECONDS = 1.0
 
 
 def _config() -> IdentityConfig:
@@ -27,12 +31,19 @@ def _config() -> IdentityConfig:
 
 
 def login(username: str, password: str) -> dict:
-    """Verify credentials → {token, user}. Raises 401 on failure (no reason leakage)."""
+    """Verify credentials → {token, user}. Raises 401 on failure (no reason leakage).
+
+    The running DEMO_PASSWORD is the one shared demo credential; the database
+    stores none, so rotating it is a config change plus restart."""
     config = _config()
-    if not config.is_demo or not config.demo_password:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    user = appdb.verify_login(username, password)
+    password_ok = (
+        config.is_demo
+        and bool(config.demo_password)
+        and hmac.compare_digest((password or "").encode("utf-8"), config.demo_password.encode("utf-8"))
+    )
+    user = appdb.find_demo_user(username) if password_ok else None
     if user is None:
+        time.sleep(_FAILED_LOGIN_DELAY_SECONDS)
         raise HTTPException(status_code=401, detail="Unauthorized")
     token = secrets.token_urlsafe(32)
     with _LOCK:

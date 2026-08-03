@@ -2,7 +2,7 @@
 
 App state lives in **Azure Cosmos DB** as a set of documents in one container:
 
-- ``users``            — the account registry: seeded users with password hashes + persona.
+- ``users``            — the account registry: seeded users + persona (no credentials).
 - ``personal-{uid}``   — one private aggregate per authenticated actor for Tasks,
   Calendar events, and in-app Reminders.
 - ``eng-*``           — shared **engagement** documents (M2+): records + members + conventions.
@@ -17,8 +17,6 @@ provisioned only from already validated tenant/object identifiers.
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import os
 import random
 import re
@@ -83,33 +81,16 @@ def _now_iso() -> str:
 
 
 # ── Accounts ─────────────────────────────────────────────────────────────────
-# Passwords are deployment/test secrets. PBKDF2-HMAC-SHA256 is stdlib only.
-_PBKDF2_ITERATIONS = 200_000
+# Demo accounts store no credentials. The one shared demo password is the running
+# DEMO_PASSWORD, checked at login in auth_users.py — rotation is a secret change
+# plus restart, never a database migration.
 
 
-def hash_password(password: str, salt: str | None = None) -> str:
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), bytes.fromhex(salt), _PBKDF2_ITERATIONS
-    )
-    return f"{salt}${digest.hex()}"
-
-
-def verify_password(password: str, stored: str) -> bool:
-    try:
-        salt, expected = stored.split("$", 1)
-    except ValueError:
-        return False
-    candidate = hash_password(password, salt).split("$", 1)[1]
-    return hmac.compare_digest(candidate, expected)
-
-
-def _seed_users(demo_password: str) -> list[dict]:
+def _seed_users() -> list[dict]:
     def user(uid: str, name: str, role: str, tone: str) -> dict:
         return {
             "id": uid,
             "username": uid,
-            "passwordHash": hash_password(demo_password),
             "displayName": name,
             "identity": "demo",
             "identitySubject": f"demo:{uid}",
@@ -169,17 +150,21 @@ def validate_identity_registry(mode: str, tenant_id: str | None = None) -> dict:
     return users_doc
 
 
-def ensure_seeded(demo_password: str) -> None:
+def ensure_seeded() -> None:
     """Create deterministic demo actors and fixtures only in demo mode."""
-    if not demo_password:
-        raise ValueError("demo password is required for demo seeding")
     users_doc = validate_identity_registry("demo")
     if not users_doc["users"]:
-        users_doc = {"id": _USERS_DOC_ID, "sessionId": _USERS_DOC_ID, "users": _seed_users(demo_password)}
+        users_doc = {"id": _USERS_DOC_ID, "sessionId": _USERS_DOC_ID, "users": _seed_users()}
         try:
             _container().replace_item(item=_USERS_DOC_ID, body=users_doc)
         except cosmos_exceptions.CosmosResourceNotFoundError:
             _container().create_item(users_doc)
+    elif any("passwordHash" in u for u in users_doc["users"]):
+        # Registries seeded before credentials moved out of the database still
+        # carry first-boot hashes; scrub them so none rest here.
+        for u in users_doc["users"]:
+            u.pop("passwordHash", None)
+        _container().replace_item(item=_USERS_DOC_ID, body=users_doc)
     for user in users_doc["users"]:
         _ensure_personal_workspace_seeded(user["id"], demo=True)
     _seed_engagements()
@@ -207,16 +192,13 @@ def find_user(ref: str) -> dict | None:
     return None
 
 
-def verify_login(username: str, password: str) -> dict | None:
-    """Check credentials → sanitized user record, or None. Fail closed on any mismatch."""
-    doc = _ensure_user_registry()
+def find_demo_user(username: str) -> dict | None:
+    """Demo account by exact username, or None. The password check lives in
+    auth_users.login; registries seeded before credentials moved out of the
+    database may still carry a passwordHash — never return it."""
     uname = (username or "").strip().lower()
-    for u in doc["users"]:
-        if (
-            u.get("identity") == "demo"
-            and u.get("username") == uname
-            and verify_password(password or "", u.get("passwordHash", ""))
-        ):
+    for u in _ensure_user_registry()["users"]:
+        if u.get("identity") == "demo" and u.get("username") == uname:
             return {k: v for k, v in u.items() if k != "passwordHash"}
     return None
 
