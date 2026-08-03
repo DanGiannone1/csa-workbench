@@ -1,30 +1,20 @@
 # Repository agent entry point
 
-This is the shared starting point for any developer agent working in CSA Workbench. Before changing
-the repository, read [docs/README.md](docs/README.md) and
-[docs/governance/README.md](docs/governance/README.md). Follow the documents named there:
+Before working in this repository, read [docs/README.md](docs/README.md). Use the native repository
+skills for the task:
 
-- read the Master SDLC and Engineering Operating Standards before investigating or changing the
+- use `agentic-sdlc` and `engineering-operating-standards` before investigating or changing the
   repository;
-- read the Testing Charter before designing, changing, or running checks; and
-- read Agentic Design before changing agents, skills, prompts, tools, or handoffs.
+- use `testing` before designing, changing, running, or reporting checks; and
+- use `agentic-design` before changing agents, skills, prompts, tools, permissions, or handoffs.
 
-Read the product, architecture, development, and deployment documents related to the requested
-change. Stop and ask the user when required guidance is missing or contradictory. Preserve existing
-worktree changes and do not switch the primary branch unless the user explicitly asks.
+The skills are lightweight pointers to the shared instructions in
+[`docs/repo-agent-skills/`](docs/repo-agent-skills/README.md). Read the product, architecture,
+development, and deployment documents related to the requested change.
 
-The canonical runtime-independence and skill-boundary policy is in
-[Agentic Design](docs/governance/agentic-design.md). Do not duplicate shipped product skills into
-developer skill directories.
+Preserve existing worktree changes. Do not switch the primary branch, change Git hosting, deploy,
+or affect external systems unless the user explicitly asks. Stop and ask when required guidance is
+missing or contradictory.
 
-## Native runtime additions
-
-Shared repository policy has one home: `docs/governance/`. Native settings remain independent:
-
-- Claude: `CLAUDE.md` and `.claude/`
-- Codex: `.codex/`, with metadata-only `.agents/skills/` adapters for standalone discovery
-- GitHub Copilot: `.github/copilot-instructions.md` and `.github/`
-
-See [working with coding agents](docs/guides/coding-agents.md) for the supported surfaces and
-smoke tests. A local profile or runtime-specific orchestration may add capabilities, but it never
-replaces these repository rules.
+Repository-agent skills never ship with the application. Product-assistant skills live only in
+`backend/assistant/product-skills/`.

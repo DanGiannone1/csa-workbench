@@ -3,13 +3,14 @@
 Start with [AGENTS.md](AGENTS.md) for any developer agent. Claude also uses
 [CLAUDE.md](CLAUDE.md); GitHub Copilot also uses
 [`.github/copilot-instructions.md`](.github/copilot-instructions.md). Then read the
-[documentation guide](docs/README.md) and the [governance guide](docs/governance/README.md).
+[documentation guide](docs/README.md). Repository-agent workflows are documented in
+[`docs/repo-agent-skills/`](docs/repo-agent-skills/README.md).
 
 Before making a change:
 
 1. Confirm the requested outcome and the parts of the repository it affects.
 2. Inspect the current source and preserve unrelated worktree changes.
-3. Follow the approval and review process in the [Master SDLC](docs/governance/master-sdlc.md).
+3. Follow the approval and review process in the [Agentic SDLC](docs/repo-agent-skills/agentic-sdlc.md).
 4. Use an isolated local instance when running the application.
 5. Run the checks appropriate to the change and report what happened.
 
