@@ -22,6 +22,7 @@ Use this page to find the shortest path to what you need.
 - [Demo guide](guides/demo.md)
 - [Testing: the four layers and how to run them](../testing/testing-charter.md)
 - [Agent evaluation showcase](guides/eval-showcase.md)
+- [Adopting the evals in your own repository](guides/adopting-the-evals.md)
 - [Azure deployment](guides/deployment.md)
 - [Working with coding agents](guides/coding-agents.md)
 
