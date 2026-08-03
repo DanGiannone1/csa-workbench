@@ -6,11 +6,47 @@ show routing and mocked-tool behavior; only `npm run eval:mvp` and the browser j
 claim about the real application.
 
 Start with [Input prompt + Expected output](../tests/evals/README.md) if evaluations are new to you.
+To copy an existing suite and test your own skill, start from the
+[starter suites README](../tests/evals/waza/README.md).
 This repository pins [Waza v0.38.3](https://github.com/microsoft/waza/tree/v0.38.3). Its
 [eval schema](https://github.com/microsoft/waza/blob/v0.38.3/schemas/eval.schema.json),
 [task schema](https://github.com/microsoft/waza/blob/v0.38.3/schemas/task.schema.json), and
 [grader reference](https://github.com/microsoft/waza/tree/v0.38.3/docs/graders) are the upstream
 authority for the file format.
+
+## Why this lane exists
+
+The product evaluation suites test the whole application on the road: the real runtime, the real
+model, the real database, and a verdict about what was saved. When one of those cases fails, the
+cause is a blend of skill wording, tool schemas, model behavior, and product plumbing — and someone
+has to work out which. This lane is the bench test for one part: it holds everything constant
+except the skill file, so "I reworded the skill and routing broke" is answerable with one isolated
+run and no product stack.
+
+Evaluating an individual skill is best understood as four questions, asked in order:
+
+1. **Activation** — does the skill start when it should (including paraphrases, not just the
+   canonical wording) and stay silent when it should not? Over-triggering is the most common
+   real-world skill failure, so the negative cases matter as much as the positive ones.
+2. **Adherence** — once active, does the agent reach for the right tools and avoid the wrong ones?
+3. **Outcome** — does the end state come out right?
+4. **Lift** — does behavior measurably differ with the skill versus without it?
+
+This laboratory answers questions 1 and 2, on purpose: they are the highest-value checks that need
+no product stack, which keeps the lane cheap enough to run on every skill edit. Question 3 belongs
+to the product-runtime suite, where saved state is asserted against the real application. Question 4
+is not measured anywhere in this repository today.
+
+Skills graduate between lanes. A new skill is born here — activation and tool-selection cases with
+mocked tools. When the skill backs a product feature whose breakage would matter, it earns gold
+cases in the [product-runtime suite](agent-evals.md); the meeting-prep skill has made that jump,
+while the tasks, calendar, and weekly-review skills are laboratory-only so far, which makes this
+lane their only automated behavioral check. Treat that as a starting point, not an end state.
+
+One naming caution: within this lane, "gate" labels the curated meeting-prep suite whose result the
+scorecard records. It does not block releases — `npm run verify:ci` runs only the free
+schema-validation and readiness checks, and the [Testing Charter](testing-charter.md) places this
+lane beside the product layers, never above them.
 
 ## Setup and authentication
 
@@ -122,8 +158,10 @@ prefer WSL can add `--wsl`, for example
 
 ## Gate, advisory, and exit status
 
-The meeting-prep routing suite is the existing gate. Tasks, calendar, and weekly-review are
-advisory routing/tool-selection probes until repeated clean results are reviewed.
+The meeting-prep routing suite is the existing gate — meaning the curated suite whose result the
+scorecard records, not a release blocker (see [Why this lane exists](#why-this-lane-exists)).
+Tasks, calendar, and weekly-review are advisory routing/tool-selection probes until repeated clean
+results are reviewed.
 
 | Exit | Meaning | Evidence behavior |
 |---|---|---|
