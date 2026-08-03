@@ -184,8 +184,40 @@ function decodeEngagement(value: unknown): Engagement {
   const library = array(engagement.library, "engagement.library").map((entry) => {
     const artifact = object(entry, "engagement.artifact");
     if (typeof artifact.size !== "number" || !Number.isFinite(artifact.size) || artifact.size < 0) throw new Error("Malformed engagement artifact payload");
-    return { id: string(artifact.id, "engagement.artifact.id"), name: string(artifact.name, "engagement.artifact.name"), size: artifact.size, contentType: text(artifact.contentType, "engagement.artifact.contentType"), uploadedBy: string(artifact.uploadedBy, "engagement.artifact.uploadedBy"), uploadedAt: string(artifact.uploadedAt, "engagement.artifact.uploadedAt") };
+    const tier = artifact.tier === "silver" || artifact.tier === "gold" ? artifact.tier : "bronze";
+    return {
+      id: string(artifact.id, "engagement.artifact.id"), name: string(artifact.name, "engagement.artifact.name"), size: artifact.size, contentType: text(artifact.contentType, "engagement.artifact.contentType"), uploadedBy: string(artifact.uploadedBy, "engagement.artifact.uploadedBy"), uploadedAt: string(artifact.uploadedAt, "engagement.artifact.uploadedAt"),
+      tier: tier as "bronze" | "silver" | "gold",
+      ...(artifact.promotedBy === undefined ? {} : { promotedBy: string(artifact.promotedBy, "engagement.artifact.promotedBy") }),
+      ...(artifact.promotedAt === undefined ? {} : { promotedAt: string(artifact.promotedAt, "engagement.artifact.promotedAt") }),
+    };
   });
+  const objectives = engagement.objectives === undefined ? [] :
+    array(engagement.objectives, "engagement.objectives").map((entry, index) => text(entry, `engagement.objectives[${index}]`));
+  const keyDates = engagement.keyDates === undefined ? [] :
+    array(engagement.keyDates, "engagement.keyDates").map((entry) => {
+      const kd = object(entry, "engagement.keyDate");
+      return { date: string(kd.date, "engagement.keyDate.date"), label: text(kd.label, "engagement.keyDate.label"), done: kd.done === true };
+    });
+  const contacts = engagement.contacts === undefined ? [] :
+    array(engagement.contacts, "engagement.contacts").map((entry) => {
+      const contact = object(entry, "engagement.contact");
+      return { name: text(contact.name, "engagement.contact.name"), role: text(contact.role, "engagement.contact.role") };
+    });
+  const timeline = engagement.timeline === undefined ? [] :
+    array(engagement.timeline, "engagement.timeline").map((entry) => {
+      const item = object(entry, "engagement.timeline entry");
+      const type = string(item.type, "engagement.timeline.type");
+      if (type !== "meeting" && type !== "decision" && type !== "risk" && type !== "note") throw new Error("Malformed engagement timeline payload");
+      return {
+        id: string(item.id, "engagement.timeline.id"),
+        type: type as "meeting" | "decision" | "risk" | "note",
+        title: text(item.title, "engagement.timeline.title"),
+        date: string(item.date, "engagement.timeline.date"), body: text(item.body ?? "", "engagement.timeline.body"),
+        author: string(item.author, "engagement.timeline.author"), source: text(item.source ?? "", "engagement.timeline.source"),
+      };
+    });
+  const numericValue = typeof engagement.value === "number" && Number.isFinite(engagement.value) && engagement.value >= 0 ? engagement.value : 0;
   const activity = array(engagement.activity, "engagement.activity").map((entry) => {
     const item = object(entry, "engagement.activity entry");
     return { ts: string(item.ts, "engagement.activity.ts"), userId: string(item.userId, "engagement.activity.userId"), action: string(item.action, "engagement.activity.action"), detail: text(item.detail, "engagement.activity.detail") };
@@ -193,6 +225,11 @@ function decodeEngagement(value: unknown): Engagement {
   return {
     id: string(engagement.id, "engagement.id"), name: string(engagement.name, "engagement.name"), description: text(engagement.description, "engagement.description"), customer: text(engagement.customer, "engagement.customer"), status,
     statusNote: text(engagement.statusNote, "engagement.statusNote"), startDate: text(engagement.startDate, "engagement.startDate"), targetDate: text(engagement.targetDate, "engagement.targetDate"),
+    businessValue: text(engagement.businessValue ?? "", "engagement.businessValue"),
+    value: numericValue,
+    currentState: text(engagement.currentState ?? "", "engagement.currentState"),
+    stateDate: text(engagement.stateDate ?? "", "engagement.stateDate"),
+    objectives, keyDates, contacts, timeline,
     members: members as Engagement["members"], conventions: conventions as Engagement["conventions"], tasks: tasks as Engagement["tasks"], library: library as Engagement["library"], activity: activity as Engagement["activity"], createdAt: string(engagement.createdAt, "engagement.createdAt"), createdBy: string(engagement.createdBy, "engagement.createdBy"),
   };
 }
