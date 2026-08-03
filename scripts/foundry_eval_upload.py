@@ -147,7 +147,7 @@ def main() -> None:
         "per_row": per_row,
     }
     out_path = results_path.parent / "foundry-run.json"
-    out_path.write_text(json.dumps(summary, indent=2, default=str))
+    out_path.write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     print("wrote", out_path)
     print("report_url:", summary["report_url"])
     if current.status != "completed":

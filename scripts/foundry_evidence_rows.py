@@ -88,9 +88,9 @@ def _response_messages(tool_calls: list[dict], assistant_text: str) -> list[dict
 
 
 def build_rows(results_path: Path) -> tuple[list[dict], dict]:
-    evidence = json.loads(results_path.read_text())
-    cases = {c["id"]: c for c in json.loads((REPO / "tests/evals/mvp-cases.json").read_text())["cases"]}
-    workflows = {w["id"]: w for w in json.loads((REPO / "tests/evals/mvp-workflows.json").read_text())["workflows"]}
+    evidence = json.loads(results_path.read_text(encoding="utf-8"))
+    cases = {c["id"]: c for c in json.loads((REPO / "tests/evals/mvp-cases.json").read_text(encoding="utf-8"))["cases"]}
+    workflows = {w["id"]: w for w in json.loads((REPO / "tests/evals/mvp-workflows.json").read_text(encoding="utf-8"))["workflows"]}
     unknown = sorted(
         {r["id"] for r in evidence["results"] if r["id"] not in cases}
         | {w["id"] for w in evidence.get("workflows", []) if w["id"] not in workflows})
