@@ -61,7 +61,7 @@ export default function AssistantWorkspace() {
 
   return (
     <div className={`relative flex h-screen w-full bg-app text-text-primary font-sans ${stacked ? "overflow-y-auto" : "overflow-hidden"}`} data-testid="assistant-workspace">
-      <div className={`relative z-10 flex w-full ${stacked ? "min-h-full flex-col" : "h-full"}`}>
+      <div className={`relative z-10 flex w-full ${stacked ? "h-fit min-h-full flex-col" : "h-full"}`}>
         {/* Host app shell rail — so the workspace reads as a page OF CSA Workbench, not a
             separate chatbot. Hidden on narrow viewports (the Back control covers returning).
             The rail carries the brand block and "AI Mode" status itself. */}

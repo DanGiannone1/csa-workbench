@@ -10,7 +10,9 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import AxeBuilder from "@axe-core/playwright";
 import { chromium } from "@playwright/test";
+import { axeColorContrastOptions, axeColorContrastPasses, compactAxeContrastResults } from "./axe_contrast.mjs";
 import { completedStreamEvidence, evidencePath, exactEngagementUpdate, onlyEngagementMayChange, requireCleanWorktree, requireStableSourceRevision, requireTargetUrl, stateFingerprint } from "./mvp_evidence.mjs";
 
 const startedAt = new Date().toISOString();
@@ -45,6 +47,16 @@ function resetFixture() {
 }
 
 const checks = [];
+async function checkColorContrast(page, state, report, include) {
+  let builder = new AxeBuilder({ page });
+  if (include) builder = builder.include(include);
+  const result = await builder.options(axeColorContrastOptions()).analyze();
+  const findings = compactAxeContrastResults(result);
+  report.colorContrast ??= [];
+  report.colorContrast.push({ state, rule: "color-contrast", include: include ?? null, ...findings });
+  const pass = axeColorContrastPasses(findings);
+  check(`MVP-P53-color-contrast-${state}`, pass, pass ? "" : JSON.stringify(findings));
+}
 function check(id, pass, detail = "") { checks.push({ id, pass: !!pass, detail }); console.log(`${pass ? "PASS" : "FAIL"} ${id}${detail ? ` — ${detail}` : ""}`); }
 async function eventually(predicate, timeout = 15_000) {
   const until = Date.now() + timeout;
@@ -266,7 +278,7 @@ async function finalCardHitPoints(page) {
   });
 }
 async function newPage(browser, viewport, user) {
-  const context = await browser.newContext({ viewport });
+  const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (error) => errors.push(String(error)));
@@ -307,6 +319,7 @@ try {
   await dan.page.getByTestId("engagements-screen").waitFor({ state: "visible" });
   await capture(dan.page, `${out}/wide-dan-portfolio.png`);
   check("MVP-P2-wide-no-horizontal-overflow", await noHorizontalOverflow(dan.page));
+  await checkColorContrast(dan.page, "wide-engagements", report);
   await captureResponsiveMatrix(dan.page, report);
 
   await dan.page.getByTestId("add-engagement-btn").click();
@@ -393,6 +406,7 @@ try {
   await sam.page.getByTestId("viewer-note").waitFor({ state: "visible" });
   check("MVP-P13-viewer-has-no-editor-affordance", await sam.page.getByTestId("engagement-detail-editor").count() === 0);
   check("MVP-P14-viewer-note-visible", await sam.page.getByTestId("viewer-note").isVisible());
+  await checkColorContrast(sam.page, "compact-viewer", report);
   await capture(sam.page, `${out}/compact-sam-viewer.png`);
   check("MVP-P15-compact-no-horizontal-overflow", await noHorizontalOverflow(sam.page));
 
@@ -461,6 +475,7 @@ try {
     "MVP-P49-new-session-dialog-overlay-focus",
     await dialogOverlay.isVisible() && await dialogConfirm.evaluate((element) => document.activeElement === element),
   );
+  await checkColorContrast(dan.page, "dialog", report, '[role="dialog"]');
   await capture(dan.page, `${out}/wide-dan-new-session-dialog-overlay.png`);
   await dan.page.keyboard.press("Escape");
   check("MVP-P50-new-session-dialog-escape-restores-focus", await eventually(() =>
@@ -473,6 +488,7 @@ try {
   check("MVP-P22-narrow-drawer-focuses", await eventually(() => narrow.page.evaluate(() => document.activeElement?.closest("#workbench-nav") !== null)));
   check("MVP-P31-narrow-drawer-hides-launcher", await eventually(() => narrow.page.getByTestId("dock-launcher").count().then((count) => count === 0)));
   check("MVP-P32-narrow-drawer-sign-out-unobstructed", await signOutUnobstructed(narrow.page));
+  await checkColorContrast(narrow.page, "phone-drawer", report, "#workbench-nav");
   await capture(narrow.page, `${out}/narrow-dan-drawer-open.png`);
   await narrow.page.keyboard.press("Escape");
   check("MVP-P23-narrow-escape-restores-focus", await eventually(() => narrow.page.getByTestId("nav-toggle").evaluate((element) => document.activeElement === element)));
@@ -526,6 +542,7 @@ try {
       assistantNarrowLayout.artifacts.y > assistantNarrowLayout.chat.y,
     JSON.stringify(assistantNarrowLayout),
   );
+  await checkColorContrast(narrow.page, "phone-assistant", report);
   await capture(narrow.page, `${out}/narrow-assistant-workspace.png`);
 
   // ── Personal work: Home/Tasks/Calendar/Reminders are the actor's private, owner-only

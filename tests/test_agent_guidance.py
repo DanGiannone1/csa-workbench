@@ -7,8 +7,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_SKILLS = ROOT / "backend" / "assistant" / "product-skills"
-DEVELOPER_SKILL_ROOTS = (ROOT / ".claude" / "skills", ROOT / ".codex" / "skills", ROOT / ".github" / "skills")
+CANONICAL_CODEX_SKILLS = ROOT / ".codex" / "skills"
+CODEX_DISCOVERY_ADAPTERS = ROOT / ".agents" / "skills"
+DEVELOPER_SKILL_ROOTS = (
+    ROOT / ".claude" / "skills",
+    CANONICAL_CODEX_SKILLS,
+    CODEX_DISCOVERY_ADAPTERS,
+    ROOT / ".github" / "skills",
+)
 EXPECTED_PRODUCT_SKILLS = {"engagement-meeting-prep", "tasks", "calendar", "weekly-review"}
+EXPECTED_CODEX_WORKFLOWS = {
+    "agentic-design",
+    "agentic-sdlc",
+    "engineering-operating-standards",
+    "testing",
+}
 
 
 def text(relative_path: str) -> str:
@@ -48,6 +61,28 @@ def test_product_skills_are_allowlisted_packaged_and_not_developer_skills() -> N
         assert not duplicated, f"product skills must not be copied into {developer_root}: {sorted(duplicated)}"
 
 
+def test_standalone_codex_adapters_delegate_without_copying_workflows() -> None:
+    assert CODEX_DISCOVERY_ADAPTERS.is_dir()
+    assert not CODEX_DISCOVERY_ADAPTERS.is_symlink()
+
+    canonical = {path.parent.name for path in CANONICAL_CODEX_SKILLS.glob("*/SKILL.md")}
+    adapters = {path.parent.name for path in CODEX_DISCOVERY_ADAPTERS.glob("*/SKILL.md")}
+    assert canonical == adapters == EXPECTED_CODEX_WORKFLOWS
+
+    for name in sorted(canonical):
+        canonical_path = CANONICAL_CODEX_SKILLS / name / "SKILL.md"
+        adapter_path = CODEX_DISCOVERY_ADAPTERS / name / "SKILL.md"
+        assert not adapter_path.parent.is_symlink()
+
+        canonical_lines = canonical_path.read_text(encoding="utf-8").splitlines()
+        adapter = adapter_path.read_text(encoding="utf-8")
+        adapter_lines = adapter.splitlines()
+        assert adapter_lines[:4] == canonical_lines[:4]
+        assert f"../../../.codex/skills/{name}/SKILL.md" in adapter
+        assert "docs/governance/" not in adapter
+        assert "testing/testing-charter.md" not in adapter
+
+
 def test_documented_skill_taxonomy_and_smoke_checks_have_one_destination() -> None:
     guide = text("docs/guides/coding-agents.md")
     assert "Supported developer-agent entry points" in guide
@@ -56,6 +91,7 @@ def test_documented_skill_taxonomy_and_smoke_checks_have_one_destination() -> No
     assert "VS Code agent mode" in guide
     assert "Copilot cloud coding agent" in guide
     assert "codex debug prompt-input" in guide
+    assert ".agents/skills" in guide
     assert ".claude/settings.json" not in guide
     assert "session-container" not in guide
     policy = text("docs/governance/agentic-design.md")

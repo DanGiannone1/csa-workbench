@@ -35,6 +35,7 @@
   --color-brand-success: var(--brand-success);
   --color-brand-warning: var(--brand-warning);
   --color-brand-strong: var(--brand-strong);
+  --color-text-brand-on-subtle: var(--text-brand-on-subtle);
 
   --font-sans: var(--font-body);
   --font-mono: var(--font-code);
@@ -362,7 +363,7 @@ html, body {
   border-radius: 9999px;
   border: 1px solid var(--border-brand-subtle);
   background: var(--surface-brand-subtle);
-  color: var(--brand-primary);
+  color: var(--text-brand-on-subtle);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -381,7 +382,7 @@ html, body {
   border-radius: 9999px;
   border: 1px solid var(--border-brand-subtle);
   background: var(--surface-brand-subtle);
-  color: var(--brand-primary);
+  color: var(--text-brand-on-subtle);
   text-decoration: none;
   font-size: 0.84em;
   font-weight: 700;
@@ -428,7 +429,7 @@ html, body {
   transition: background 0.15s, color 0.15s; font-weight: 500; cursor: pointer;
 }
 .tw-nav-item:hover { background: var(--surface-2); color: var(--text-primary); }
-.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--brand-strong); font-weight: 600; }
+.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); font-weight: 600; }
 .tw-nav-count { margin-left: auto; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
 .tw-content { flex: 1; min-width: 0; overflow-y: auto; }
 .tw-app .tw-input {
@@ -447,9 +448,9 @@ html, body {
 .tw-app .tw-btn { border: 1px solid var(--brand-primary); background: var(--brand-primary); color: var(--text-on-brand); }
 .tw-app .tw-btn:hover:not(:disabled) { background: var(--brand-strong); border-color: var(--brand-strong); }
 .tw-app .tw-btn-ghost, .tw-nav .tw-btn-ghost { border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); }
-.tw-app .tw-btn-ghost:hover:not(:disabled), .tw-nav .tw-btn-ghost:hover:not(:disabled) { border-color: var(--brand-primary); background: var(--surface-brand-subtle); color: var(--brand-primary); }
+.tw-app .tw-btn-ghost:hover:not(:disabled), .tw-nav .tw-btn-ghost:hover:not(:disabled) { border-color: var(--brand-primary); background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); }
 .tw-app .tw-btn:disabled, .tw-app .tw-btn-ghost:disabled, .tw-nav .tw-btn-ghost:disabled { cursor: not-allowed; opacity: 0.6; }
-.tw-app .tw-addbar { width: 100%; margin-top: 0.75rem; border: 1px dashed var(--brand-primary); background: var(--surface-brand-subtle); color: var(--brand-primary); }
+.tw-app .tw-addbar { width: 100%; margin-top: 0.75rem; border: 1px dashed var(--brand-primary); background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); }
 .tw-app .tw-addbar:hover { background: var(--surface-brand-strong); }
 .tw-app .tw-error { margin-top: 0.75rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border-danger); border-radius: 0.6rem; background: var(--surface-danger); color: var(--text-danger); font-size: 0.8rem; font-weight: 600; }
 .tw-app .tw-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.85rem; border-bottom: 1px solid var(--border-subtle); }
@@ -511,7 +512,7 @@ html, body {
 /* Blocked / overdue — red */
 .tw-badge-red { background: var(--surface-danger); color: var(--text-danger); }
 .tw-type { font-size: 0.66rem; font-weight: 700; padding: 0.12rem 0.45rem; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
-.tw-type-obligation { background: var(--surface-brand-subtle); color: var(--brand-primary); }
+.tw-type-obligation { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); }
 .tw-type-general { background: var(--surface-2); color: var(--text-muted); }
 
 /* The stats row renders as the reference's joined aggregate strip. */
@@ -619,7 +620,7 @@ button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
 .tw-row-new > td { animation: tw-row-flash 2.8s ease-out both; }
 .tw-new {
   display: inline-block; margin-left: 0.5rem; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--brand-primary);
+  text-transform: uppercase; color: var(--text-brand-on-subtle);
   background: var(--surface-brand-subtle); border-radius: 999px; padding: 0.08rem 0.45rem; vertical-align: middle;
 }
 

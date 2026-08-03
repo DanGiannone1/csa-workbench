@@ -22,7 +22,7 @@ developer skill directories.
 Shared repository policy has one home: `docs/governance/`. Native settings remain independent:
 
 - Claude: `CLAUDE.md` and `.claude/`
-- Codex: `.codex/`
+- Codex: `.codex/`, with metadata-only `.agents/skills/` adapters for standalone discovery
 - GitHub Copilot: `.github/copilot-instructions.md` and `.github/`
 
 See [working with coding agents](docs/guides/coding-agents.md) for the supported surfaces and
