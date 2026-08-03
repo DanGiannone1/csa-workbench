@@ -1,105 +1,83 @@
 # Working with coding agents
 
-This guide is for a human collaborator using a CLI coding agent in the repository.
+CSA Workbench supports Codex, Claude Code, and GitHub Copilot independently. A developer can use any
+one of them after cloning the repository; no agent needs another agent's native folder.
 
-## Local work
+## Entry points
 
-1. Start with [AGENTS.md](../../AGENTS.md). Claude also reads [CLAUDE.md](../../CLAUDE.md), and
-   GitHub Copilot also reads [`.github/copilot-instructions.md`](../../.github/copilot-instructions.md).
-2. Confirm the requested goal, boundaries, success criteria, and approval before editing.
-3. Inspect the current source and worktree. Preserve other people's changes.
-4. Use the isolated run instructions in [local development](local-development.md).
-5. Supply or select secrets, Azure account choices, model values, and Cosmos settings yourself.
-6. Run the relevant repository and browser checks and inspect the resulting behavior.
+| Coding agent | Entry point | Native files |
+|---|---|---|
+| Codex | `AGENTS.md` | `.codex/agents/` and `.codex/skills/` |
+| Claude Code | `CLAUDE.md`, which imports `AGENTS.md` | `.claude/agents/` and `.claude/skills/` |
+| GitHub Copilot | `.github/copilot-instructions.md` and `AGENTS.md` | `.github/agents/` and `.github/skills/` |
 
-Do not paste, print, or commit secrets.
+Start each tool normally from the repository root. Claude users may start the optional lead profile
+with `claude --agent project-lead`.
 
-## Supported developer-agent entry points
+## Repository skills
 
-The repository supports a small, documented entry point for each runtime. The canonical
-independence and skill-boundary policy is [Agentic Design](../governance/agentic-design.md).
+Each coding agent has the same four skills:
 
-| Runtime | Repository entry points | Native additions | What this repository does not promise |
+- `agentic-sdlc`
+- `engineering-operating-standards`
+- `testing`
+- `agentic-design`
+
+The native `SKILL.md` files are small pointers. The complete instructions live once in
+[`docs/repo-agent-skills/`](../repo-agent-skills/README.md). Local browser testing and safe Azure
+verification are both part of the `testing` skill.
+
+These development skills are not product features. The skills used by the CSA Workbench assistant
+live separately in `backend/assistant/product-skills/`.
+
+## Optional agent roles
+
+| Responsibility | Claude Code | Codex | GitHub Copilot |
 |---|---|---|---|
-| Claude Code | `AGENTS.md`, then `CLAUDE.md` | `.claude/agents`, `.claude/skills`, and communication guidance | That every developer has the optional PPEL or the same local permissions and models. |
-| Codex | `AGENTS.md` | Canonical `.codex/skills` workflows with `.agents/skills` discovery adapters | That a locally configured profile, including PPEL, exists after a fresh clone. |
-| GitHub Copilot CLI | `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md` | `.github/skills`; it may also discover `.agents/skills` and `.claude/skills` | That the CLI is installed, or that a product-assistant skill is a developer skill. |
-| VS Code agent mode | `.github/copilot-instructions.md` and `AGENTS.md` | `.github/skills`; it may also discover `.agents/skills` and `.claude/skills` | That VS Code agent mode discovers `CLAUDE.md`, or that an IDE can enforce an instruction. |
-| Copilot cloud coding agent | `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md` | `.github/skills`; it may also discover `.agents/skills` and `.claude/skills` | That every GitHub plan or organization enables the coding agent, or that a product-assistant skill is a developer skill. |
+| Lead | `project-lead` | `project-lead` | `project-lead` |
+| Difficult analysis and independent review | `opus` | `sol` | Built-in worker |
+| Implementation | `sonnet` | `terra` | Built-in worker |
+| Fast read-only investigation | `haiku` | `luna` | Built-in worker |
 
-GitHub documents `.github/copilot-instructions.md` as the repository-wide Copilot instruction
-location and `AGENTS.md` as agent guidance. Copilot CLI and the cloud coding agent can also use
-`CLAUDE.md`; VS Code agent mode should be checked against `AGENTS.md`, not `CLAUDE.md`. GitHub
-documents `.github/skills/<name>/SKILL.md`, `.agents/skills/<name>/SKILL.md`, and
-`.claude/skills/<name>/SKILL.md` as project skill locations. The `.agents/skills` entries in this
-repository contain only the metadata needed to delegate standalone Codex to the canonical
-`.codex/skills` workflows; Copilot may discover those adapters too. We never copy shipped product
-skills from `backend/assistant/product-skills/` into a developer skill folder. See GitHub's
-[custom-instruction support reference](https://docs.github.com/en/copilot/reference/custom-instructions-support)
-when adding a new Copilot surface.
+The lead communicates with the user and owns decisions. Workers receive bounded assignments and
+return evidence. Claude workers do not delegate to other Claude workers.
 
-## Discovery smoke tests
+## Check the scaffold
 
-Run these after changing an entry point or developer skill. They confirm discovery and references;
-they do not claim that an instruction can technically enforce a runtime permission.
+After changing agent files, run the static check:
 
-1. **Static check, every platform:** run `uv run --with pytest pytest tests/test_agent_guidance.py`
-   from the repository root. It checks the entry-point links, product-skill allowlist, image
-   packaging, and that product skills are not duplicated into developer skill folders.
-2. **Claude Code:** start a fresh session, type `/`, and verify the four repository workflow skill
-   names from `.claude/skills` are available. Run `/memory` or `/context` when available and verify
-   `AGENTS.md` and the `@AGENTS.md` import from `CLAUDE.md` are listed. PPEL communication guidance
-   is native/manual; no repository hook enforces it.
-3. **Codex:** from a fresh operating-system terminal at the repository root, outside any managed
-   Codex thread, run these model-free inventory commands:
-
-   ```bash
-   codex debug prompt-input "Inventory repository guidance and discovered skills. Do not change files."
-   codex -C backend debug prompt-input "Inventory repository guidance and discovered skills. Do not change files."
-   ```
-
-   Both JSON results must include the model-visible repository instruction context and the four
-   discovered `.agents/skills` entries. The static check confirms that each adapter resolves to its
-   canonical `.codex/skills` workflow. These commands need no model, profile, or file change.
-4. **GitHub Copilot CLI:** start a fresh session and run `/instructions`, then `/skills list`.
-   Expect the CLI to report `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md`, plus
-   skills from `.github/skills`, `.agents/skills`, and any applicable `.claude/skills`. If
-   `copilot` is not installed, or the installed CLI has no inventory command, record that
-   limitation rather than inferring discovery from a model answer.
-5. **VS Code agent mode:** start a fresh agent-mode chat in the repository workspace. Check the
-   references that VS Code exposes for `.github/copilot-instructions.md` and `AGENTS.md`. Do not
-   use `CLAUDE.md` as evidence for this surface. If the client does not expose an instruction
-   inventory, record the client version and the limitation rather than treating a chat reply as
-   proof.
-6. **Copilot cloud coding agent:** inspect the coding-agent task's instruction references when the
-   GitHub UI exposes them. Expect `.github/copilot-instructions.md`, `AGENTS.md`, and `CLAUDE.md`,
-   with `.github/skills`, `.agents/skills`, and applicable `.claude/skills` available for
-   task-specific work. If the task UI has no inventory, record that limitation; do not create a
-   test task only to claim discovery.
-
-The static check above keeps the current product catalog, runtime allowlist, image packaging, and
-skill boundary aligned. Do not move canonical runtime workflows or copy their bodies into discovery
-adapters.
-
-## Azure work
-
-The intended handoff is simple: the human signs in with Azure CLI, selects the tenant and
-subscription, and tells the coding agent to deploy per the [deployment guide](deployment.md). The
-human names the instance, identity mode, and model configuration and explicitly authorizes apply.
-The agent creates or updates the work record and handles the repository procedure, exact plan
-confirmation, deployment, and verification.
-
-```bash
-az login --tenant '<tenant-id-or-domain>'
-az account set --subscription '<subscription-id-or-name>'
-az account show --query '{subscription:name,subscriptionId:id,tenantId:tenantId,user:user.name}' -o json
+```text
+uv run --with pytest pytest -q tests/test_agent_guidance.py
 ```
 
-The agent may inspect Azure and run the repository's plan after confirming the selected account.
-A plan-only request never permits deployment.
+Then check the runtime you changed from a fresh session:
 
-When the user explicitly requests deployment and the current plan matches the approved target, the
-agent may use the exact confirmation printed by that plan.
+- Claude Code: open `/agents` and confirm `project-lead`, `opus`, `sonnet`, and `haiku`; confirm the
+  four skills are available.
+- Codex: run `codex debug prompt-input "List repository instructions and skills. Do not change files."`
+  and confirm the four skills appear once; confirm the custom agents are available for delegation.
+- GitHub Copilot CLI: run `/instructions` and `/skills list`; confirm its entry point and four skills.
 
-Any new deletion, security decision, cost decision, or target change requires fresh approval. See
-the [deployment guide](deployment.md) for the complete procedure.
+If an installed client does not expose an inventory command, record the client version and that
+limitation instead of treating a model response as proof of discovery.
+
+## Create a customer archive
+
+The native Claude and Codex folders stay in the development repository. To create a customer copy
+without those folders, archive a committed revision from the repository root:
+
+```text
+git archive --format=zip --output csa-workbench-customer.zip HEAD
+```
+
+`.gitattributes` excludes `.claude/`, `.codex/`, `CLAUDE.md`, and itself from that archive.
+`AGENTS.md` and `.github/` remain so the exported repository retains general and Copilot guidance.
+`git archive` includes committed files only, so commit the intended customer revision first.
+
+## Local and Azure work
+
+Use the [local development guide](local-development.md) for setup and local runs. Use the
+[deployment guide](deployment.md) for Azure planning, deployment, and verification. Inspecting an
+Azure target or running verification does not authorize deployment; apply only after the user has
+approved the exact target and plan. Once that approval is clear, the agent may use the exact
+confirmation printed by that plan. A plan-only request never permits deployment.

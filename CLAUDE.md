@@ -2,7 +2,11 @@
 
 # Claude-native additions
 
-Claude-native agents, skills, settings, and communication guidance live in `.claude/`.
+Claude Code agents and skill pointers live in `.claude/`. Start the optional lead profile with:
 
-The optional local PPEL is started with `claude --agent ppel`. It is a Claude capability, not a
-repository requirement, and it does not replace the shared policy.
+```text
+claude --agent project-lead
+```
+
+The available repository roles are `project-lead`, `opus`, `sonnet`, and `haiku`. Their native
+definitions do not replace `AGENTS.md` or the shared repository-skill documents.

@@ -32,7 +32,7 @@ current product. They are design references, not commitments or schedules.
 
 ## Work on the repository
 
-The [governance guide](governance/README.md) links the required development, testing, and agent rules.
-The root [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), and
-[CLAUDE.md](../CLAUDE.md), plus [GitHub Copilot instructions](../.github/copilot-instructions.md),
-provide contributor and runtime entry points.
+The root [CONTRIBUTING.md](../CONTRIBUTING.md) explains the contributor path. The
+[repository-agent skills](repo-agent-skills/README.md) contain the shared workflows used by coding
+agents. [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md), and
+[GitHub Copilot instructions](../.github/copilot-instructions.md) provide native entry points.

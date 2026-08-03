@@ -102,13 +102,17 @@ csa-workbench/
 |-- design-system/     production design values and the read-only design reference
 |-- tests/             automated checks and evaluation data
 |-- testing/           testing and evaluation guidance
-|-- docs/              product, architecture, and contributor documentation
+|-- docs/              product, architecture, contributor, and repository-agent documentation
 |-- infra/             Azure infrastructure and guarded deployment
 |-- scripts/           setup, local run, verification, eval, and support commands
 |-- .claude/           Claude-native developer configuration
 |-- .codex/            Codex-native developer configuration
 `-- .github/           GitHub Actions and Copilot-native configuration
 ```
+
+Shared coding-agent workflows live in `docs/repo-agent-skills/`. The three native skill folders
+contain only lightweight pointers to those documents. Product-assistant skills remain separate in
+`backend/assistant/product-skills/`.
 
 Each Python component is an explicit workspace package. The API and assistant use
 `workbench_core`; they do not import one another. The frontend talks to the API over HTTP and

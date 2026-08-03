@@ -5,6 +5,4 @@ description: Apply the repository's testing standard when designing, changing, r
 
 # Testing
 
-Read `testing/testing-charter.md` and the checking sections of
-`docs/guides/local-development.md` in full before test work. Treat them as the shared rules. If a
-required source is missing, unreadable, or contradictory, stop and ask the user.
+Read `docs/repo-agent-skills/testing.md` in full and follow it.

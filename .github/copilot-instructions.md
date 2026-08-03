@@ -1,9 +1,9 @@
 # GitHub Copilot entry point
 
-Follow the shared repository instructions in [AGENTS.md](../AGENTS.md). Copilot CLI and the cloud
-coding agent may also discover the thin `CLAUDE.md` entry point. VS Code agent mode is documented
-against `AGENTS.md` and this file, not `CLAUDE.md`. Neither entry point adds policy beyond the
-shared governance documents. Copilot-native skills and GitHub automation live in `.github/`. See
-[Agentic Design](../docs/governance/agentic-design.md) for the skill boundary and
-[working with coding agents](../docs/guides/coding-agents.md) for the metadata-only
-`.agents/skills/` adapters that Copilot may also discover and for discovery checks.
+Follow the shared repository instructions in [AGENTS.md](../AGENTS.md). Copilot-native skill
+pointers live in `.github/skills/`, and the optional lead profile lives at
+`.github/agents/project-lead.agent.md`.
+
+The skill pointers lead to the shared instructions in
+[`docs/repo-agent-skills/`](../docs/repo-agent-skills/README.md). Do not load repository skills from
+another coding agent's native folder, and do not copy product-assistant skills into `.github/`.

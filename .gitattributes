@@ -1,8 +1,6 @@
-# Client-facing archives (git archive) exclude internal agent tooling. The
-# directories stay in the repository — the governance docs depend on them — but
-# an exported snapshot shows only the product, docs, and tests.
-.claude/ export-ignore
-.codex/ export-ignore
-.gitattributes export-ignore
-CLAUDE.md export-ignore
-AGENTS.md export-ignore
+# Client-facing archives created with git archive exclude Claude and Codex tooling.
+# AGENTS.md and .github stay available for general repository and Copilot guidance.
+/.claude export-ignore
+/.codex export-ignore
+/.gitattributes export-ignore
+/CLAUDE.md export-ignore
