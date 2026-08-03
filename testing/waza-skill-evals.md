@@ -19,7 +19,18 @@ stores it under `evidence/mvp/local-synthetic/tools/waza/v0.38.3/`. Do not insta
 over that path.
 
 The suites use Waza's `copilot-sdk` executor. A local run therefore needs an active GitHub Copilot
-session. In CI, Waza's documented route is a scoped `GITHUB_TOKEN`. A custom Copilot SDK provider
+session. If a run stops with `copilot is not authenticated`, sign in once and re-run:
+
+```text
+copilot login
+```
+
+Use any installed GitHub Copilot CLI. If none is on your PATH, Waza has already downloaded an
+embedded copy; on Windows it is at `%LOCALAPPDATA%\copilot-sdk\` (the run's log prints the exact
+path), so run that executable with the same `login` argument. The sign-in opens a browser
+device-code flow and persists for future runs on the same machine.
+
+In CI, Waza's documented route is a scoped `GITHUB_TOKEN`. A custom Copilot SDK provider
 may instead use `COPILOT_BASE_URL`, `COPILOT_PROVIDER`, and the provider credential described in
 the [pinned upstream setup](https://github.com/microsoft/waza/blob/v0.38.3/README.md#custom-copilot-sdk-providers).
 Never commit a token or paste it into an evidence file.
