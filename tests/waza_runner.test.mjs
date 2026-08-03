@@ -86,10 +86,10 @@ test("advisory Waza test failures retain provenance, run every suite, and aggreg
   try {
     const run = runAdvisory(root, "test-failure");
     assert.equal(run.status, 1, run.stderr);
-    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["tasks", "calendar", "weekly-review"]);
+    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["engagement-meeting-prep", "tasks", "calendar", "weekly-review"]);
     const reports = resultFiles(run.results).map((path) => JSON.parse(readFileSync(path, "utf8")));
-    assert.equal(reports.length, 3);
-    assert.deepEqual(reports.map((report) => report.csaMvpProvenance.skill.name).sort(), ["calendar", "tasks", "weekly-review"]);
+    assert.equal(reports.length, 4);
+    assert.deepEqual(reports.map((report) => report.csaMvpProvenance.skill.name).sort(), ["calendar", "engagement-meeting-prep", "tasks", "weekly-review"]);
     for (const report of reports) {
       assert.equal(report.csaMvpProvenance.tag, "advisory");
       assert.equal(report.csaMvpProvenance.wazaVersion, "0.38.3");
@@ -107,8 +107,8 @@ test("advisory Waza returns zero only when every suite succeeds", () => {
   try {
     const run = runAdvisory(root, "success");
     assert.equal(run.status, 0, run.stderr);
-    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["tasks", "calendar", "weekly-review"]);
-    assert.equal(resultFiles(run.results).length, 3);
+    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["engagement-meeting-prep", "tasks", "calendar", "weekly-review"]);
+    assert.equal(resultFiles(run.results).length, 4);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -119,8 +119,8 @@ test("advisory Waza setup/runtime errors keep their exit status and stop later s
   try {
     const run = runAdvisory(root, "runtime-error");
     assert.equal(run.status, 2, run.stderr);
-    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["tasks"]);
-    assert.equal(resultFiles(run.results).length, 0);
+    assert.deepEqual(readFileSync(run.log, "utf8").trim().split(/\r?\n/), ["engagement-meeting-prep", "tasks"]);
+    assert.equal(resultFiles(run.results).length, 1);
     assert.match(run.stderr, /exit status 2/);
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -141,12 +141,12 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 - Four native product skills (`engagement-meeting-prep`, `tasks`, `calendar`, `weekly-review`) are
   versioned and available for progressive disclosure; the current versioned product suite asserts
   no skill routing (skill-routing evidence lives in the Waza lane alone).
-- Waza has an isolated skill-routing gate for `engagement-meeting-prep` and advisory routing suites
-  for the other three product skills. These cover Copilot laboratory behavior rather than Deep
-  Agents product behavior; promotion requires repeated clean-run stability evidence and review.
+- Waza has advisory skill-routing suites for all four product skills. These cover Copilot
+  laboratory behavior rather than Deep Agents product behavior, and no Waza result gates a
+  release, a baseline, or the product suite (see [skill evaluation](../../testing/skill-evals.md)).
 - The checked-in judge rubric now has strict advisory-record validation and scorecard reporting for
   the canonical suite. Automated judging and judge calibration do not exist; records are supplied
-  evidence and cannot override deterministic product-runtime or Waza gates.
+  evidence and cannot override the deterministic product-runtime gate.
 - Local scorecard history rebuilds each scorecard from supplied product, Waza, grounding-review,
   and optional advisory-judge evidence before hashing canonical JSON. It retains only bindings,
   gate statuses, metrics, provenance, and evidence digests; it never retains transcript, product
@@ -154,9 +154,9 @@ is demonstrated, and humans keep spot-checking occasionally forever.
   create-new and immutable. A separately authored exact-key human decision can accept only a
   `READY_FOR_BASELINE` record. No accepted baseline is checked in because current evidence is not
   eligible.
-- A comparison requires a matching baseline acceptance, reports product atomic/workflow and Waza
-  deltas plus explicit blocking-regression flags, and reports advisory judge deltas without letting
-  them affect blocking regressions or acceptance. Gold capability tasks and repeated-trial
+- A comparison requires a matching baseline acceptance, reports product atomic/workflow deltas
+  plus explicit blocking-regression flags, and reports Waza and advisory judge deltas without
+  letting them affect blocking regressions or acceptance. Gold capability tasks and repeated-trial
   orchestration do not exist yet. Judging today, when done, is manual review rather than an
   automated grader.
 - Product-runtime token and cost capture are not implemented; only the Waza check reports those

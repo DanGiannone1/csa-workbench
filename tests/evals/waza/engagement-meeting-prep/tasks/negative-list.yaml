@@ -1,7 +1,7 @@
 id: WAZA-MP-3-list-does-not-trigger
 name: Plain list request does not trigger
 description: Listing Engagements is an atomic operation, not meeting preparation.
-tags: [gate, routing, negative]
+tags: [advisory, routing, negative]
 inputs:
   prompt: List my Engagements.
 expected:

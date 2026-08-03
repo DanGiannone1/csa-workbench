@@ -1,7 +1,7 @@
 id: WAZA-MP-1-direct-trigger
 name: Direct meeting-prep trigger
 description: A direct request must load the skill and use only the two read tools.
-tags: [gate, routing, positive]
+tags: [advisory, routing, positive]
 inputs:
   prompt: Prep me for my Product Launch status meeting.
 expected:

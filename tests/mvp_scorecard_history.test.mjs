@@ -123,7 +123,7 @@ function inputs(overrides = {}) {
     csaMvpProvenance: {
       runner: "scripts/workbench.py", wazaVersion: "0.38.3", sourceRevision: product.sourceRevision,
       sourceRevisionAfter: product.sourceRevision, sourceDirtyBefore: false, sourceDirtyAfter: false,
-      tag: "gate", eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml", recordedAt: "2026-07-22T12:01:00Z",
+      tag: "advisory", eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml", recordedAt: "2026-07-22T12:01:00Z",
       skill: { name: "engagement-meeting-prep", path: "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md", sha256: skillHash },
     },
   };
@@ -189,6 +189,27 @@ test("record rebuilds source binding, hashes it, and stores only a sanitized pro
   assert.deepEqual(record.metrics.productRuntime.checks, values.product.summary.checks);
   assert.deepEqual(record.metrics.productRuntime.latency.atomic, { count: 10, totalMs: 1045, minMs: 100, maxMs: 109, meanMs: 104 });
   assert.deepEqual(record.metrics.productRuntime.latency.workflowTurns, { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 });
+});
+
+test("optional Waza evidence records a NOT_RUN lane that still reaches READY_FOR_BASELINE", () => {
+  const values = inputs();
+  const scorecard = buildMvpScorecard(values.product, null, values.grounding, null);
+  const record = buildScorecardHistoryRecord(scorecard, values.product, null, values.grounding);
+  assert.equal(record.gates.wazaStatus, "NOT_RUN");
+  assert.equal(record.gates.wazaSkillMatchesProduct, false);
+  assert.equal(record.gates.wazaSourceMatchesProduct, false);
+  assert.equal(record.evidence.wazaSha256, null);
+  assert.equal(record.gates.productHardGate, true);
+  assert.equal(record.gates.scorecardAcceptance, "READY_FOR_BASELINE");
+  assert.deepEqual(record.provenance.skillLaboratory, {
+    provenance: "waza/copilot-sdk", engine: null, model: null, schemaVersion: null, runner: null, wazaVersion: null,
+  });
+  assert.deepEqual(record.metrics.skillLaboratory, {
+    passed: 0, total: 0, failed: [], errors: 0, skipped: 0, countsConsistent: false, aggregateScore: null, durationMs: null,
+  });
+  assert.deepEqual(validateScorecardHistoryRecord(record), record);
+  const acceptance = buildBaselineAcceptance(record, decision(record), scorecard, values.product, null, values.grounding);
+  assert.equal(acceptance.recordHash, record.recordHash);
 });
 
 test("optional advisory judge evidence is bound and hashed rather than trusted from a supplied digest", () => {
@@ -336,13 +357,12 @@ test("history validation rejects extra keys, altered hashes, and incomplete evid
   incomplete.recordHash = sha256Canonical(withoutHash(incomplete, "recordHash"));
   assert.throws(() => validateScorecardHistoryRecord(incomplete), /SHA-256/);
   const malformedWaza = structuredClone(record);
-  malformedWaza.gates.scorecardAcceptance = "INCOMPLETE";
   malformedWaza.gates.wazaStatus = "FAILED";
-  malformedWaza.gates.wazaGate = false;
   malformedWaza.metrics.skillLaboratory.countsConsistent = false;
   malformedWaza.metrics.skillLaboratory.total = 99;
   rehash(malformedWaza, "recordHash");
   assert.doesNotThrow(() => validateScorecardHistoryRecord(malformedWaza));
+  assert.equal(validateScorecardHistoryRecord(malformedWaza).gates.scorecardAcceptance, "READY_FOR_BASELINE");
 });
 
 test("strict timestamps, path-like identifiers, and Markdown cells are safely handled", () => {
@@ -418,7 +438,7 @@ test("acceptance rejects incomplete records and validates copied audit bindings"
   assert.throws(() => validateBaselineAcceptance(tampered, ready.record), /does not match/);
 });
 
-test("rehashed readiness, Waza provenance, review, and judge-binding tampering cannot validate", () => {
+test("rehashed readiness, review, and judge-binding tampering cannot validate", () => {
   const values = history(); const { record } = values;
   const forgedProduct = structuredClone(record);
   forgedProduct.metrics.productRuntime.atomic.passed -= 1;
@@ -436,10 +456,11 @@ test("rehashed readiness, Waza provenance, review, and judge-binding tampering c
   rehash(arbitraryReview, "recordHash");
   assert.throws(() => validateScorecardHistoryRecord(arbitraryReview), /grounding-review IDs/);
 
-  const forgedWazaGate = structuredClone(record);
-  forgedWazaGate.provenance.skillLaboratory.schemaVersion = "9.9";
-  rehash(forgedWazaGate, "recordHash");
-  assert.throws(() => validateScorecardHistoryRecord(forgedWazaGate), /Waza gate/);
+  const forgedWazaAbsence = structuredClone(record);
+  forgedWazaAbsence.gates.wazaStatus = "NOT_RUN";
+  forgedWazaAbsence.metrics.skillLaboratory.countsConsistent = false;
+  rehash(forgedWazaAbsence, "recordHash");
+  assert.throws(() => validateScorecardHistoryRecord(forgedWazaAbsence), /Waza evidence binding/);
 
   const judgeDigestMismatch = structuredClone(record);
   judgeDigestMismatch.evidence.advisoryJudgeSha256 = "e".repeat(64);
@@ -449,7 +470,7 @@ test("rehashed readiness, Waza provenance, review, and judge-binding tampering c
   assert.throws(() => accept(values, decision(record, { rationale: "One.Two." })), /one sentence/);
 });
 
-test("comparison reports deterministic product and Waza regressions while keeping judge deltas advisory", () => {
+test("comparison blocks on deterministic product regressions while keeping Waza and judge deltas advisory", () => {
   const base = history();
   const acceptance = accept(base);
   const candidateValues = inputs({ product: { runId: "candidate-run" } });
@@ -466,10 +487,23 @@ test("comparison reports deterministic product and Waza regressions while keepin
   assert.equal(comparison.regressions.checks.passedDecreased, true);
   assert.equal(comparison.deltas.waza.passed.delta, -1);
   assert.equal(comparison.regressions.atomic.passedDecreased, true);
-  assert.equal(comparison.regressions.waza.gateRegressed, true);
+  assert.equal(comparison.regressions.waza.passedDecreased, true);
+  assert.equal(comparison.regressions.waza.gateRegressed, false);
   assert.equal(comparison.regressions.readinessRegressed, true);
   assert.equal(comparison.regressions.blockingRegression, true);
   assert.equal(comparison.deltas.advisoryJudge.advisory, true);
+
+  const wazaOnlyValues = inputs({ product: { runId: "waza-only-candidate" }, grounding: { productRunId: "waza-only-candidate" } });
+  wazaOnlyValues.waza.summary = { ...wazaOnlyValues.waza.summary, succeeded: 3, failed: 1 };
+  wazaOnlyValues.waza.tasks[0].status = "failed";
+  wazaOnlyValues.scorecard = buildMvpScorecard(wazaOnlyValues.product, wazaOnlyValues.waza, wazaOnlyValues.grounding, null);
+  const wazaOnly = buildScorecardHistoryRecord(wazaOnlyValues.scorecard, wazaOnlyValues.product, wazaOnlyValues.waza, wazaOnlyValues.grounding);
+  const wazaComparison = buildScorecardComparison(base.record, acceptance, wazaOnly);
+  assert.equal(wazaComparison.candidate.readyForBaseline, true);
+  assert.equal(wazaComparison.deltas.waza.passed.delta, -1);
+  assert.equal(wazaComparison.regressions.waza.passedDecreased, true);
+  assert.equal(wazaComparison.regressions.waza.failedIncreased, true);
+  assert.equal(wazaComparison.regressions.blockingRegression, false);
 
   const latencyOnlyValues = inputs({ product: { runId: "latency-only-candidate" }, grounding: { productRunId: "latency-only-candidate" } });
   for (const item of latencyOnlyValues.product.results) item.latencyMs += 10;
@@ -501,8 +535,6 @@ test("comparison reports deterministic product and Waza regressions while keepin
   const wrongWaza = structuredClone(base.record);
   wrongWaza.runId = "different-waza";
   wrongWaza.provenance.skillLaboratory.engine = "other-engine";
-  wrongWaza.gates.wazaGate = false;
-  wrongWaza.gates.scorecardAcceptance = "INCOMPLETE";
   rehash(wrongWaza, "recordHash");
   assert.throws(() => buildScorecardComparison(base.record, acceptance, wrongWaza), /Waza provenance/);
   const comparisonTamper = structuredClone(judgeComparison);

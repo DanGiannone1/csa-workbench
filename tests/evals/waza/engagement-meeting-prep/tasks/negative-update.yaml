@@ -1,7 +1,7 @@
 id: WAZA-MP-4-update-does-not-trigger
 name: Direct status update does not trigger
 description: A direct mutation must remain an ordinary product operation.
-tags: [gate, routing, negative]
+tags: [advisory, routing, negative]
 inputs:
   prompt: Set Product Launch to Yellow with the exact reason 'Pricing approval slipped'.
 expected:

@@ -30,10 +30,10 @@ presentation.
 2. Start the Cosmos emulator.
 3. Confirm the repository is clean with `git status --short`.
 4. Run deterministic checks with `npm run verify:ci`.
-5. Run the Waza gate from the clean revision:
+5. Run the Waza advisory suites from the clean revision:
 
    ```bash
-   npm run eval:waza:gate
+   npm run eval:waza:advisory
    ```
 
 6. Start an isolated application in terminal 1:
@@ -124,7 +124,7 @@ Open **Demo 1: one skill**. Describe this as a unit test for one set of instruct
 - `WAZA-MP-3-list-does-not-trigger` to show negative routing; and
 - an advisory grounding or unavailable-Engagement task to show language/failure criteria.
 
-If desired, run `npm run eval:waza:gate` in a terminal and refresh the page when it finishes. Only
+If desired, run `npm run eval:waza:advisory` in a terminal and refresh the page when it finishes. Only
 after the audience understands the example, explain that Waza powers this focused test with mocked
 product actions.
 

@@ -99,5 +99,5 @@ Ask when the expected outcome depends on permissions, saved data, "nothing else 
 
 - [Gold dataset authoring reference](../../testing/gold-dataset-authoring.md): how engineers turn a prompt and expected output into a trustworthy executable contract.
 - [Product-runtime evaluation reference](../../testing/agent-evals.md): how the live CSA Workbench runner collects and grades evidence.
-- [Waza skill-evaluation guide](../../testing/waza-skill-evals.md): how skill laboratory checks differ from a real Deep Agents product run.
+- [Skill evaluation](../../testing/skill-evals.md): how skill laboratory checks differ from a real Deep Agents product run.
 - [Testing charter](../../testing/testing-charter.md): how evals fit with unit, integration, and browser checks.

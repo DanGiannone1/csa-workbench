@@ -145,13 +145,6 @@ function checkMetrics(items, kind) {
   };
 }
 
-export const WAZA_GATE_TASK_IDS = Object.freeze([
-  "WAZA-MP-1-direct-trigger",
-  "WAZA-MP-2-paraphrased-trigger",
-  "WAZA-MP-3-list-does-not-trigger",
-  "WAZA-MP-4-update-does-not-trigger",
-]);
-
 function wazaTrialOutcome(trial) {
   if (trial?.status === "passed") return "passed";
   if (trial?.status === "failed") return "failed";
@@ -204,24 +197,9 @@ export function summarizeWaza(wazaReport) {
     && summary.errors === observedErrors && summary.skipped === observedSkipped
     && !outcomes.includes("unknown");
   const completePass = countsConsistent && total > 0 && passed === total && failed.length === 0 && errors === 0 && skipped === 0;
-  const taskStatus = new Map(trials.map((trial) => [
-    trial.task_id ?? trial.taskId ?? trial.test_id ?? trial.id,
-    trial.status ?? (trial.passed === true || trial.pass === true ? "passed" : "failed"),
-  ]));
   const provenance = wazaReport.csaMvpProvenance ?? null;
   const engine = wazaReport.config?.engine_type ?? null;
   const schemaVersion = wazaReport.schemaVersion ?? wazaReport.schema_version ?? null;
-  const exactGateTasks = trials.length === WAZA_GATE_TASK_IDS.length
-    && new Set(trials.map((trial) => trial.task_id ?? trial.taskId ?? trial.test_id ?? trial.id)).size === WAZA_GATE_TASK_IDS.length
-    && WAZA_GATE_TASK_IDS.every((id) => taskStatus.get(id) === "passed");
-  const gatePass = countsConsistent
-    && schemaVersion === "1.2"
-    && engine === "copilot-sdk"
-    && provenance?.runner === "scripts/workbench.py"
-    && provenance?.wazaVersion === "0.38.3"
-    && provenance?.tag === "gate"
-    && provenance?.eval === "tests/evals/waza/engagement-meeting-prep/eval.yaml"
-    && exactGateTasks;
   return {
     status: completePass ? "RECORDED" : "FAILED",
     provenance: `waza/${engine ?? "unknown-engine"}`,
@@ -239,8 +217,6 @@ export function summarizeWaza(wazaReport) {
     aggregateScore: wazaReport.summary?.aggregate_score ?? null,
     durationMs: wazaReport.summary?.duration_ms ?? null,
     usage: wazaReport.summary?.usage ?? null,
-    gateTaskIds: [...WAZA_GATE_TASK_IDS],
-    gatePass,
     runnerProvenance: provenance,
   };
 }
@@ -381,11 +357,10 @@ export function buildMvpScorecard(productReport, wazaReport = null, groundingRev
       advisoryJudge: judge,
     },
     acceptance: {
-      status: productHardGatePass && waza.status === "RECORDED" && waza.gatePass
-        && wazaSkillMatches && wazaSourceMatches
+      status: productHardGatePass
         && groundingReviews.every((review) => review.status === "APPROVED") ? "READY_FOR_BASELINE" : "INCOMPLETE",
       baseline: "NOT_ACCEPTED",
-      note: "A human accepts a baseline only after hard checks pass and the grounding transcript is reviewed. This file never self-accepts a run.",
+      note: "A human accepts a baseline only after hard checks pass and the grounding transcript is reviewed. Waza results are laboratory evidence and never gate acceptance. This file never self-accepts a run.",
     },
   };
 }
@@ -453,7 +428,6 @@ export function renderMvpScorecard(scorecard) {
 | Waza source | ${waza.sourceMatchesProduct ? "matches clean product revision" : "does not match clean product revision"} |
 | Waza runtime | ${waza.engine ?? "UNSPECIFIED"} / ${waza.model ?? "UNSPECIFIED"} |
 | Waza checks | ${waza.passed ?? 0}/${waza.total ?? 0} |
-| Waza gate | ${waza.gatePass ? "PASS" : "FAIL / NOT_RECORDED"} |
 | Waza usage | ${wazaUsage} |
 | Baseline | ${scorecard.acceptance.baseline} |
 | Acceptance | ${scorecard.acceptance.status} |

@@ -135,7 +135,7 @@ def test_waza_advisory_runs_every_catalog_suite_and_aggregates_failures(
         (tmp_path / "tests" / "evals" / "waza" / suite.name / "eval.yaml").write_text("name: fixture\n")
         (tmp_path / "backend" / "assistant" / "product-skills" / suite.name).mkdir(parents=True)
     calls: list[str] = []
-    statuses = {"tasks": 1, "calendar": 0, "weekly-review": 0}
+    statuses = {"engagement-meeting-prep": 0, "tasks": 1, "calendar": 0, "weekly-review": 0}
     monkeypatch.setattr(workbench, "ROOT", tmp_path)
     monkeypatch.setattr(workbench, "_install_waza", lambda: tmp_path / "waza")
     monkeypatch.setattr(
@@ -144,7 +144,7 @@ def test_waza_advisory_runs_every_catalog_suite_and_aggregates_failures(
     )
 
     assert workbench.waza("advisory", inside_wsl=False, use_wsl=False) == 1
-    assert calls == ["tasks", "calendar", "weekly-review"]
+    assert calls == ["engagement-meeting-prep", "tasks", "calendar", "weekly-review"]
 
 
 def test_waza_advisory_stops_on_runtime_error(
@@ -160,7 +160,7 @@ def test_waza_advisory_stops_on_runtime_error(
     monkeypatch.setattr(workbench, "_run_waza_eval", lambda binary, suite, tag: calls.append(suite.name) or 2)
 
     assert workbench.waza("advisory", inside_wsl=False, use_wsl=False) == 2
-    assert calls == ["tasks"]
+    assert calls == ["engagement-meeting-prep"]
 
 
 def test_waza_test_failure_keeps_per_suite_provenance(
