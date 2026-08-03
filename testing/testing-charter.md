@@ -59,10 +59,10 @@ checks do not replace an affected end-to-end user journey.
 npm run verify:ci        # layers 1–2 (plus lint, build, static checks) — every change
 npm run eval:mvp         # layer 3 — live app required; see agent-evals.md for env
 npm run eval:foundry     # layer 4 — pushes captured evidence to Foundry for judging
-npm run eval:waza:gate   # skill routing, tested in isolation (see below)
+npm run eval:waza:advisory   # skill routing, tested in isolation (see below)
 ```
 
-`eval:waza:gate` sits beside the four layers rather than inside them: it checks whether one set of
+`eval:waza:advisory` sits beside the four layers rather than inside them: it checks whether one set of
 skill instructions loads at the right moment, using [Waza](https://github.com/microsoft/waza)
 (Microsoft's open-source skill-evaluation CLI) against mocked product actions instead of the real
 product. Layer-3-style deterministic grading, but of a skill in a laboratory, not of the assistant

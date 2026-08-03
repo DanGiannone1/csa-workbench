@@ -63,7 +63,7 @@ class WazaSuite:
 
 
 WAZA_SUITES = (
-    WazaSuite("engagement-meeting-prep", "gate"),
+    WazaSuite("engagement-meeting-prep", "advisory"),
     WazaSuite("tasks", "advisory"),
     WazaSuite("calendar", "advisory"),
     WazaSuite("weekly-review", "advisory"),
@@ -329,19 +329,17 @@ def waza(action: str, *, inside_wsl: bool, use_wsl: bool) -> int:
             if result.returncode != 0:
                 return result.returncode
         return 0
-    if action == "advisory":
-        advisory = [suite for suite in available if suite.lane == "advisory"]
-        if not advisory:
-            raise ConfigurationError("No advisory Waza suites are checked in")
-        aggregate = 0
-        for suite in advisory:
-            status = _run_waza_eval(binary, suite, "advisory")
-            if status > 1:
-                return status
-            aggregate = max(aggregate, status)
-        return aggregate
-    gate = next(suite for suite in WAZA_SUITES if suite.lane == "gate")
-    return _run_waza_eval(binary, gate, "gate" if action == "gate" else None)
+    # "advisory" runs the advisory-tagged tasks; "run" runs every task in every
+    # suite. Neither outcome gates anything: Waza results are laboratory
+    # evidence about skill routing, never product or release evidence.
+    tag = "advisory" if action == "advisory" else None
+    aggregate = 0
+    for suite in available:
+        status = _run_waza_eval(binary, suite, tag)
+        if status > 1:
+            return status
+        aggregate = max(aggregate, status)
+    return aggregate
 
 
 def eval_command(name: str, action: str | None, inside_wsl: bool, use_wsl: bool) -> int:
@@ -381,7 +379,7 @@ def parser() -> argparse.ArgumentParser:
 
     evaluation = subcommands.add_parser("eval", help="run an evaluation workflow")
     evaluation.add_argument("name", choices=["mvp", "scorecard", "history", "showcase", "foundry", "demo", "playwright", "waza"])
-    evaluation.add_argument("action", nargs="?", choices=["install", "version", "check", "gate", "advisory", "run"])
+    evaluation.add_argument("action", nargs="?", choices=["install", "version", "check", "advisory", "run"])
     evaluation.add_argument("--inside-wsl", action="store_true", help=argparse.SUPPRESS)
     evaluation.add_argument("--wsl", action="store_true", help="use WSL instead of the native Windows Waza binary")
 

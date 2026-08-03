@@ -11,7 +11,7 @@ test("beginner eval guide keeps the client view and links the advanced paths", (
     "ACME-5-full-conversation", "Plain-English glossary", "Waza",
   ]) assert.ok(guide.includes(phrase), `missing ${phrase}`);
   assert.match(guide, /gold-dataset-authoring\.md/);
-  assert.match(guide, /waza-skill-evals\.md/);
+  assert.match(guide, /skill-evals\.md/);
   const cases = JSON.parse(read("./evals/mvp-cases.json")).cases;
   const workflows = JSON.parse(read("./evals/mvp-workflows.json")).workflows;
   for (const id of ["ACME-3-meeting-prep", "ACME-4-boundary"]) {
@@ -55,19 +55,21 @@ test("Waza advisory suites cover every remaining shipped product skill", () => {
   }
   const runner = read("../scripts/workbench.py");
   for (const skill of ["engagement-meeting-prep", "tasks", "calendar", "weekly-review"]) {
-    assert.match(runner, new RegExp(`WazaSuite\\("${skill}"`));
+    assert.match(runner, new RegExp(`WazaSuite\\("${skill}", "advisory"\\)`));
   }
-  assert.match(runner, /suite\.lane == "advisory"/);
+  assert.ok(!runner.includes('"gate"'), "the Waza runner must not define a gate lane or action");
 });
 
-test("technical references keep Waza separate from product-runtime evidence", () => {
-  const waza = read("../testing/waza-skill-evals.md");
+test("the skill-evaluation guide states the real test and keeps Waza laboratory-only", () => {
+  const waza = read("../testing/skill-evals.md");
   assert.match(waza, /does \*\*not\*\* run the CSA Workbench Deep Agents product runtime/);
   for (const phrase of [
-    "Setup and authentication", "Mocks and task anatomy", "Commands by operating system",
-    "Evidence and a worked interpretation", "Repeated trials and promotion", "Linux Bash",
-    "macOS Terminal", "Windows PowerShell", "prefer WSL", "CSA_WAZA_TRIALS=5",
-  ]) assert.ok(waza.includes(phrase), `missing Waza guide section or example: ${phrase}`);
+    "The real test: with the skill, then without", "What Waza is — and is not",
+    "Setup and authentication", "Mocks and task anatomy", "Starter suites and building your own",
+    "Commands by operating system", "Evidence and a worked interpretation", "Repeated trials",
+    "Linux Bash", "macOS Terminal", "Windows PowerShell", "prefer WSL", "CSA_WAZA_TRIALS=5",
+    "never gate anything",
+  ]) assert.ok(waza.includes(phrase), `missing skill-evals guide section or statement: ${phrase}`);
   assert.match(waza, /github\.com\/microsoft\/waza\/blob\/v0\.38\.3\/schemas\/eval\.schema\.json/);
   assert.match(waza, /GITHUB_TOKEN/);
   const engineering = read("../testing/gold-dataset-authoring.md");

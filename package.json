@@ -22,7 +22,6 @@
     "eval:demo": "uv run python -m scripts.workbench eval demo",
     "eval:waza:check": "uv run python -m scripts.workbench eval waza check",
     "eval:waza:validate": "node scripts/waza_spec_validation.mjs",
-    "eval:waza:gate": "uv run python -m scripts.workbench eval waza gate",
     "eval:waza:advisory": "uv run python -m scripts.workbench eval waza advisory",
     "eval:waza": "uv run python -m scripts.workbench eval waza run",
     "playwright:mvp": "uv run python -m scripts.workbench eval playwright"

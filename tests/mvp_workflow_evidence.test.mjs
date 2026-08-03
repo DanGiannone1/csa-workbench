@@ -8,7 +8,7 @@ import test from "node:test";
 import { evaluateCase, evaluateWorkflow } from "../scripts/mvp_evidence.mjs";
 import { MVP_EVAL_MANIFEST, expectedAtomicScoredCheckNames, expectedWorkflowCheckContract, expectedWorkflowScoredCheckNames } from "../scripts/mvp_eval_manifest.mjs";
 import { loadMvpJudgeRubric, summarizeMvpJudge, validateMvpJudgeRecord, validateMvpJudgeRubric } from "../scripts/mvp_judge.mjs";
-import { buildMvpScorecard, renderMvpScorecard, summarizeWaza, WAZA_GATE_TASK_IDS } from "../scripts/mvp_scorecard.mjs";
+import { buildMvpScorecard, renderMvpScorecard, summarizeWaza } from "../scripts/mvp_scorecard.mjs";
 
 const start = (run = "run-1") => ({ type: "RUN_STARTED", run_id: run, thread_id: "thread-1" });
 const finish = (run = "run-1") => ({ type: "RUN_FINISHED", run_id: run, thread_id: "thread-1" });
@@ -33,17 +33,23 @@ const rawTool = ({ run = "run-1", id, name, args, output = "model-visible facts"
   model_visible_output: output,
   product_result: result,
 });
-const wazaGate = (overrides = {}) => ({
+const WAZA_TASK_IDS = [
+  "WAZA-MP-1-direct-trigger",
+  "WAZA-MP-2-paraphrased-trigger",
+  "WAZA-MP-3-list-does-not-trigger",
+  "WAZA-MP-4-update-does-not-trigger",
+];
+const wazaEvidence = (overrides = {}) => ({
   schemaVersion: "1.2",
   eval_id: "waza-run",
   skill: "engagement-meeting-prep",
   config: { model_id: "claude-sonnet-4.6", engine_type: "copilot-sdk" },
   summary: { total_tests: 4, succeeded: 4, failed: 0, errors: 0, skipped: 0 },
-  tasks: WAZA_GATE_TASK_IDS.map((test_id) => ({ test_id, status: "passed" })),
+  tasks: WAZA_TASK_IDS.map((test_id) => ({ test_id, status: "passed" })),
   csaMvpProvenance: {
     runner: "scripts/workbench.py",
     wazaVersion: "0.38.3",
-    tag: "gate",
+    tag: "advisory",
     eval: "tests/evals/waza/engagement-meeting-prep/eval.yaml",
     sourceRevision: "abc",
     sourceRevisionAfter: "abc",
@@ -114,33 +120,28 @@ function judgeRecord(product, verdict = "pass", judge = { kind: "human", reviewe
 }
 
 test("Waza accepts internally consistent declared and observed task counts", () => {
-  const summary = summarizeWaza(wazaGate());
+  const summary = summarizeWaza(wazaEvidence());
   assert.equal(summary.countsConsistent, true);
   assert.equal(summary.status, "RECORDED");
-  assert.equal(summary.gatePass, true);
+});
+
+test("an absent Waza run is recorded as a NOT_RUN laboratory lane", () => {
+  const summary = summarizeWaza(null);
+  assert.equal(summary.status, "NOT_RUN");
+  assert.equal(summary.provenance, "waza/copilot-sdk");
 });
 
 test("Waza rejects inconsistent declared counts and result collections", () => {
   for (const [label, report] of [
-    ["total", wazaGate({ summary: { total_tests: 3, succeeded: 4, failed: 0, errors: 0, skipped: 0 } })],
-    ["passed", wazaGate({ summary: { total_tests: 4, succeeded: 3, failed: 0, errors: 0, skipped: 0 } })],
-    ["failed", wazaGate({ summary: { total_tests: 4, succeeded: 4, failed: 1, errors: 0, skipped: 0 } })],
-    ["results", wazaGate({ tasks: WAZA_GATE_TASK_IDS.slice(0, -1).map((test_id) => ({ test_id, status: "passed" })) })],
+    ["total", wazaEvidence({ summary: { total_tests: 3, succeeded: 4, failed: 0, errors: 0, skipped: 0 } })],
+    ["passed", wazaEvidence({ summary: { total_tests: 4, succeeded: 3, failed: 0, errors: 0, skipped: 0 } })],
+    ["failed", wazaEvidence({ summary: { total_tests: 4, succeeded: 4, failed: 1, errors: 0, skipped: 0 } })],
+    ["results", wazaEvidence({ tasks: WAZA_TASK_IDS.slice(0, -1).map((test_id) => ({ test_id, status: "passed" })) })],
   ]) {
     const summary = summarizeWaza(report);
     assert.equal(summary.countsConsistent, false, label);
     assert.equal(summary.status, "FAILED", label);
-    assert.equal(summary.gatePass, false, label);
   }
-});
-
-test("Waza gate rejects advisory or duplicate five-task counterexamples", () => {
-  const duplicate = wazaGate({
-    summary: { total_tests: 5, succeeded: 5, failed: 0, errors: 0, skipped: 0 },
-    tasks: [...WAZA_GATE_TASK_IDS, WAZA_GATE_TASK_IDS[0]].map((test_id) => ({ test_id, status: "passed" })),
-    csaMvpProvenance: { ...wazaGate().csaMvpProvenance, tag: "advisory" },
-  });
-  assert.equal(summarizeWaza(duplicate).gatePass, false);
 });
 
 test("atomic case definitions name forbidden tools and bind rejection attempts to the intended target", () => {
@@ -533,7 +534,7 @@ test("the scorecard keeps product and Waza provenance separate and never self-ac
     results: [{ id: "a", pass: true, fixture, latencyMs: 100 }],
     workflows: [{ id: "w", pass: true, fixture, latencyMs: 200, turns: [], groundingReview: { status: "REVIEW_REQUIRED" } }],
   };
-  const waza = wazaGate();
+  const waza = wazaEvidence();
   const scorecard = buildMvpScorecard(product, waza);
   assert.equal(scorecard.lanes.productRuntime.provenance, "deepagents/gpt-test");
   assert.equal(scorecard.lanes.productRuntime.fixtureConsistent, true);
@@ -542,7 +543,6 @@ test("the scorecard keeps product and Waza provenance separate and never self-ac
   assert.equal(scorecard.lanes.skillLaboratory.status, "RECORDED");
   assert.equal(scorecard.lanes.skillLaboratory.passed, 4);
   assert.equal(scorecard.lanes.skillLaboratory.total, 4);
-  assert.equal(scorecard.lanes.skillLaboratory.gatePass, true);
   assert.equal(scorecard.lanes.skillLaboratory.skillNameMatchesProduct, true);
   assert.equal(scorecard.acceptance.baseline, "NOT_ACCEPTED");
   assert.equal(scorecard.acceptance.status, "INCOMPLETE");
@@ -623,7 +623,7 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
     [{ ...product.results[0], id: "MVP-E99-substituted" }, ...product.results.slice(1)],
     [...product.results.slice(0, -1), product.results[0]],
   ]) {
-    const scorecard = buildMvpScorecard({ ...product, results }, wazaGate(), review);
+    const scorecard = buildMvpScorecard({ ...product, results }, wazaEvidence(), review);
     assert.equal(scorecard.lanes.productRuntime.hardGatePass, false);
     assert.equal(scorecard.acceptance.status, "INCOMPLETE");
   }
@@ -644,7 +644,7 @@ test("a workflow-only report remains evidence, not full readiness", () => {
     results: [],
     workflows: canonicalWorkflowResults(fixture, "APPROVED"),
   };
-  const scorecard = buildMvpScorecard(product, wazaGate());
+  const scorecard = buildMvpScorecard(product, wazaEvidence());
   assert.equal(scorecard.lanes.productRuntime.workflows.passed, 1);
   assert.equal(scorecard.lanes.productRuntime.canonicalWorkflowSuite, true);
   assert.equal(scorecard.lanes.productRuntime.hardGatePass, false);
@@ -652,7 +652,7 @@ test("a workflow-only report remains evidence, not full readiness", () => {
   assert.deepEqual(scorecard.lanes.productRuntime.latency.atomic, { count: 0, totalMs: 0, minMs: null, maxMs: null, meanMs: null });
 });
 
-test("human review, fixture, Waza source, and skill identities must all match before a candidate is ready", () => {
+test("human review and product identity decide readiness while Waza identity is recorded but never gates", () => {
   const fixture = { fixtureVersion: "mvp-demo-v2", fixtureHash: "fixture-hash" };
   const product = {
     runId: "product-run",
@@ -667,7 +667,7 @@ test("human review, fixture, Waza source, and skill identities must all match be
     results: canonicalAtomicResults(fixture),
     workflows: canonicalWorkflowResults(fixture),
   };
-  const waza = wazaGate();
+  const waza = wazaEvidence();
   const review = {
     productRunId: "product-run",
     sourceRevision: "abc",
@@ -684,9 +684,14 @@ test("human review, fixture, Waza source, and skill identities must all match be
   assert.equal(ready.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(ready.acceptance.baseline, "NOT_ACCEPTED");
 
+  const noWaza = buildMvpScorecard(product, null, review);
+  assert.equal(noWaza.lanes.skillLaboratory.status, "NOT_RUN");
+  assert.equal(noWaza.lanes.skillLaboratory.skillNameMatchesProduct, false);
+  assert.equal(noWaza.acceptance.status, "READY_FOR_BASELINE");
+
   const unrelatedWaza = buildMvpScorecard(product, { ...waza, skill: "some-other-skill" }, review);
   assert.equal(unrelatedWaza.lanes.skillLaboratory.skillNameMatchesProduct, false);
-  assert.equal(unrelatedWaza.acceptance.status, "INCOMPLETE");
+  assert.equal(unrelatedWaza.acceptance.status, "READY_FOR_BASELINE");
 
   const fakeWaza = buildMvpScorecard(product, {
     ...waza,
@@ -694,20 +699,22 @@ test("human review, fixture, Waza source, and skill identities must all match be
     summary: { total_tests: 1, failed: 0, errors: 0, skipped: 0 },
     tasks: [{ test_id: "unrelated", status: "passed" }],
   }, review);
-  assert.equal(fakeWaza.lanes.skillLaboratory.gatePass, false);
-  assert.equal(fakeWaza.acceptance.status, "INCOMPLETE");
+  assert.equal(fakeWaza.lanes.skillLaboratory.status, "FAILED");
+  assert.equal(fakeWaza.lanes.skillLaboratory.provenance, "waza/not-copilot");
+  assert.equal(fakeWaza.lanes.skillLaboratory.countsConsistent, false);
+  assert.equal(fakeWaza.acceptance.status, "READY_FOR_BASELINE");
 
   const wrongSkillHash = structuredClone(waza);
   wrongSkillHash.csaMvpProvenance.skill.sha256 = "wrong";
   const mismatchedSkill = buildMvpScorecard(product, wrongSkillHash, review);
   assert.equal(mismatchedSkill.lanes.skillLaboratory.skillNameMatchesProduct, false);
-  assert.equal(mismatchedSkill.acceptance.status, "INCOMPLETE");
+  assert.equal(mismatchedSkill.acceptance.status, "READY_FOR_BASELINE");
 
   const dirtyWaza = structuredClone(waza);
   dirtyWaza.csaMvpProvenance.sourceDirtyBefore = true;
   const mismatchedSource = buildMvpScorecard(product, dirtyWaza, review);
   assert.equal(mismatchedSource.lanes.skillLaboratory.sourceMatchesProduct, false);
-  assert.equal(mismatchedSource.acceptance.status, "INCOMPLETE");
+  assert.equal(mismatchedSource.acceptance.status, "READY_FOR_BASELINE");
 
   const inconsistentProduct = structuredClone(product);
   inconsistentProduct.workflows[0].fixture = {
@@ -834,8 +841,8 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
     skillSha256: "hash", reviewer: "Human Reviewer", reviewedAt: "2026-07-20T01:00:00Z",
     reviews: [{ workflowId: "ACME-5-full-conversation", status: "APPROVED" }],
   };
-  const passed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "pass"));
-  const failed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "fail"));
+  const passed = buildMvpScorecard(product, wazaEvidence(), review, judgeRecord(product, "pass"));
+  const failed = buildMvpScorecard(product, wazaEvidence(), review, judgeRecord(product, "fail"));
   assert.equal(passed.lanes.advisoryJudge.status, "RECORDED");
   assert.equal(failed.lanes.advisoryJudge.atomic.failed, 30);
   assert.equal(passed.acceptance.status, "READY_FOR_BASELINE");
@@ -845,26 +852,26 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
 
 test("the scorecard preserves judge details and safely renders invalid judge diagnostics", () => {
   const product = canonicalJudgeProduct();
-  const recorded = buildMvpScorecard(product, wazaGate(), null, judgeRecord(product));
+  const recorded = buildMvpScorecard(product, wazaEvidence(), null, judgeRecord(product));
   assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 30);
   assert.equal(recorded.lanes.advisoryJudge.workflows.judgments.length, 3);
   const paddedReason = judgeRecord(product);
   paddedReason.atomicJudgments[0].reason = "  The recorded reply is adequately supported.  ";
   assert.equal(validateMvpJudgeRecord(paddedReason, product).atomicJudgments[0].reason, "The recorded reply is adequately supported.");
-  const invalid = buildMvpScorecard(product, wazaGate(), null, { ...judgeRecord(product), fixtureHash: "bad\r|hash" });
+  const invalid = buildMvpScorecard(product, wazaEvidence(), null, { ...judgeRecord(product), fixtureHash: "bad\r|hash" });
   const markdown = renderMvpScorecard(invalid);
   assert.equal(invalid.lanes.advisoryJudge.status, "INVALID");
   assert.match(markdown, /Advisory judge diagnostic/);
   assert.match(markdown, /bad \\\|hash/);
   assert.doesNotMatch(markdown, /\r/);
-  const backslashPipe = buildMvpScorecard(product, wazaGate(), null, { ...judgeRecord(product), fixtureHash: "bad\\|hash" });
+  const backslashPipe = buildMvpScorecard(product, wazaEvidence(), null, { ...judgeRecord(product), fixtureHash: "bad\\|hash" });
   const backslashPipeMarkdown = renderMvpScorecard(backslashPipe);
   const safelyEscaped = `bad${"\\".repeat(3)}|hash`;
   assert.equal(backslashPipeMarkdown.includes(safelyEscaped), true);
   assert.equal(backslashPipeMarkdown.includes("bad\\|hash"), false);
 });
 
-test("the scorecard merger keeps its three- and four-argument forms compatible", () => {
+test("the scorecard merger keeps its three- and four-argument forms compatible and accepts absent Waza evidence", () => {
   const directory = mkdtempSync(join(tmpdir(), "csa-mvp-scorecard-"));
   try {
     const product = canonicalJudgeProduct();
@@ -878,14 +885,17 @@ test("the scorecard merger keeps its three- and four-argument forms compatible",
     const wazaPath = join(directory, "waza.json");
     const reviewPath = join(directory, "review.json");
     writeFileSync(productPath, JSON.stringify(product));
-    writeFileSync(wazaPath, JSON.stringify(wazaGate()));
+    writeFileSync(wazaPath, JSON.stringify(wazaEvidence()));
     writeFileSync(reviewPath, JSON.stringify(review));
-    for (const [prefix, args] of [
-      [join(directory, "three"), [productPath, wazaPath, join(directory, "three")]],
-      [join(directory, "four"), [productPath, wazaPath, join(directory, "four"), reviewPath]],
+    for (const [prefix, args, wazaStatus] of [
+      [join(directory, "three"), [productPath, wazaPath, join(directory, "three")], "RECORDED"],
+      [join(directory, "four"), [productPath, wazaPath, join(directory, "four"), reviewPath], "RECORDED"],
+      [join(directory, "no-waza"), [productPath, "-", join(directory, "no-waza"), reviewPath], "NOT_RUN"],
     ]) {
       execFileSync(process.execPath, ["scripts/mvp_scorecard_merge.mjs", ...args], { cwd: process.cwd(), stdio: "pipe" });
-      assert.equal(JSON.parse(readFileSync(`${prefix}.json`, "utf8")).lanes.advisoryJudge.status, "NOT_SUPPLIED");
+      const merged = JSON.parse(readFileSync(`${prefix}.json`, "utf8"));
+      assert.equal(merged.lanes.advisoryJudge.status, "NOT_SUPPLIED");
+      assert.equal(merged.lanes.skillLaboratory.status, wazaStatus);
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });
