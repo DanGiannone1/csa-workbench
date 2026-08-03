@@ -250,9 +250,30 @@ Four preconditions, checked before anything runs — each is a deliberate eviden
    directory; `MVP_RAW_TRACE_ROOT` must point at that exact `sdk-events` folder or the driver
    stops with `ENOENT … logs`.
 
-Worked end-to-end example using an isolated local run named `demo1` (bash; PowerShell is the
-same values via `$env:`). The same variables drive the app, the reset guard, and the eval —
-export them once in each terminal:
+Worked end-to-end example using an isolated local run named `demo1`. The same variables drive
+the app, the reset guard, and the eval — set them once in each terminal.
+
+PowerShell on Windows:
+
+```powershell
+# Shared isolated-run values (both terminals).
+$env:CSA_LOCAL_RUN_ID='demo1'; $env:CSA_RUNTIME_PORT='18080'; $env:CSA_API_PORT='18000'; $env:CSA_FRONTEND_PORT='13000'
+$env:COSMOS_DATABASE='csa_workbench_demo1_local'; $env:COSMOS_CONTAINER='appstate_demo1_local'
+$env:ARTIFACTS_DIR='.mvp-artifacts/demo1'; $env:WORKSPACE='.local-runs/demo1/workspace'
+$env:CONFIRM_DEMO_RESET='YES'        # the reset guard refuses to wipe anything not named demo/local
+
+# Terminal 1: the app (reads the rest of its config from .env).
+uv run python -m scripts.workbench dev
+
+# Terminal 2: the suite.
+$env:MVP_APP_URL='http://localhost:13000'; $env:MVP_API_URL='http://localhost:18000'
+$env:MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'
+$env:MVP_RESET_BEFORE_RUN='1'
+$env:MVP_EVAL_SCOPE='all'            # all | atomic | workflow
+uv run python -m scripts.workbench eval mvp
+```
+
+Terminal on macOS or Linux:
 
 ```bash
 # Shared isolated-run values (both terminals).
@@ -269,7 +290,7 @@ export MVP_APP_URL=http://localhost:13000 MVP_API_URL=http://localhost:18000
 export MVP_RAW_TRACE_ROOT=.local-runs/demo1/logs/sdk-events
 export MVP_RESET_BEFORE_RUN=1
 export MVP_EVAL_SCOPE=all            # all | atomic | workflow
-npm run eval:mvp
+uv run python -m scripts.workbench eval mvp
 ```
 
 Success prints the evidence and scorecard paths and a summary like:
@@ -280,7 +301,16 @@ Success prints the evidence and scorecard paths and a summary like:
 "checks":    { "passed": 180, "total": 180 }
 ```
 
-Advisory Foundry scoring of that evidence afterwards:
+Advisory Foundry scoring of that evidence afterwards — PowerShell:
+
+```powershell
+$env:MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
+$env:FOUNDRY_PROJECT_ENDPOINT='https://<account>.services.ai.azure.com/api/projects/<project>'
+$env:FOUNDRY_JUDGE_DEPLOYMENT='<judge-deployment>'
+uv run python -m scripts.workbench eval foundry
+```
+
+macOS or Linux:
 
 ```bash
 export MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
