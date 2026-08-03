@@ -22,6 +22,9 @@ class AppdbEngagementRepository:
             status_note=values.get("statusNote", ""),
             start_date=values.get("startDate", ""),
             target_date=values.get("targetDate", ""),
+            business_value=values.get("businessValue", ""),
+            value=values.get("value", 0),
+            objective=values.get("objective", ""),
         )
 
     def load(self, engagement_id: str) -> dict[str, Any] | None:

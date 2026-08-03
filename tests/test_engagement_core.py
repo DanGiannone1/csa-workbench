@@ -170,5 +170,96 @@ class EngagementServiceTests(unittest.TestCase):
         self.assertEqual((replay.status, replay.record["id"]), ("noop", self.engagement_id))
 
 
+class EngagementRecordModelTests(unittest.TestCase):
+    """The prototype record model (#31): rail fields, key dates, timeline, tiers."""
+
+    def setUp(self):
+        self.repo = FakeRepository()
+        self.users = {user: {"id": user} for user in ("owner", "editor", "viewer")}
+        self.service = EngagementService(self.repo, self.users.get)
+        created = self.service.create("owner", {"name": "Northstar"})
+        self.engagement_id = created.record["id"]
+        self.service.share("owner", self.engagement_id, "editor", "editor")
+        self.service.share("owner", self.engagement_id, "viewer", "viewer")
+
+    def test_record_field_updates_validate_and_stamp_state_date(self):
+        ok = self.service.update("editor", self.engagement_id,
+                                 {"businessValue": "Renewal hinges on this", "value": 250000})
+        self.assertEqual(ok.status, "committed")
+        self.assertEqual(ok.record["value"], 250000.0)
+        self.assertEqual(self.service.update("editor", self.engagement_id, {"value": -5}).status, "invalid")
+        self.assertEqual(self.service.update("editor", self.engagement_id, {"value": "lots"}).status, "invalid")
+        state = self.service.update("editor", self.engagement_id, {"currentState": "On plan; UAT next."})
+        self.assertEqual(state.status, "committed")
+        self.assertEqual(len(state.record["stateDate"]), 10)  # stamped today
+        explicit = self.service.update("editor", self.engagement_id,
+                                       {"currentState": "Blocked on CDN.", "stateDate": "2026-07-31"})
+        self.assertEqual(explicit.record["stateDate"], "2026-07-31")
+
+    def test_objectives_editor_gated_deduplicated_and_bounded(self):
+        self.assertEqual(self.service.add_objective("viewer", self.engagement_id, "Ship it").status, "forbidden")
+        self.assertEqual(self.service.add_objective("editor", self.engagement_id, "Ship it").status, "committed")
+        self.assertEqual(self.service.add_objective("editor", self.engagement_id, " ship IT ").status, "noop")
+        self.assertEqual(self.service.add_objective("editor", self.engagement_id, "").status, "invalid")
+        self.assertEqual(self.service.add_objective("editor", self.engagement_id, "x" * 201).status, "invalid")
+
+    def test_key_dates_sorted_and_toggled_by_label_or_date(self):
+        self.service.add_key_date("editor", self.engagement_id, "2026-09-15", "Go-live")
+        added = self.service.add_key_date("editor", self.engagement_id, "2026-08-01", "CDN renewal signed")
+        self.assertEqual([k["label"] for k in added.record["keyDates"]],
+                         ["CDN renewal signed", "Go-live"])  # sorted by date
+        self.assertEqual(self.service.add_key_date("editor", self.engagement_id, "not-a-date", "X").status, "invalid")
+        toggled = self.service.toggle_key_date("editor", self.engagement_id, "go-live")
+        self.assertTrue(next(k for k in toggled.record["keyDates"] if k["label"] == "Go-live")["done"])
+        self.assertEqual(self.service.toggle_key_date("editor", self.engagement_id, "nope").status, "not_found")
+        self.service.add_key_date("editor", self.engagement_id, "2026-10-01", "Review A")
+        self.service.add_key_date("editor", self.engagement_id, "2026-11-01", "Review B")
+        self.assertEqual(self.service.toggle_key_date("editor", self.engagement_id, "review").status, "ambiguous")
+        self.assertEqual(self.service.toggle_key_date("viewer", self.engagement_id, "go-live").status, "forbidden")
+
+    def test_contacts_deduplicate_by_name_and_default_role(self):
+        first = self.service.add_contact("editor", self.engagement_id, "Priya Raman", "Digital sponsor")
+        self.assertEqual(first.record["contacts"], [{"name": "Priya Raman", "role": "Digital sponsor"}])
+        self.assertEqual(self.service.add_contact("editor", self.engagement_id, "priya raman").status, "noop")
+        defaulted = self.service.add_contact("editor", self.engagement_id, "Marcus Webb", "")
+        self.assertEqual(defaulted.record["contacts"][1]["role"], "Contact")
+
+    def test_timeline_is_typed_attributed_newest_first_and_append_only(self):
+        self.assertEqual(self.service.add_timeline_entry(
+            "editor", self.engagement_id, "gossip", "Nope").status, "invalid")
+        self.assertEqual(self.service.add_timeline_entry(
+            "viewer", self.engagement_id, "note", "Nope").status, "forbidden")
+        self.service.add_timeline_entry("editor", self.engagement_id, "meeting", "Kickoff",
+                                        body="Scope agreed.", date_iso="2026-07-17", source="kickoff.vtt")
+        second = self.service.add_timeline_entry("owner", self.engagement_id, "risk", "Corpus delayed")
+        entries = second.record["timeline"]
+        self.assertEqual([e["title"] for e in entries], ["Corpus delayed", "Kickoff"])  # newest first
+        self.assertEqual(entries[1]["author"], "editor")
+        self.assertEqual(entries[1]["source"], "kickoff.vtt")
+        self.assertEqual(entries[0]["author"], "owner")
+        self.assertEqual(len(entries[0]["date"]), 10)  # defaulted to today
+        # Append-only: the service exposes no edit or delete operation for entries.
+        self.assertFalse(hasattr(self.service, "update_timeline_entry"))
+        self.assertFalse(hasattr(self.service, "delete_timeline_entry"))
+
+    def test_artifact_promotion_records_who_and_when(self):
+        self.repo.records[self.engagement_id]["library"] = [
+            {"id": "art-1", "name": "plan.md", "tier": "silver"}]
+        self.assertEqual(self.service.promote_artifact("viewer", self.engagement_id, "art-1").status, "forbidden")
+        self.assertEqual(self.service.promote_artifact("editor", self.engagement_id, "missing").status, "not_found")
+        promoted = self.service.promote_artifact("editor", self.engagement_id, "art-1")
+        self.assertEqual(promoted.status, "committed")
+        item = promoted.record["library"][0]
+        self.assertEqual((item["tier"], item["promotedBy"]), ("gold", "editor"))
+        self.assertEqual(len(item["promotedAt"]), 10)
+        self.assertEqual(self.service.promote_artifact("editor", self.engagement_id, "plan.md").status, "noop")
+
+    def test_creation_accepts_prototype_fields_and_objective_is_creation_only(self):
+        outcome = self.service.create("owner", {"name": "Fabric", "businessValue": "Campaign runs on it",
+                                                "value": 180000, "objective": "Launch before fall"})
+        self.assertEqual(outcome.status, "committed")
+        self.assertEqual(self.service.update("owner", self.engagement_id, {"objective": "late"}).status, "invalid")
+
+
 if __name__ == "__main__":
     unittest.main()

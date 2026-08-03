@@ -152,7 +152,7 @@ function SignIn({ mode, onSignedIn }: { mode: "demo" | "entra"; onSignedIn: (u: 
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-primary/20 text-text-brand-on-subtle">
             <KeyRound size={24} />
           </div>
-          <h1 className="mt-6 text-center text-2xl font-bold uppercase tracking-[0.16em]">Sign In</h1>
+          <h1 className="mt-6 text-center text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>Sign in</h1>
           <p className="mt-2 text-center text-sm text-text-muted">
             Your workspace is personal — sign in to load it.
           </p>

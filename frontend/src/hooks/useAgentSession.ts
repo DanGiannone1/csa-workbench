@@ -1,8 +1,8 @@
 import { useReducer, useRef, useCallback, useEffect, useState } from "react";
-import { AGUIEvent, AppFile, AppState, ChatMessage, ContextBundle, Destination, MessagePart, ProductToolResult } from "@/lib/types";
+import { AGUIEvent, AppFile, AppState, Brief, ChatMessage, ContextBundle, Destination, MessagePart, ProductToolResult } from "@/lib/types";
 import { streamSSE } from "@/lib/sse";
 import { normalizeHostRoute, shouldApplyAgentNavigation, shouldQueueAgentNavigation } from "@/lib/navigation";
-import { createSession, deleteSession, getSession, getAppState, listFiles, uploadFile, getContextBundle } from "@/lib/api";
+import { createSession, deleteSession, getSession, getAppState, getBrief, listFiles, uploadFile, getContextBundle } from "@/lib/api";
 import { clearSessionId, getSessionId, getStoredMessages, storeSessionId, storeMessages } from "@/lib/session";
 import { friendlyError } from "@/lib/utils";
 
@@ -32,7 +32,8 @@ type Action =
   | { type: "SET_VIEW_ROUTE"; route: string }
   | { type: "BUNDLE_USED"; bundle: ContextBundle | null }
   | { type: "SESSION_ERROR"; error: string | null }
-  | { type: "WORKSPACE_REFRESH_FAILED"; error: string | null };
+  | { type: "WORKSPACE_REFRESH_FAILED"; error: string | null }
+  | { type: "BRIEF_LOADED"; brief: Brief | null };
 
 interface State {
   messages: ChatMessage[];
@@ -47,6 +48,7 @@ interface State {
   lastBundle: ContextBundle | null; // what personalized the most recent turn (inspector)
   sessionError: string | null;
   workspaceStale: string | null;
+  brief: Brief | null; // the session-start brief, fetched asynchronously after start
 }
 
 const UPLOAD_TIMEOUT_MS = 180_000;
@@ -254,6 +256,7 @@ function reducer(state: State, action: Action): State {
       viewRouteRevision: state.viewRouteRevision + 1,
     };
     case "BUNDLE_USED": return { ...state, lastBundle: action.bundle };
+    case "BRIEF_LOADED": return { ...state, brief: action.brief };
     default: return state;
   }
 }
@@ -261,7 +264,7 @@ function reducer(state: State, action: Action): State {
 const initialState: State = {
   messages: [], isStreaming: false, sessionId: null, isInitializing: true,
   currentRunId: null, files: [], appState: null, viewRoute: "/home", viewRouteRevision: 0,
-  lastBundle: null, sessionError: null, workspaceStale: null,
+  lastBundle: null, sessionError: null, workspaceStale: null, brief: null,
 };
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
@@ -370,6 +373,15 @@ export function useAgentSession() {
     return true;
   }, [refreshAppState, refreshFiles]);
 
+  // The brief is fetched in the background at session start (never blocking
+  // startup) so it is already waiting the first time the panel opens. A failed
+  // fetch degrades to the plain empty state — the brief is never an error.
+  const loadBrief = useCallback((sessionId: string) => {
+    void getBrief(sessionId)
+      .then((brief) => dispatch({ type: "BRIEF_LOADED", brief }))
+      .catch(() => undefined);
+  }, []);
+
   const startSession = useCallback(async () => {
     setStatusMessage(null);
     dispatch({ type: "SESSION_ERROR", error: null });
@@ -377,19 +389,23 @@ export function useAgentSession() {
     const storedId = getSessionId();
     try {
       // A transient failure here throws and is caught below WITHOUT deleting the session.
-      if (storedId && (await restoreStoredSession(storedId))) return;
+      if (storedId && (await restoreStoredSession(storedId))) {
+        loadBrief(storedId);
+        return;
+      }
       // No stored session, or it's genuinely gone (404) — start fresh.
       await clearAndDeleteSession(storedId);
       const meta = await createSession();
       storeSessionId(meta.session_id);
       dispatch({ type: "SET_SESSION_ID", sessionId: meta.session_id });
+      loadBrief(meta.session_id);
       await Promise.all([refreshAppState(meta.session_id, true), refreshFiles(meta.session_id)]);
     } catch (err) {
       dispatch({ type: "SESSION_ERROR", error: friendlyError(err, "Could not reach your session. Retry.") });
     } finally {
       dispatch({ type: "SET_INITIALIZING", value: false });
     }
-  }, [clearAndDeleteSession, restoreStoredSession, refreshAppState, refreshFiles]);
+  }, [clearAndDeleteSession, restoreStoredSession, refreshAppState, refreshFiles, loadBrief]);
 
   useEffect(() => { startSession(); }, [startSession]);
 

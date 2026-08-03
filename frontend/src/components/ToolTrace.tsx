@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Activity, HelpCircle, AlertCircle, Sparkles, Circle, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckCircle2, Activity, HelpCircle, AlertCircle, Sparkles, Circle, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 import { MessagePart, ProductToolResult } from "@/lib/types";
+import { useSession } from "./SessionProvider";
 
 function runningLabel(name: string): string {
   const labels: Record<string, string> = {
@@ -78,10 +79,14 @@ function StepIcon({ running, result, skill }: { running: boolean; result: Produc
 }
 
 function Step({ part }: { part: MessagePart & { type: "tool_call" } }) {
+  const { navigateView } = useSession();
   const running = part.status === "running";
   const isSkill = part.tool === "skill";
   const label = running ? runningLabel(part.tool) : doneLabel(part.tool, part.result);
   const ctx = toolContext(part.tool, part.args);
+  // A resolved destination becomes a clickable route link into the record, per the
+  // design reference's `qlink` — driven by the structured tool result, never inferred.
+  const destination = !running && part.tool !== "navigate" ? part.result?.destination : undefined;
   return (
     <div className="step-block">
       <div className={`step-row ${isSkill ? "step-row-skill" : ""}`}>
@@ -89,6 +94,19 @@ function Step({ part }: { part: MessagePart & { type: "tool_call" } }) {
         <span className="step-label">{label}</span>
         {ctx && <span className="step-ctx" title={ctx}>{ctx}</span>}
       </div>
+      {destination && (
+        <button
+          type="button"
+          className="tw-qlink"
+          data-testid="tool-destination-link"
+          onClick={() => navigateView(destination.path)}
+        >
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            Open {destination.label || destination.id.replaceAll("_", " ")}
+          </span>
+          <ArrowRight size={13} style={{ marginLeft: "auto", flexShrink: 0 }} />
+        </button>
+      )}
     </div>
   );
 }

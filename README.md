@@ -10,9 +10,18 @@ way to perform supported actions through the same application services.
 ## What you can do
 
 - Create and share customer Engagements with owner, editor, and viewer roles.
-- Track Engagement status, dates, tasks, conventions, and artifacts.
+- Keep the full delivery record on each Engagement: a status that must state its reason
+  when not green, a dated "where it stands" summary, the business value, objectives,
+  key dates, customer contacts, and a timeline of meetings, decisions, risks, and
+  notes — entries always name who added them and where they came from, and are never
+  edited or deleted. Documents are grouped as raw uploads (bronze), working drafts
+  (silver), and curated versions someone deliberately promoted (gold).
 - Manage private Tasks, Calendar events, and Reminders.
-- Ask the assistant to read or update supported records and open supported pages.
+- Open a session to a short ranked list of what needs attention today, built from the
+  record — each item opens the matching page.
+- Ask the assistant to read or update supported records and open supported pages. The
+  assistant uses the same permission checks as the web application, and the chat shows
+  what it actually did — the actions it took and their recorded results.
 - Prepare an Engagement meeting brief or run a personal weekly review.
 
 ## Main workflow
@@ -24,10 +33,24 @@ events, and Reminders remain available only to the signed-in user throughout tha
 
 ## How we test the assistant
 
-Testing follows a four-layer model — unit checks, integration checks, deterministic agent evals
-against the running product, and LLM-as-judge review — described in the
-[Testing Charter](testing/testing-charter.md). The agent-eval pipeline end to end, including the
-Azure AI Foundry integration, is in [testing/agent-evals.md](testing/agent-evals.md).
+Testing follows a four-layer model — unit checks, integration checks, scripted agent
+evaluations against the running product, and model-as-judge review — described in the
+[Testing Charter](testing/testing-charter.md). The full evaluation pipeline — the expected
+outcome written down for each scenario, a database reset before every case, captured evidence,
+and the scorecard with its Azure AI Foundry review step — is in
+[testing/agent-evals.md](testing/agent-evals.md); its **Running it** section is a copy-paste
+guide with the exact settings, the output a passing run prints, and what each error message
+means. Every run leaves a complete evidence record, and
+[docs/guides/eval-showcase.md](docs/guides/eval-showcase.md) turns results into a presentation.
+
+## Design system
+
+The visual system lives in [design-system/](design-system/README.md): a single stylesheet of
+named design values (`src/tokens.css`), a small set of shared React components in
+`frontend/src/components/ui/`, and a test (`tests/design_system.test.mjs`) that keeps
+hard-coded colors, gradients, and one-off styles out of production code. The original design
+prototype is preserved read-only under `design-system/reference/` as the traceable source of
+the product's look and interaction patterns.
 
 ## Run it locally
 
@@ -77,7 +100,7 @@ csa-workbench/
 |       |-- src/workbench_core/
 |       `-- pyproject.toml
 |-- frontend/          Next.js application
-|-- design-system/     production tokens and quarantined reference assets
+|-- design-system/     production design values and the read-only design reference
 |-- tests/             automated checks and evaluation data
 |-- testing/           testing and evaluation guidance
 |-- docs/              product, architecture, and contributor documentation

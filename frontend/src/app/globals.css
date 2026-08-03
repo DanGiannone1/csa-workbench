@@ -63,25 +63,27 @@ html, body {
 }
 .ui-surface-subtle { background: var(--surface-2); }
 .ui-surface-raised { box-shadow: var(--shadow-raised); }
+.ui-surface-flat { border: 0; border-radius: 0; box-shadow: none; }
 .ui-card { border-radius: 1.25rem; }
 
+/* Quiet, sentence-case controls per the design reference. */
 .ui-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid transparent;
-  border-radius: 0.75rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  border-radius: 9px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0;
   line-height: 1;
-  text-transform: uppercase;
+  text-transform: none;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
 }
-.ui-button-medium { min-height: 2.5rem; padding: 0.7rem 1rem; }
-.ui-button-small { min-height: 2rem; padding: 0.45rem 0.75rem; }
-.ui-button-icon { width: 2.5rem; min-width: 2.5rem; height: 2.5rem; padding: 0; }
+.ui-button-medium { min-height: 2.25rem; padding: 0.55rem 0.95rem; }
+.ui-button-small { min-height: 1.9rem; padding: 0.35rem 0.65rem; border-radius: 7px; }
+.ui-button-icon { width: 2.25rem; min-width: 2.25rem; height: 2.25rem; padding: 0; }
 .ui-button-primary { background: var(--brand-primary); color: var(--text-on-brand); }
 .ui-button-primary:hover { background: var(--brand-strong); }
 .ui-button-secondary { border-color: var(--border-subtle); background: var(--surface-2); color: var(--text-secondary); }
@@ -96,16 +98,17 @@ html, body {
 .ui-field-label { color: var(--text-muted); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
 .ui-input {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.4rem;
   border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  background: var(--surface-2);
+  border-radius: 9px;
+  background: var(--surface-1);
   color: var(--text-primary);
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 500;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 400;
   outline: none;
 }
+.ui-input:focus { border-color: var(--border-brand-subtle); box-shadow: 0 0 0 3px var(--surface-brand-subtle); }
 .ui-field-hint { color: var(--text-muted); font-size: 0.75rem; }
 .ui-field-error { color: var(--text-danger); font-size: 0.75rem; }
 
@@ -181,25 +184,36 @@ html, body {
   border: 1px solid var(--border-danger);
 }
 
-/* Avatars */
-.message-avatar-assistant {
-  background: var(--surface-brand-subtle);
-  color: var(--brand-accent);
-  border: 1px solid var(--border-brand-subtle);
-  border-radius: 0.75rem;
-  display: flex; width: 2.25rem; height: 2.25rem; flex-shrink: 0;
-  align-items: center; justify-content: center;
-}
+/* Thinking indicator — quiet inline label + dots, per the design reference. */
+.thinking-row { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; }
+.thinking-label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+.thinking-dots span { background: var(--text-muted); }
 
-/* Thinking / Tools (Intelligence Log) */
-.thinking-row {
-  display: inline-flex; align-items: center; gap: 0.5rem;
-  background: var(--surface-2); border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem; padding: 0.4rem 0.8rem;
-  box-shadow: var(--shadow-resting);
+/* Streaming cursor at the tip of an in-flight assistant reply. */
+.tw-cursor {
+  display: inline-block; width: 7px; height: 15px; background: var(--brand-primary);
+  vertical-align: -2px; margin-left: 2px; animation: tw-blink 0.9s steps(2) infinite;
 }
-.thinking-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--brand-accent); font-weight: 700; }
-.thinking-dots span { background: var(--brand-accent); }
+@keyframes tw-blink { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+/* Route links inside answers, per the design reference's `qlink`. */
+.tw-qlink {
+  display: flex; align-items: center; gap: 8px; width: 100%; max-width: 22rem;
+  margin: 0.3rem 0 0.2rem 1.6rem; padding: 8px 11px; text-align: left; cursor: pointer;
+  font-size: 0.8rem; font-weight: 600; line-height: 1.3; color: var(--text-primary);
+  background: var(--surface-1); border: 1px solid var(--border-subtle); border-radius: 9px;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.tw-qlink:hover { border-color: var(--border-brand-subtle); background: var(--surface-brand-subtle); color: var(--brand-strong); }
+
+/* Empty-chat greeting in the display face. */
+.tw-empty-title { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; color: var(--text-primary); }
+
+/* Initials avatar on the reference's soft brand wash. */
+.tw-avatar {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border-radius: 50%; background: var(--surface-brand-subtle); color: var(--brand-strong); font-weight: 700;
+}
 
 /* Visual Cell Formatting — priority pills */
 .cell-pill {
@@ -223,25 +237,6 @@ html, body {
   background: var(--surface-2);
   transform-origin: left;
 }
-
-/* Mini-Preview Indicators */
-.preview-indicator {
-  height: 3px;
-  border-radius: 999px;
-  background: var(--border-subtle);
-  overflow: hidden;
-  margin-top: 4px;
-}
-.preview-indicator-fill {
-  height: 100%;
-  background: var(--brand-primary);
-}
-
-@keyframes pulse-gentle {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-.animate-pulse-gentle { animation: pulse-gentle 2s ease-in-out infinite; }
 
 /* The assistant icon (in the header and the collapsed launcher pill) pulses while the
    agent is working, so there's an ambient "thinking" signal even when the dock is collapsed. */
@@ -405,58 +400,38 @@ html, body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
 
-.interactive-chip {
-  background: var(--surface-1); border: 1px solid var(--border-subtle);
-  box-shadow: var(--shadow-resting); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.interactive-chip:hover {
-  border-color: var(--brand-primary); transform: translateY(-3px);
-  box-shadow: var(--shadow-raised); background: var(--surface-2);
-}
-
 /* ───────────────────────── CSA Workbench app pane ───────────────────────── */
+/* Full-bleed shell per the design reference: panes join with 1px borders, no outer
+   padding, no rounded outer frame. The rail carries the brand; there is no appbar. */
 .tw-app {
   display: flex; flex-direction: column; height: 100%; width: 100%; min-height: 0;
-  background: var(--surface-1); border: 1px solid var(--border-subtle);
-  border-radius: 1.25rem; overflow: hidden;
-  box-shadow: var(--shadow-raised);
+  background: var(--app-bg); overflow: hidden;
 }
-.tw-appbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-  height: 56px; padding: 0 1rem; border-bottom: 1px solid var(--border-subtle);
-  background: var(--surface-1);
-}
-.tw-appbar-brand { display: flex; align-items: center; gap: 0.6rem; }
-.tw-logo {
-  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
-  border-radius: 8px; color: var(--text-on-brand);
-  background: var(--brand-primary);
-}
-.tw-appbar-title { font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); font-size: 0.95rem; }
-.tw-appbar-sub { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); }
-.tw-breadcrumb { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; letter-spacing: 0.02em; text-align: right; }
 
 .tw-body { display: flex; flex: 1; min-height: 0; }
 .tw-nav {
-  width: 220px; flex-shrink: 0; border-right: 1px solid var(--border-subtle);
-  padding: 0.75rem 0.6rem; overflow-y: auto; background: var(--surface-2);
+  width: 232px; flex-shrink: 0; border-right: 1px solid var(--border-subtle);
+  padding: 1rem 0.75rem; overflow-y: auto; background: var(--app-bg);
   display: flex; flex-direction: column; gap: 2px;
 }
-.tw-nav-section { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--text-muted); font-weight: 700; margin: 0.8rem 0.5rem 0.3rem; }
-.tw-nav-item, .tw-nav-client, .tw-nav-wa {
-  display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left;
-  padding: 0.45rem 0.6rem; border-radius: 8px; font-size: 0.82rem; color: var(--text-secondary);
-  transition: background 0.15s, color 0.15s; font-weight: 600; cursor: pointer;
+.tw-brand { display: flex; align-items: center; gap: 0.6rem; padding: 0 0.25rem 0.9rem; }
+.tw-brand-mark {
+  display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  flex-shrink: 0; border-radius: 9px; background: var(--brand-primary); color: var(--text-on-brand);
+  font-family: var(--font-display); font-weight: 700; font-size: 0.95rem;
 }
-.tw-nav-item:hover, .tw-nav-client:hover, .tw-nav-wa:hover { background: var(--surface-1); color: var(--text-primary); }
-.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); }
-.tw-nav-client { font-size: 0.8rem; color: var(--text-primary); }
-.tw-nav-engagement { margin: 0 0 0.25rem 0.55rem; padding-left: 0.5rem; border-left: 1px solid var(--border-subtle); }
-.tw-nav-engagement-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); padding: 0.3rem 0.5rem 0.15rem; }
-.tw-nav-wa { font-size: 0.8rem; font-weight: 500; padding: 0.35rem 0.6rem; }
-.tw-nav-wa-active { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); font-weight: 700; }
-
-.tw-content { flex: 1; min-width: 0; overflow-y: auto; padding: 1.5rem 1.75rem; }
+.tw-brand-title { font-weight: 600; color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; }
+.tw-brand-status { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; }
+.tw-nav-section { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.13em; color: var(--text-muted); font-weight: 700; margin: 0.9rem 0.7rem 0.3rem; }
+.tw-nav-item {
+  display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left;
+  padding: 0.55rem 0.7rem; border-radius: 9px; font-size: 0.84rem; color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s; font-weight: 500; cursor: pointer;
+}
+.tw-nav-item:hover { background: var(--surface-2); color: var(--text-primary); }
+.tw-nav-item-active { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); font-weight: 600; }
+.tw-nav-count { margin-left: auto; font-size: 0.68rem; font-weight: 600; color: var(--text-muted); }
+.tw-content { flex: 1; min-width: 0; overflow-y: auto; }
 .tw-app .tw-input {
   width: 100%; min-width: 0; min-height: 2.5rem; padding: 0.5rem 0.65rem;
   border: 1px solid var(--border-subtle); border-radius: 0.6rem;
@@ -467,8 +442,8 @@ html, body {
 .tw-app .tw-input:disabled { cursor: not-allowed; opacity: 0.62; background: var(--surface-2); }
 .tw-app .tw-btn, .tw-app .tw-btn-ghost, .tw-app .tw-addbar, .tw-app .tw-tab, .tw-nav .tw-btn-ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
-  min-height: 2.5rem; border-radius: 0.6rem; padding: 0.5rem 0.75rem;
-  font-size: 0.8rem; font-weight: 700; cursor: pointer;
+  min-height: 2.25rem; border-radius: 9px; padding: 0.45rem 0.7rem;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
 }
 .tw-app .tw-btn { border: 1px solid var(--brand-primary); background: var(--brand-primary); color: var(--text-on-brand); }
 .tw-app .tw-btn:hover:not(:disabled) { background: var(--brand-strong); border-color: var(--brand-strong); }
@@ -491,10 +466,26 @@ html, body {
   background: var(--surface-2);
 }
 .tw-empty-card svg { color: var(--text-muted); flex-shrink: 0; }
-.tw-screen { display: flex; flex-direction: column; gap: 0.4rem; animation: fade-in 0.25s ease-out both; }
-.tw-h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
-.tw-h2 { font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.6rem; display: flex; align-items: center; gap: 0.5rem; }
+/* Centered reading column per the design reference (`.page`). */
+.tw-screen {
+  display: flex; flex-direction: column; gap: 0.4rem; animation: fade-in 0.25s ease-out both;
+  max-width: 900px; margin: 0 auto; padding: 1.9rem 2.5rem 4rem;
+}
+.tw-h1 { font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; letter-spacing: 0; color: var(--text-primary); }
+/* Section headers are microcaps, per the design reference. */
+.tw-h2, .tw-microcap {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-muted); margin-bottom: 0.55rem; display: flex; align-items: center; gap: 0.5rem;
+}
 .tw-subtle { color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0.5rem; }
+
+/* Status dots + word, per the design reference. */
+.tw-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.tw-dot-green { background: var(--status-done); }
+.tw-dot-yellow { background: var(--status-progress); }
+.tw-dot-red { background: var(--status-blocked); }
+.tw-status-word { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 0.84rem; color: var(--text-primary); }
+.tw-alert { color: var(--text-danger); font-weight: 600; }
 .tw-count { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); background: var(--surface-2); border: 1px solid var(--border-subtle); border-radius: 999px; padding: 0.05rem 0.5rem; }
 .tw-section { margin-top: 1.5rem; }
 
@@ -524,21 +515,18 @@ html, body {
 .tw-type-obligation { background: var(--surface-brand-subtle); color: var(--text-brand-on-subtle); }
 .tw-type-general { background: var(--surface-2); color: var(--text-muted); }
 
-.tw-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
-.tw-card {
-  display: flex; flex-direction: column; gap: 0.25rem; text-align: left; padding: 0.9rem;
-  border: 1px solid var(--border-subtle); border-radius: 0.85rem; background: var(--surface-1);
-  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+/* The stats row renders as the reference's joined aggregate strip. */
+.tw-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px;
+  margin: 0.75rem 0; background: var(--border-subtle); border: 1px solid var(--border-subtle);
+  border-radius: 0.85rem; overflow: hidden; box-shadow: var(--shadow-resting);
 }
-.tw-card:hover { border-color: var(--brand-primary); transform: translateY(-2px); background: var(--surface-2); }
-.tw-card-icon { color: var(--brand-primary); margin-bottom: 0.25rem; }
-.tw-card-title { font-weight: 700; color: var(--text-primary); font-size: 0.88rem; }
-.tw-card-meta { font-size: 0.72rem; color: var(--text-muted); }
-
-.tw-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem; margin: 0.75rem 0; }
-.tw-stat { padding: 1rem; border: 1px solid var(--border-subtle); border-radius: 0.85rem; background: var(--surface-1); }
-.tw-stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
-.tw-stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-top: 0.4rem; min-height: 2.2em; }
+.tw-stats > * {
+  border: 0; border-radius: 0; box-shadow: none;
+  background: var(--surface-1); padding: 0.8rem 1rem;
+}
+.tw-stat-value { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+.tw-stat-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; margin-top: 0.1rem; }
 
 .tw-back { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.3rem; }
 .tw-back:hover { color: var(--brand-primary); }
@@ -549,8 +537,80 @@ html, body {
 .tw-docitem:hover { border-color: var(--brand-primary); background: var(--surface-2); color: var(--text-primary); }
 .tw-doc-pending { margin-left: auto; font-size: 0.68rem; color: var(--text-muted); font-style: italic; }
 
-/* Constrain content width so short tables don't strand at the top-left of a wide pane */
-.tw-screen { max-width: 1040px; }
+/* The assistant dock and floating launcher, per the design reference's rail + FAB.
+   The panel itself opts into flat surfaces via AssistantPanel's `flat` prop. */
+.tw-dock { border-left: 1px solid var(--border-subtle); background: var(--surface-1); }
+.tw-fab { width: 44px; height: 44px; border-radius: 999px; box-shadow: var(--shadow-raised); }
+
+/* Portfolio rows, per the design reference's `pf-row`. */
+.tw-pf-row {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 13px; align-items: baseline;
+  width: 100%; padding: 0.85rem 0.15rem; border: 0; border-bottom: 1px solid var(--border-subtle);
+  background: transparent; text-align: left; cursor: pointer;
+}
+.tw-pf-row .tw-dot { position: relative; top: -1px; justify-self: center; }
+.tw-pf-row:hover .tw-pf-name { color: var(--brand-strong); }
+.tw-pf-name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.tw-pf-cust { color: var(--text-muted); font-weight: 400; font-size: 0.8rem; margin-left: 7px; }
+.tw-pf-why { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; max-width: 60ch; }
+.tw-pf-right { text-align: right; font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; }
+
+/* The engagement Overview reading surface: main column + rail, per the reference. */
+.tw-ebody { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 2.6rem; margin-top: 1.4rem; align-items: start; }
+@media (max-width: 1400px) { .tw-ebody { grid-template-columns: minmax(0, 1fr) 220px; gap: 1.8rem; } }
+@media (max-width: 900px) { .tw-ebody { grid-template-columns: minmax(0, 1fr); } .tw-rail { border-top: 1px solid var(--border-subtle); padding-top: 1rem; } }
+.tw-prose { font-size: 0.88rem; line-height: 1.55; color: var(--text-primary); max-width: 62ch; margin-top: 5px; }
+.tw-prose-muted { font-size: 0.84rem; color: var(--text-secondary); }
+.tw-prose-lead { font-size: 0.92rem; line-height: 1.6; }
+.tw-attn { display: flex; gap: 10px; align-items: baseline; padding: 3.5px 0; font-size: 0.84rem; color: var(--text-primary); }
+.tw-attn .tw-e-date { margin-left: auto; }
+.tw-rail-section { margin-bottom: 1.4rem; }
+.tw-rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.tw-rail-add { background: none; border: 0; padding: 0; cursor: pointer; font-size: 0.74rem; font-weight: 600; color: var(--brand-primary); }
+.tw-rail-add:hover { color: var(--brand-strong); }
+.tw-obj { display: flex; gap: 9px; font-size: 0.82rem; color: var(--text-secondary); padding: 3px 0; }
+.tw-obj::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--brand-primary); margin-top: 7px; flex-shrink: 0; }
+.tw-kd { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; padding: 3.5px 0; font-size: 0.82rem; background: none; border: 0; cursor: pointer; }
+.tw-kd:disabled { cursor: default; }
+.tw-kd-date { width: 46px; flex-shrink: 0; font-weight: 600; font-size: 0.74rem; color: var(--text-muted); }
+.tw-kd-t { color: var(--text-secondary); }
+.tw-kd-done .tw-kd-t { text-decoration: line-through; color: var(--text-muted); }
+.tw-kd-next .tw-kd-date { color: var(--text-warning); }
+.tw-kd-next .tw-kd-t { color: var(--text-primary); font-weight: 600; }
+.tw-contact { display: flex; gap: 9px; align-items: center; padding: 4px 0; }
+.tw-c-n { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+.tw-c-r { display: block; font-size: 0.72rem; color: var(--text-muted); }
+.tw-tab-n { color: var(--text-muted); font-size: 0.7rem; margin-left: 5px; font-weight: 600; }
+
+/* Log entries, per the design reference's `entry` (used for activity feeds). */
+.tw-entry { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 13px; padding: 0.8rem 0; border-bottom: 1px solid var(--border-subtle); }
+.tw-entry:last-child { border-bottom: 0; }
+.tw-mark { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; justify-self: center; background: var(--border-neutral); }
+.tw-e-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tw-e-title { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
+.tw-e-date { margin-left: auto; font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; }
+.tw-e-body { margin-top: 2px; font-size: 0.8rem; color: var(--text-secondary); max-width: 60ch; }
+.tw-e-byline { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+.tw-e-type { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.tw-e-type-meeting, .tw-mark-meeting { color: var(--brand-primary); }
+.tw-e-type-decision, .tw-mark-decision { color: var(--text-success); }
+.tw-e-type-risk, .tw-mark-risk { color: var(--text-danger); }
+.tw-e-type-note, .tw-mark-note { color: var(--text-muted); }
+.tw-mark-meeting { background: var(--brand-primary); }
+.tw-mark-decision { background: var(--text-success); }
+.tw-mark-risk { background: var(--text-danger); }
+.tw-mark-note { background: var(--border-neutral); }
+
+/* Home digest: mono schedule times, agenda list rows, and the two-column split. */
+.tw-time { font-family: var(--font-code); font-size: 0.74rem; font-weight: 600; color: var(--text-muted); width: 46px; flex: none; }
+.tw-listrow {
+  display: flex; gap: 12px; align-items: baseline; width: 100%; text-align: left;
+  padding: 8px 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: transparent;
+}
+button.tw-listrow { cursor: pointer; }
+button.tw-listrow:hover .tw-td-title { color: var(--brand-strong); }
+.tw-twocol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.2rem; margin-top: 1.4rem; }
+@media (max-width: 767px) { .tw-twocol { grid-template-columns: minmax(0, 1fr); gap: 1.2rem; } }
 
 /* Newly created rows briefly highlight so an agent create is visually obvious */
 @keyframes tw-row-flash {
@@ -641,13 +701,6 @@ html, body {
 
 .tw-td-mono { white-space: nowrap; }
 
-/* Brief pulse on the app pane header when an agent navigation changes the view */
-@keyframes tw-route-pulse {
-  0% { background: var(--brand-transparent); }
-  35% { background: var(--surface-brand-subtle); }
-  100% { background: var(--brand-transparent); }
-}
-.tw-appbar-pulse { animation: tw-route-pulse 1.1s ease-out 1; }
 .tw-rowlink { cursor: pointer; }
 
 /* Engagement-first workspace additions. Kept scoped to the workbench shell so
@@ -664,11 +717,6 @@ html, body {
 .tw-addform label, .tw-edit-grid label { display: grid; gap: 0.3rem; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; }
 .tw-edit-grid textarea.tw-input { min-height: 4.5rem; resize: vertical; }
 .tw-form-actions { align-self: end; min-height: 2.5rem; }
-.tw-engagement-card { width: 100%; cursor: pointer; }
-.tw-engagement-main { display: grid; min-width: 0; gap: 0.15rem; }
-.tw-engagement-main .tw-td-sub { overflow-wrap: anywhere; }
-.tw-engagement-meta { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.45rem; }
-.tw-engagement-meta .tw-td-sub { display: inline-flex; align-items: center; gap: 0.2rem; }
 .tw-task-list { display: grid; gap: 0.4rem; }
 .tw-task-row { display: flex; gap: 0.45rem; align-items: center; padding: 0.35rem; border: 1px solid var(--border-subtle); border-radius: 0.7rem; background: var(--surface-1); }
 .tw-task-open { min-width: 0; flex: 1; display: grid; grid-template-columns: minmax(12rem, 1fr) auto auto; align-items: center; gap: 0.7rem; padding: 0.4rem; text-align: left; }
@@ -679,12 +727,11 @@ html, body {
 .tw-stable-id { font-family: var(--font-mono); overflow-wrap: anywhere; }
 .tw-artifact-row .tw-td-title { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .tw-artifact-row { flex-wrap: wrap; }
-.tw-activity { flex-wrap: wrap; }
 .tw-workspace-stale { position: sticky; bottom: 0.5rem; margin: 0.75rem; padding: 0.55rem 0.75rem; border: 1px solid var(--border-warning); border-radius: 0.6rem; background: var(--surface-warning); color: var(--text-warning); font-size: 0.78rem; box-shadow: var(--shadow-raised); }
 
 /* Shared production surfaces. Keep existing selectors so behavior and test hooks do not change. */
 .tw-app, .tw-screen, [data-testid="host-shell"], [data-testid="assistant-workspace"] { background: var(--app-bg) !important; color: var(--text-primary); }
-.tw-card, .tw-section, .tw-empty-card, .tw-addform { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
+.tw-empty-card, .tw-addform { background: var(--surface-1) !important; border-color: var(--border-subtle) !important; box-shadow: var(--shadow-resting) !important; }
 .tw-btn, .tw-btn-primary, .message-body-user { background: var(--brand-primary) !important; color: var(--text-on-brand) !important; background-image: none !important; }
 .tw-btn:hover, .tw-btn-primary:hover { background: var(--brand-strong) !important; }
 .tw-tabs { border-color: var(--border-subtle); }
@@ -695,28 +742,26 @@ html, body {
 
 @media (max-width: 1199px) {
   .tw-nav-toggle { display: inline-flex; position: absolute; z-index: 4; left: 0.75rem; top: 0.75rem; align-items: center; justify-content: center; border: 1px solid var(--border-subtle); border-radius: 0.7rem; background: var(--surface-1); color: var(--text-primary); }
-  .tw-appbar { padding-left: 3.75rem; }
   .tw-nav { position: absolute; z-index: 30; inset: 0 auto 0 0; width: min(290px, 82vw); visibility: hidden; pointer-events: none; transform: translateX(-105%); transition: transform .2s ease, visibility .2s; box-shadow: var(--shadow-drawer); }
   .tw-nav-drawer-open { visibility: visible; pointer-events: auto; transform: translateX(0); }
   .tw-nav-mobile-head { display: flex; align-items: center; justify-content: space-between; padding: 0.1rem 0.25rem 0.6rem; color: var(--text-primary); font-size: .86rem; font-weight: 800; }
   .tw-nav-backdrop { display: block; position: absolute; z-index: 20; inset: 0; border: 0; background: var(--overlay-scrim); }
-  .tw-content { padding: 1.25rem 1.25rem calc(1.25rem + 5.25rem); }
+  /* Clear the floating nav toggle and keep the FAB reachable below the fold.
+     The 20px content padding is part of the compact layout contract (MVP-P48). */
+  .tw-content { padding: 3.6rem 1.25rem calc(1.25rem + 5.25rem); }
+  .tw-screen { padding: 0; }
 }
 
 @media (max-width: 767px) {
-  .tw-content { padding: 1rem 1rem calc(1rem + 5.25rem); }
-  .tw-appbar { height: 54px; gap: .5rem; }
-  .tw-breadcrumb { max-width: 45%; }
-  .tw-screen { max-width: 100%; min-width: 0; }
+  /* 16px content padding is part of the phone layout contract (MVP-P48). */
+  .tw-content { padding: 3.6rem 1rem calc(1rem + 5.25rem); }
+  .tw-screen { max-width: 100%; min-width: 0; padding: 0; }
   .tw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem; }
   .tw-stat { padding: .75rem; }
   .tw-stat-value { font-size: 1.45rem; }
   .tw-addform, .tw-edit-grid { grid-template-columns: minmax(0, 1fr); }
   .tw-addform label, .tw-edit-grid label { min-width: 0; }
   .tw-app .tw-input { max-width: 100%; }
-  .tw-engagement-card { align-items: flex-start; flex-wrap: wrap; }
-  .tw-engagement-main { flex: 1 1 calc(100% - 2rem); }
-  .tw-engagement-meta { width: 100%; margin-left: 1.9rem; justify-content: flex-start; }
   .tw-task-row { align-items: flex-start; }
   .tw-task-open { grid-template-columns: 1fr; gap: .3rem; }
   .tw-artifact-row { align-items: center; }

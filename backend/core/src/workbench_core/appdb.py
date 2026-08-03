@@ -427,10 +427,17 @@ ENGAGEMENT_ITEM_KINDS = {
     "action": ("actions", "a"),
 }
 
+# The prototype record model (#31): artifacts carry a tier — bronze (raw upload,
+# immutable), silver (working), gold (explicitly promoted, with who/when). The
+# timeline entry vocabulary lives with its validation in engagements.py.
+ARTIFACT_TIERS = ["bronze", "silver", "gold"]
+
 # Domain fields added to every engagement doc (older docs get these on read).
 _ENGAGEMENT_DOMAIN_DEFAULTS = {
     "customer": "", "stage": ENGAGEMENT_STAGES[0], "status": "green", "statusNote": "",
     "startDate": "", "targetDate": "", "milestones": [], "risks": [], "actions": [],
+    "businessValue": "", "value": 0, "currentState": "", "stateDate": "",
+    "objectives": [], "keyDates": [], "contacts": [], "timeline": [],
 }
 
 
@@ -445,6 +452,10 @@ def _with_domain_defaults(eng: dict) -> dict:
     for k, v in _ENGAGEMENT_DOMAIN_DEFAULTS.items():
         if eng.get(k) is None:
             eng[k] = list(v) if isinstance(v, list) else v
+    # Artifacts written before tiers exist read as bronze (they are raw uploads).
+    for item in eng.get("library") or []:
+        if item.get("tier") not in ARTIFACT_TIERS:
+            item["tier"] = "bronze"
     return eng
 
 
@@ -470,7 +481,8 @@ def _engagement_doc_id(engagement_id: str) -> str:
 def new_engagement(creator_id: str, name: str, description: str = "",
                    customer: str = "", status: str = "",
                    status_note: str = "", start_date: str = "",
-                   target_date: str = "") -> dict:
+                   target_date: str = "", business_value: str = "",
+                   value: float = 0, objective: str = "") -> dict:
     """Create an engagement; the creator is its first owner. Returns the engagement doc.
 
     Raises ValueError on a bad status. Callers enforce the status-note rule
@@ -490,6 +502,11 @@ def new_engagement(creator_id: str, name: str, description: str = "",
         "statusNote": (status_note or "").strip(),
         "startDate": (start_date or "").strip(), "targetDate": (target_date or "").strip(),
         "milestones": [], "risks": [], "actions": [],
+        "businessValue": (business_value or "").strip(),
+        "value": max(0, float(value or 0)),
+        "currentState": "", "stateDate": "",
+        "objectives": [objective.strip()] if (objective or "").strip() else [],
+        "keyDates": [], "contacts": [], "timeline": [],
         "members": [{"userId": uid, "role": "owner"}],
         "conventions": [],
         "tasks": [], "library": [],

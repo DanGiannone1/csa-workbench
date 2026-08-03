@@ -207,11 +207,11 @@ test("ACME-3 and a synthetic authorized-list case require exact native model-vis
         id: "eng-acme-ai-chatbot", name: "Acme Internal AI Chatbot", customer: "Acme Corp", status: "yellow", statusNote: "Data-privacy review slipped to August 12", startDate: "2026-06-01", targetDate: "2026-09-15", description: "Internal AI chatbot rollout",
         members: [{ userId: "dan", role: "owner" }, { userId: "ava", role: "editor" }],
         tasks: [{ id: "t-1", title: "Data-privacy review", status: "Done", priority: "High", dueDate: "2026-07-01" }, { id: "t-2", title: "Access review", status: "To do", priority: "Medium", dueDate: "2026-08-01" }],
-        actions: [], milestones: [], risks: [], library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [],
+        actions: [], milestones: [], risks: [], objectives: [], keyDates: [], contacts: [], timeline: [], library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [],
       },
       {
         id: "eng-initech-doc-search", name: "Initech Doc Search", customer: "", status: "green", statusNote: "", startDate: "", targetDate: "", description: "",
-        members: [{ userId: "dan", role: "editor" }], tasks: [], actions: [], milestones: [], risks: [], library: [], conventions: [],
+        members: [{ userId: "dan", role: "editor" }], tasks: [], actions: [], milestones: [], risks: [], objectives: [], keyDates: [], contacts: [], timeline: [], library: [], conventions: [],
       },
     ],
   };
@@ -287,6 +287,7 @@ test("ACME-3 and a synthetic authorized-list case require exact native model-vis
       milestones: [{ id: "m-1", title: "Pilot launch", status: "Planned", dueDate: "2026-08-01" }],
       risks: [{ id: "r-1", title: "Data residency", severity: "High", status: "Open" }],
       library: [{ id: "doc-1" }, { id: "doc-2" }], conventions: [{ id: "c-1", text: "Use plain English." }],
+      objectives: [], keyDates: [], contacts: [], timeline: [],
     }],
   };
   const getResult = { operation: "get", status: "succeeded", code: "engagement.retrieved", resource: { kind: "engagement", id: "eng-acme-ai-chatbot" } };
@@ -563,7 +564,7 @@ test("only the exact all-scope canonical suite can pass the product hard gate", 
   assert.equal(full.acceptance.status, "INCOMPLETE");
   assert.deepEqual(full.lanes.productRuntime.latency, {
     measurement: "end-to-end harness wall-clock", unit: "ms", gating: false,
-    atomic: { count: 7, totalMs: 721, minMs: 100, maxMs: 106, meanMs: 103 },
+    atomic: { count: 10, totalMs: 1045, minMs: 100, maxMs: 109, meanMs: 104 },
     workflowTurns: { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 },
   });
 
@@ -734,8 +735,8 @@ test("the advisory judge record binds the complete canonical atomic and workflow
   assert.equal(summary.status, "RECORDED");
   assert.equal(summary.binding.status, "MATCHED");
   assert.deepEqual(summary.provenance, { rubricVersion: 1, judge: { kind: "human", reviewer: "Human Reviewer" }, judgedAt: "2026-07-22T12:00:00Z" });
-  assert.equal(summary.atomic.passed, 21);
-  assert.equal(summary.atomic.dimensions.accuracy.passed, 7);
+  assert.equal(summary.atomic.passed, 30);
+  assert.equal(summary.atomic.dimensions.accuracy.passed, 10);
   assert.equal(summary.workflows.passed, 3);
   assert.equal(summary.workflows.dimensions.tone.passed, 1);
   assert.deepEqual(summary.atomic.judgments[0], record.atomicJudgments[0]);
@@ -836,7 +837,7 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
   const passed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "pass"));
   const failed = buildMvpScorecard(product, wazaGate(), review, judgeRecord(product, "fail"));
   assert.equal(passed.lanes.advisoryJudge.status, "RECORDED");
-  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 21);
+  assert.equal(failed.lanes.advisoryJudge.atomic.failed, 30);
   assert.equal(passed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(failed.acceptance.status, "READY_FOR_BASELINE");
   assert.equal(passed.lanes.productRuntime.hardGatePass, failed.lanes.productRuntime.hardGatePass);
@@ -845,7 +846,7 @@ test("advisory judge verdicts never alter deterministic acceptance", () => {
 test("the scorecard preserves judge details and safely renders invalid judge diagnostics", () => {
   const product = canonicalJudgeProduct();
   const recorded = buildMvpScorecard(product, wazaGate(), null, judgeRecord(product));
-  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 21);
+  assert.equal(recorded.lanes.advisoryJudge.atomic.judgments.length, 30);
   assert.equal(recorded.lanes.advisoryJudge.workflows.judgments.length, 3);
   const paddedReason = judgeRecord(product);
   paddedReason.atomicJudgments[0].reason = "  The recorded reply is adequately supported.  ";

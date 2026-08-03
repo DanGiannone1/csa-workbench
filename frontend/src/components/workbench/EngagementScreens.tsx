@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  CheckSquare,
   Download,
   Files,
   FolderKanban,
@@ -20,25 +19,32 @@ import type {
   EngagementRole,
   EngagementStatus,
   Task,
+  TimelineEntry,
+  TimelineEntryType,
 } from "@/lib/types";
 import {
   addConvention,
+  addEngagementContact,
   addEngagementMember,
+  addKeyDate,
+  addObjective,
+  addTimelineEntry,
   createEngagement,
   createEngagementTask,
   deleteEngagementArtifact,
   deleteEngagementTask,
   listUsers,
   downloadEngagementArtifact,
+  promoteArtifact,
   removeConvention,
   removeEngagementMember,
+  toggleKeyDate,
   updateEngagement,
   updateEngagementTask,
   uploadEngagementArtifact,
 } from "@/lib/api";
 import { parseEngagementRoute } from "@/lib/engagementRoute";
 import { friendlyError } from "@/lib/utils";
-import Status from "@/components/ui/Status";
 import { Tab, Tabs } from "@/components/ui/Tabs";
 
 const statusLabel: Record<EngagementStatus, string> = {
@@ -46,21 +52,6 @@ const statusLabel: Record<EngagementStatus, string> = {
   yellow: "Yellow",
   red: "Red",
 };
-
-function StatusBadge({
-  status,
-  testid,
-}: {
-  status: EngagementStatus;
-  testid?: string;
-}) {
-  const tone = status === "red" ? "danger" : status === "yellow" ? "warning" : "success";
-  return (
-    <Status tone={tone} data-testid={testid}>
-      {statusLabel[status]}
-    </Status>
-  );
-}
 
 function openTasks(engagement: Engagement) {
   return (engagement.tasks ?? []).filter((task) => task.status !== "Done")
@@ -121,6 +112,7 @@ export function EngagementsList({
   onRefresh: () => Promise<void>;
 }) {
   const engagements = appState.engagements ?? [];
+  const today = new Date().toISOString().slice(0, 10);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [customer, setCustomer] = useState("");
@@ -282,7 +274,7 @@ export function EngagementsList({
               <EngagementPortfolioRow
                 key={engagement.id}
                 engagement={engagement}
-                userId={appState.user?.id}
+                today={today}
                 onNavigate={onNavigate}
               />
             ))}
@@ -293,57 +285,48 @@ export function EngagementsList({
   );
 }
 
+// Portfolio row per the design reference's `pf-row`: status dot, name + customer
+// inline, a one-line "why", and quiet metadata on the right.
 export function EngagementPortfolioRow({
   engagement,
-  userId,
+  today,
   onNavigate,
 }: {
   engagement: Engagement;
-  userId?: string;
+  today: string;
   onNavigate: (route: string) => void;
 }) {
-  const role = roleOf(engagement, userId);
+  const overdueCount = (engagement.tasks ?? []).filter((task) => isOverdue(task, today)).length;
+  const overdueText = overdueCount ? `${overdueCount} overdue` : "";
+  const restText = [
+    `${openTasks(engagement)} open`,
+    engagement.targetDate ? `target ${engagement.targetDate}` : "",
+  ].filter(Boolean).join(" · ");
   return (
     <button
       type="button"
-      className="tw-docitem tw-rowlink tw-engagement-card"
+      className="tw-pf-row"
       data-testid={`engagement-row-${engagement.id}`}
       onClick={() => onNavigate(`/engagements/${engagement.id}`)}
     >
-      <FolderKanban size={16} />
-      <span className="tw-engagement-main">
-        <span className="tw-td-title">
-          {engagement.name}
-          {engagement.customer ? (
-            <span className="tw-td-sub"> · {engagement.customer}</span>
-          ) : null}
-        </span>
-        <span className="tw-td-sub">
+      <span
+        className={`tw-dot tw-dot-${engagement.status}`}
+        data-testid={`engagement-status-${engagement.id}`}
+        aria-label={statusLabel[engagement.status]}
+      />
+      <span style={{ minWidth: 0, display: "block" }}>
+        <span className="tw-pf-name tw-td-title">{engagement.name}</span>
+        {engagement.customer && <span className="tw-pf-cust">{engagement.customer}</span>}
+        <span className="tw-pf-why">
           {engagement.status !== "green" && engagement.statusNote
-            ? `Why: ${engagement.statusNote}`
+            ? engagement.statusNote
             : engagement.description || "No description"}
         </span>
       </span>
-      <span className="tw-engagement-meta">
-        <StatusBadge
-          status={engagement.status}
-          testid={`engagement-status-${engagement.id}`}
-        />
-        <span
-          className="tw-badge tw-badge-gray"
-          data-testid={`engagement-role-${engagement.id}`}
-        >
-          {role ?? "member"}
-        </span>
-        <span className="tw-td-sub">
-          <CheckSquare size={12} /> {openTasks(engagement)} open
-        </span>
-        <span className="tw-td-sub">
-          <Files size={12} /> {(engagement.library ?? []).length}
-        </span>
-        {engagement.targetDate && (
-          <span className="tw-td-sub">Target {engagement.targetDate}</span>
-        )}
+      <span className="tw-pf-right">
+        {overdueText && <span className="tw-alert">{overdueText}</span>}
+        {overdueText && restText ? " · " : ""}
+        {restText}
       </span>
     </button>
   );
@@ -439,6 +422,17 @@ export function EngagementScreen({
         />
       </div>
     );
+  if (sub === "timeline")
+    return (
+      <div className="tw-screen" data-testid="engagement-timeline-screen">
+        {header}
+        <EngagementTimeline
+          engagement={engagement}
+          editable={editable}
+          onRefresh={onRefresh}
+        />
+      </div>
+    );
   if (sub === "settings")
     return (
       <div className="tw-screen" data-testid="engagement-settings-screen">
@@ -451,9 +445,6 @@ export function EngagementScreen({
       </div>
     );
 
-  const overdue = engagement.tasks.filter((task) =>
-    isOverdue(task, today),
-  ).length;
   const editorKey = JSON.stringify([
     engagement.id,
     engagement.name,
@@ -463,24 +454,61 @@ export function EngagementScreen({
     engagement.targetDate,
     engagement.status,
     engagement.statusNote,
+    engagement.businessValue,
+    engagement.value,
+    engagement.currentState,
   ]);
   return (
     <div className="tw-screen" data-testid="engagement-overview">
       {header}
-      <div className="tw-stats" style={{ marginTop: 14 }}>
-        <StatBox label="Open tasks" value={openTasks(engagement)} />
-        <StatBox label="Overdue" value={overdue} />
-        <StatBox label="Artifacts" value={(engagement.library ?? []).length} />
-        <StatBox label="Members" value={engagement.members.length} />
-      </div>
-      <EngagementDetailEditor
-        key={editorKey}
+      <RecordOverview
         engagement={engagement}
-        role={role}
+        editable={editable}
+        today={today}
+        onNavigate={onNavigate}
         onRefresh={onRefresh}
       />
-      <ActivityFeed engagement={engagement} />
+      {editable && (
+        <EditableRecordSection
+          editorKey={editorKey}
+          engagement={engagement}
+          role={role}
+          onRefresh={onRefresh}
+        />
+      )}
     </div>
+  );
+}
+
+// The record editor stays reachable but no longer leads the page: the Overview
+// is a reading surface first, per the design reference.
+function EditableRecordSection({ editorKey, engagement, role, onRefresh }: {
+  editorKey: string;
+  engagement: Engagement;
+  role: EngagementRole | null;
+  onRefresh: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="tw-section">
+      <button
+        type="button"
+        className="tw-btn-ghost"
+        data-testid="engagement-edit-record"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {open ? "Close the record editor" : "Edit record"}
+      </button>
+      {open && (
+        <EngagementDetailEditor
+          key={editorKey}
+          engagement={engagement}
+          role={role}
+          onRefresh={onRefresh}
+        />
+      )}
+    </section>
   );
 }
 
@@ -499,11 +527,15 @@ function EngagementHeader({
   editable: boolean;
   onNavigate: (route: string) => void;
 }) {
-  const tabs: [string, string][] = [
-    ["", "Overview"],
-    ["tasks", "Tasks"],
-    ["artifacts", "Artifacts"],
-    ["settings", "Team & conventions"],
+  const timelineCount = (engagement.timeline ?? []).length;
+  const openCount = openTasks(engagement);
+  const docsCount = (engagement.library ?? []).length;
+  const tabs: [string, string, number | null][] = [
+    ["", "Overview", null],
+    ["timeline", "Timeline", timelineCount],
+    ["tasks", "Tasks", openCount],
+    ["artifacts", "Docs", docsCount],
+    ["settings", "Team & conventions", null],
   ];
   return (
     <>
@@ -516,16 +548,19 @@ function EngagementHeader({
       </button>
       <h1 className="tw-h1">{engagement.name}</h1>
       <div className="tw-engagement-header">
-        <StatusBadge
-          status={engagement.status}
-          testid="engagement-status-badge"
-        />
-        <span className="tw-badge tw-badge-gray" data-testid="my-role">
-          {role ?? "viewer"}
-        </span>
         {engagement.customer && (
           <span className="tw-td-sub">{engagement.customer}</span>
         )}
+        <span className="tw-status-word" data-testid="engagement-status-badge">
+          <span className={`tw-dot tw-dot-${engagement.status}`} />
+          {statusLabel[engagement.status]}
+        </span>
+        {(engagement.value ?? 0) > 0 && (
+          <span className="tw-count">{money(engagement.value ?? 0)}</span>
+        )}
+        <span className="tw-badge tw-badge-gray" data-testid="my-role">
+          {role ?? "viewer"}
+        </span>
         {engagement.targetDate && (
           <span className="tw-td-sub">Target {engagement.targetDate}</span>
         )}
@@ -542,7 +577,7 @@ function EngagementHeader({
         </p>
       )}
       <Tabs className="tw-tabs" data-testid="engagement-tabs" aria-label="Engagement sections">
-        {tabs.map(([tab, label]) => (
+        {tabs.map(([tab, label, count]) => (
           <Tab
             key={tab}
             active={sub === tab}
@@ -551,6 +586,7 @@ function EngagementHeader({
             onClick={() => onNavigate(tab ? `${base}/${tab}` : base)}
           >
             {label}
+            {count !== null && count > 0 && <span className="tw-tab-n">{count}</span>}
           </Tab>
         ))}
       </Tabs>
@@ -558,29 +594,349 @@ function EngagementHeader({
   );
 }
 
-function ActivityFeed({ engagement }: { engagement: Engagement }) {
+function money(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${Math.round(value)}`;
+}
+
+// One initials formula for every avatar, per the reference's shared helper.
+function initials(name: string): string {
+  return name.split(" ").map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase();
+}
+
+function TimelineEntryRow({ entry }: { entry: TimelineEntry }) {
   return (
-    <section className="tw-section">
-      <h2 className="tw-h2">Recent activity</h2>
-      {engagement.activity.length ? (
-        <div className="tw-doclist" data-testid="activity-feed">
-          {engagement.activity.slice(0, 8).map((entry, index) => (
-            <div
-              key={`${entry.ts}-${index}`}
-              className="tw-docitem tw-activity"
+    <div className="tw-entry">
+      <span className={`tw-mark tw-mark-${entry.type}`} />
+      <div style={{ minWidth: 0 }}>
+        <div className="tw-e-top">
+          <span className="tw-e-title">{entry.title}</span>
+          <span className={`tw-e-type tw-e-type-${entry.type}`}>{entry.type}</span>
+          <span className="tw-e-date">{entry.date}</span>
+        </div>
+        {entry.body && <div className="tw-e-body">{entry.body}</div>}
+        <div className="tw-e-byline">
+          {entry.author}
+          {entry.source ? ` · from ${entry.source}` : ""}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// A rail section with an inline "+ Add" affordance, per the reference's overview rail.
+function RailSection({ label, addLabel, adding, onToggleAdd, editable, children, form }: {
+  label: string;
+  addLabel?: string;
+  adding?: boolean;
+  onToggleAdd?: () => void;
+  editable: boolean;
+  children: React.ReactNode;
+  form?: React.ReactNode;
+}) {
+  return (
+    <section className="tw-rail-section">
+      <div className="tw-rail-head">
+        <span className="tw-microcap" style={{ marginBottom: 0 }}>{label}</span>
+        {editable && onToggleAdd && (
+          <button type="button" className="tw-rail-add" onClick={onToggleAdd}>
+            {adding ? "Cancel" : addLabel ?? "+ Add"}
+          </button>
+        )}
+      </div>
+      {children}
+      {adding && form}
+    </section>
+  );
+}
+
+// The Overview reading surface: what this is, where it stands, needs attention,
+// recent log — with objectives, key dates, and people in the rail.
+function RecordOverview({ engagement, editable, today, onNavigate, onRefresh }: {
+  engagement: Engagement;
+  editable: boolean;
+  today: string;
+  onNavigate: (route: string) => void;
+  onRefresh: () => Promise<void>;
+}) {
+  const { busy, error, run } = useBusy(onRefresh);
+  const [addObj, setAddObj] = useState(false);
+  const [objDraft, setObjDraft] = useState("");
+  const [addKd, setAddKd] = useState(false);
+  const [kdDate, setKdDate] = useState("");
+  const [kdLabel, setKdLabel] = useState("");
+  const [addPerson, setAddPerson] = useState(false);
+  const [personName, setPersonName] = useState("");
+  const [personRole, setPersonRole] = useState("");
+
+  const objectives = engagement.objectives ?? [];
+  const keyDates = engagement.keyDates ?? [];
+  const contacts = engagement.contacts ?? [];
+  const timeline = engagement.timeline ?? [];
+  const overdueTasks = engagement.tasks.filter((task) => isOverdue(task, today));
+  const nextKeyDate = keyDates.find((kd) => !kd.done && kd.date >= today);
+
+  const submitObjective = async () => {
+    const text = objDraft.trim();
+    if (!text) return;
+    if (await run(() => addObjective(engagement.id, text))) { setObjDraft(""); setAddObj(false); }
+  };
+  const submitKeyDate = async () => {
+    if (!kdDate || !kdLabel.trim()) return;
+    if (await run(() => addKeyDate(engagement.id, kdDate, kdLabel.trim()))) {
+      setKdDate(""); setKdLabel(""); setAddKd(false);
+    }
+  };
+  const submitContact = async () => {
+    const name = personName.trim();
+    if (!name) return;
+    if (await run(() => addEngagementContact(engagement.id, name, personRole.trim()))) {
+      setPersonName(""); setPersonRole(""); setAddPerson(false);
+    }
+  };
+
+  return (
+    <div className="tw-ebody">
+      <div style={{ minWidth: 0 }}>
+        <section style={{ marginBottom: 22 }}>
+          <div className="tw-microcap">What this is</div>
+          <p className="tw-prose">{engagement.description || "No description yet."}</p>
+          {engagement.businessValue && (
+            <p className="tw-prose tw-prose-muted">{engagement.businessValue}</p>
+          )}
+        </section>
+        <section style={{ marginBottom: 22 }}>
+          <div className="tw-microcap">
+            Where it stands{engagement.stateDate ? ` · ${engagement.stateDate}` : ""}
+          </div>
+          <p className="tw-prose tw-prose-lead" data-testid="engagement-current-state">
+            {engagement.currentState ||
+              "No standing summary yet — set one in the record editor, or ask the assistant to draft it after your next call."}
+          </p>
+        </section>
+        {(overdueTasks.length > 0 || nextKeyDate) && (
+          <section style={{ marginBottom: 22 }}>
+            <div className="tw-microcap">Needs attention</div>
+            {overdueTasks.map((task) => (
+              <div className="tw-attn" key={task.id}>
+                <span className="tw-dot tw-dot-red" style={{ width: 7, height: 7 }} />
+                <span style={{ minWidth: 0 }}>Overdue: {task.title}</span>
+                <span className="tw-e-date">due {task.dueDate?.slice(0, 10)}</span>
+              </div>
+            ))}
+            {nextKeyDate && (
+              <div className="tw-attn">
+                <span className="tw-dot tw-dot-yellow" style={{ width: 7, height: 7 }} />
+                <span style={{ minWidth: 0 }}>{nextKeyDate.label}</span>
+                <span className="tw-e-date">{nextKeyDate.date}</span>
+              </div>
+            )}
+          </section>
+        )}
+        <section>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+            <div className="tw-microcap">Recent activity</div>
+            <button
+              type="button"
+              className="tw-btn-ghost"
+              style={{ minHeight: 0, padding: "2px 6px" }}
+              data-testid="overview-full-timeline"
+              onClick={() => onNavigate(`/engagements/${engagement.id}/timeline`)}
             >
-              <span className="tw-td-sub">{entry.userId}</span>
-              <span className="tw-td-title">{entry.detail}</span>
-              <span className="tw-td-sub">
-                {entry.ts.slice(5, 16).replace("T", " ")}
+              Full timeline →
+            </button>
+          </div>
+          {timeline.length === 0 ? (
+            <div className="tw-empty-sm">
+              Nothing logged yet — drop a transcript on the assistant or log a note on the Timeline tab.
+            </div>
+          ) : (
+            timeline.slice(0, 3).map((entry) => <TimelineEntryRow key={entry.id} entry={entry} />)
+          )}
+        </section>
+        {error && <p className="tw-error" role="alert">{error}</p>}
+      </div>
+
+      <div className="tw-rail">
+        <RailSection
+          label="Objectives" editable={editable} adding={addObj}
+          onToggleAdd={() => { setAddObj(!addObj); setObjDraft(""); }}
+          form={
+            <input
+              className="tw-input" placeholder="What does good look like?" autoFocus
+              value={objDraft} disabled={busy} data-testid="objective-input"
+              onChange={(event) => setObjDraft(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter") void submitObjective(); }}
+            />
+          }
+        >
+          {objectives.length === 0 && !addObj && <div className="tw-empty-sm">None yet.</div>}
+          {objectives.map((objective) => (
+            <div className="tw-obj" key={objective}>{objective}</div>
+          ))}
+        </RailSection>
+
+        <RailSection
+          label="Key dates" editable={editable} adding={addKd}
+          onToggleAdd={() => { setAddKd(!addKd); setKdDate(""); setKdLabel(""); }}
+          form={
+            <div style={{ display: "grid", gap: 6 }}>
+              <input
+                type="date" className="tw-input" value={kdDate} disabled={busy}
+                data-testid="key-date-date" onChange={(event) => setKdDate(event.target.value)}
+              />
+              <input
+                className="tw-input" placeholder="Milestone" value={kdLabel} disabled={busy}
+                data-testid="key-date-label"
+                onChange={(event) => setKdLabel(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") void submitKeyDate(); }}
+              />
+            </div>
+          }
+        >
+          {keyDates.length === 0 && !addKd && <div className="tw-empty-sm">None yet.</div>}
+          {keyDates.map((kd) => (
+            <button
+              key={`${kd.date}-${kd.label}`}
+              type="button"
+              className={`tw-kd ${kd.done ? "tw-kd-done" : nextKeyDate === kd ? "tw-kd-next" : ""}`}
+              title={editable ? (kd.done ? "Reopen" : "Mark done") : undefined}
+              disabled={!editable || busy}
+              onClick={() => void run(() => toggleKeyDate(engagement.id, kd.label))}
+            >
+              <span className="tw-kd-date">{kd.date.slice(5)}</span>
+              <span className="tw-kd-t">{kd.label}</span>
+            </button>
+          ))}
+        </RailSection>
+
+        <RailSection
+          label="Customer" editable={editable} adding={addPerson}
+          onToggleAdd={() => { setAddPerson(!addPerson); setPersonName(""); setPersonRole(""); }}
+          form={
+            <div style={{ display: "grid", gap: 6 }}>
+              <input
+                className="tw-input" placeholder="Name" value={personName} disabled={busy}
+                data-testid="contact-name" onChange={(event) => setPersonName(event.target.value)}
+              />
+              <input
+                className="tw-input" placeholder="Their role, e.g. Digital sponsor"
+                value={personRole} disabled={busy} data-testid="contact-role"
+                onChange={(event) => setPersonRole(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter") void submitContact(); }}
+              />
+            </div>
+          }
+        >
+          {contacts.length === 0 && !addPerson && (
+            <div className="tw-empty-sm">No customer contacts yet.</div>
+          )}
+          {contacts.map((contact) => (
+            <div className="tw-contact" key={contact.name}>
+              <span className="tw-avatar" style={{ width: 24, height: 24, fontSize: 10 }}>
+                {initials(contact.name)}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span className="tw-c-n">{contact.name}</span>
+                <span className="tw-c-r">{contact.role}</span>
               </span>
             </div>
           ))}
+        </RailSection>
+
+        <RailSection label="Our team" editable={false}>
+          {engagement.members.map((member) => (
+            <div className="tw-contact" key={member.userId}>
+              <span className="tw-avatar" style={{ width: 24, height: 24, fontSize: 10 }}>
+                {initials(member.userId)}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span className="tw-c-n">{member.userId}</span>
+                <span className="tw-c-r">{member.role}</span>
+              </span>
+            </div>
+          ))}
+        </RailSection>
+      </div>
+    </div>
+  );
+}
+
+// The Timeline tab: the record's append-only log, grouped by month, with the
+// note composer at the top.
+function EngagementTimeline({ engagement, editable, onRefresh }: {
+  engagement: Engagement;
+  editable: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  const { busy, error, run } = useBusy(onRefresh);
+  const [draft, setDraft] = useState("");
+  const [entryType, setEntryType] = useState<TimelineEntryType>("note");
+  const timeline = engagement.timeline ?? [];
+
+  const submit = async () => {
+    const title = draft.trim();
+    if (!title) return;
+    if (await run(() => addTimelineEntry(engagement.id, { type: entryType, title }))) setDraft("");
+  };
+
+  const months: { month: string; entries: TimelineEntry[] }[] = [];
+  const monthOf = (iso: string) => {
+    const [year, month] = iso.split("-").map(Number);
+    return `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month - 1]} ${year}`;
+  };
+  for (const entry of timeline) {
+    const month = monthOf(entry.date);
+    const group = months.find((candidate) => candidate.month === month);
+    if (group) group.entries.push(entry);
+    else months.push({ month, entries: [entry] });
+  }
+
+  return (
+    <div style={{ maxWidth: "42rem" }}>
+      {editable && (
+        <div style={{ display: "flex", gap: 7, marginBottom: 14 }}>
+          <select
+            className="tw-input" style={{ width: "7.5rem", flex: "none" }}
+            value={entryType} disabled={busy} aria-label="Entry type"
+            data-testid="timeline-type"
+            onChange={(event) => setEntryType(event.target.value as TimelineEntryType)}
+          >
+            <option value="note">Note</option>
+            <option value="decision">Decision</option>
+            <option value="risk">Risk</option>
+            <option value="meeting">Meeting</option>
+          </select>
+          <input
+            className="tw-input" placeholder="Log a note, decision or risk…"
+            value={draft} disabled={busy} data-testid="timeline-input"
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") void submit(); }}
+          />
+          <button
+            type="button" className="tw-btn-ghost" style={{ flexShrink: 0 }}
+            disabled={busy || !draft.trim()} data-testid="timeline-add"
+            onClick={() => void submit()}
+          >
+            Add
+          </button>
+        </div>
+      )}
+      {error && <p className="tw-error" role="alert">{error}</p>}
+      {timeline.length === 0 ? (
+        <div className="tw-empty-sm">
+          Nothing logged yet. Entries are append-only and attributed — the record&apos;s memory.
         </div>
       ) : (
-        <div className="tw-empty-sm">No activity yet.</div>
+        months.map((group) => (
+          <div key={group.month} style={{ marginBottom: 20 }}>
+            <div className="tw-microcap">{group.month}</div>
+            {group.entries.map((entry) => <TimelineEntryRow key={entry.id} entry={entry} />)}
+          </div>
+        ))
       )}
-    </section>
+    </div>
   );
 }
 
@@ -622,6 +978,9 @@ function EngagementDetailEditor({
   const [status, setStatus] = useState<EngagementStatus>(engagement.status);
   const [statusNote, setStatusNote] = useState(engagement.statusNote);
   const [statusError, setStatusError] = useState("");
+  const [businessValue, setBusinessValue] = useState(engagement.businessValue ?? "");
+  const [value, setValue] = useState(String(engagement.value || ""));
+  const [currentState, setCurrentState] = useState(engagement.currentState ?? "");
   if (!editable)
     return (
       <section className="tw-section">
@@ -651,6 +1010,9 @@ function EngagementDetailEditor({
         targetDate,
         status,
         statusNote: status === "green" ? "" : statusNote.trim(),
+        businessValue: businessValue.trim(),
+        value: Number(value.replace(/[^0-9.]/g, "")) || 0,
+        currentState: currentState.trim(),
       }),
     );
   };
@@ -688,6 +1050,40 @@ function EngagementDetailEditor({
             data-testid="engagement-customer-edit"
             disabled={busy}
             onChange={(event) => setCustomer(event.target.value)}
+          />
+        </label>
+        <label>
+          Why it matters to the customer
+          <input
+            className="tw-input"
+            value={businessValue}
+            data-testid="engagement-business-value-edit"
+            placeholder="The outcome behind the work"
+            disabled={busy}
+            onChange={(event) => setBusinessValue(event.target.value)}
+          />
+        </label>
+        <label>
+          Value (USD)
+          <input
+            className="tw-input"
+            inputMode="numeric"
+            value={value}
+            data-testid="engagement-value-edit"
+            placeholder="150000"
+            disabled={busy}
+            onChange={(event) => setValue(event.target.value)}
+          />
+        </label>
+        <label>
+          Where it stands
+          <textarea
+            className="tw-input"
+            value={currentState}
+            data-testid="engagement-current-state-edit"
+            placeholder="The paragraph a stand-in could read to take over"
+            disabled={busy}
+            onChange={(event) => setCurrentState(event.target.value)}
           />
         </label>
         <label>
@@ -1258,10 +1654,19 @@ function EngagementArtifacts({
       setError(friendlyError(err, "Artifact action failed."));
     }
   };
+  const promote = async (artifact: Artifact) => {
+    setError("");
+    try {
+      await promoteArtifact(engagement.id, artifact.id);
+      await onRefresh();
+    } catch (err) {
+      setError(friendlyError(err, "Artifact action failed."));
+    }
+  };
   return (
     <section className="tw-section">
       <div className="tw-section-heading">
-        <h2 className="tw-h2">Artifacts</h2>
+        <h2 className="tw-h2">Documents</h2>
         {editable && (
           <>
             <input
@@ -1289,37 +1694,71 @@ function EngagementArtifacts({
         </div>
       )}
       {!artifacts.length ? (
-        <div className="tw-empty-sm">No artifacts on this Engagement yet.</div>
+        <div className="tw-empty-sm">No documents on this Engagement yet.</div>
       ) : (
-        <div className="tw-doclist">
-          {artifacts.map((artifact) => (
-            <div
-              key={artifact.id}
-              className="tw-docitem tw-artifact-row"
-              data-testid={`artifact-row-${artifact.id}`}
-            >
-              <Files size={15} />
-              <span className="tw-td-title">{artifact.name}</span>
-              <span className="tw-td-sub">{humanSize(artifact.size)}</span>
-              <span className="tw-td-sub">{artifact.uploadedBy}</span>
-              <button
-                type="button"
-                className="tw-btn-ghost"
-                data-testid={`artifact-download-${artifact.id}`}
-                title={`Download ${artifact.name}`}
-                onClick={() => void download(artifact)}
-              >
-                <Download size={13} /> Download
-              </button>
-              {editable && (
-                <ArmedDelete
-                  testid={`artifact-delete-${artifact.id}`}
-                  onConfirm={() => void remove(artifact)}
-                />
-              )}
+        (
+          [
+            ["bronze", "Bronze", "Raw sources — uploads, never edited"],
+            ["silver", "Silver", "Working documents"],
+            ["gold", "Gold", "Curated and vetted — safe to share or hand over"],
+          ] as const
+        ).map(([tier, label, help]) => {
+          const rows = artifacts.filter((artifact) => (artifact.tier ?? "bronze") === tier);
+          if (!rows.length) return null;
+          return (
+            <div key={tier} style={{ marginBottom: 22 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 9, marginBottom: 2 }}>
+                <span className="tw-microcap" style={{ marginBottom: 0 }}>{label}</span>
+                <span className="tw-td-sub">{help}</span>
+              </div>
+              <div className="tw-doclist">
+                {rows.map((artifact) => (
+                  <div
+                    key={artifact.id}
+                    className="tw-docitem tw-artifact-row"
+                    data-testid={`artifact-row-${artifact.id}`}
+                  >
+                    <Files size={15} />
+                    <span className="tw-td-title">{artifact.name}</span>
+                    <span className="tw-td-sub">{humanSize(artifact.size)}</span>
+                    <span className="tw-td-sub">
+                      {artifact.tier === "gold" && artifact.promotedBy
+                        ? `promoted by ${artifact.promotedBy}`
+                        : artifact.uploadedBy}
+                    </span>
+                    {editable && artifact.tier !== "gold" && (
+                      <button
+                        type="button"
+                        className="tw-btn-ghost"
+                        data-testid={`artifact-promote-${artifact.id}`}
+                        disabled={busy}
+                        title="Promote to gold — curated and vetted"
+                        onClick={() => void promote(artifact)}
+                      >
+                        Promote to gold
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="tw-btn-ghost"
+                      data-testid={`artifact-download-${artifact.id}`}
+                      title={`Download ${artifact.name}`}
+                      onClick={() => void download(artifact)}
+                    >
+                      <Download size={13} /> Download
+                    </button>
+                    {editable && (
+                      <ArmedDelete
+                        testid={`artifact-delete-${artifact.id}`}
+                        onConfirm={() => void remove(artifact)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+          );
+        })
       )}
     </section>
   );

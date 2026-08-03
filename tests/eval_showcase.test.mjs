@@ -97,7 +97,7 @@ test("automatic discovery rejects product and Waza evidence symlinks that escape
 test("the repository model renders both evaluation lanes and presenter guidance without local evidence", () => {
   const model = buildShowcaseModel({ revision: "test-revision", discoverEvidence: false });
   assert.equal(model.product.available, false);
-  assert.equal(model.product.tasks.length, 7);
+  assert.equal(model.product.tasks.length, 10);
   assert.equal(model.product.workflows.length, 1);
   assert.equal(model.waza.available, false);
   assert.equal(model.waza.tasks.length, 6);
@@ -127,8 +127,8 @@ test("the repository model renders both evaluation lanes and presenter guidance 
   assert.match(html, /Fixture-only review/);
   assert.match(html, /Expected output/);
   assert.match(html, /Actual output/);
-  assert.equal((html.match(/Actual output/g) ?? []).length, 11, "every atomic case and workflow turn needs an actual-output slot");
-  assert.equal((html.match(/Optional technical evidence/g) ?? []).length, 11, "technical evidence should be drill-down for every client example");
+  assert.equal((html.match(/Actual output/g) ?? []).length, 14, "every atomic case and workflow turn needs an actual-output slot");
+  assert.equal((html.match(/Optional technical evidence/g) ?? []).length, 14, "technical evidence should be drill-down for every client example");
   const atomicDefinitions = JSON.parse(readFileSync(new URL("./evals/mvp-cases.json", import.meta.url), "utf8"));
   const workflowDefinitions = JSON.parse(readFileSync(new URL("./evals/mvp-workflows.json", import.meta.url), "utf8"));
   for (const definition of atomicDefinitions.cases) assert.ok(html.includes(htmlEscape(definition.clientExpectedOutput)));

@@ -1,6 +1,6 @@
 import { notifyAuthExpired, withAppAuth } from "./appAuth";
 import { STARTUP_REQUEST_TIMEOUT_MS } from "./startupRequestPolicy";
-import type { AppState, FileInfo } from "./types";
+import type { AppState, Brief, FileInfo } from "./types";
 import { decodeAppState, decodeContextBundle, decodeEngagement, decodeEngagementList, decodeFileContent, decodeFilesPayload, decodeFileWrite, decodeSessionMetadata, decodeSessionUpload } from "./payload";
 
 const API_BASE =
@@ -29,6 +29,14 @@ export async function getAppState(sessionId: string): Promise<AppState> {
   });
   if (!res.ok) throw new Error(`Failed to load app state: ${res.status}`);
   return decodeAppState(await res.json());
+}
+
+export async function getBrief(sessionId: string): Promise<Brief> {
+  const res = await apiFetch(`/sessions/${sessionId}/brief`, {
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`Failed to load brief: ${res.status}`);
+  return (await res.json()) as Brief;
 }
 
 export async function getSession(sessionId: string): Promise<SessionMetadata | null> {
@@ -172,8 +180,22 @@ export const listEngagements = () => jsonReq<unknown>("GET", "/engagements").the
 export const createEngagement = (body: { name: string; description?: string; customer?: string; targetDate?: string }) =>
   jsonReq<unknown>("POST", "/engagements", body).then(decodeEngagement);
 export const getEngagement = (pid: string) => jsonReq<unknown>("GET", `/engagements/${pid}`).then(decodeEngagement);
-export const updateEngagement = (pid: string, body: Partial<{ name: string; description: string; customer: string; status: string; statusNote: string; startDate: string; targetDate: string }>) =>
+export const updateEngagement = (pid: string, body: Partial<{ name: string; description: string; customer: string; status: string; statusNote: string; startDate: string; targetDate: string; businessValue: string; value: number; currentState: string; stateDate: string }>) =>
   jsonReq<unknown>("PATCH", `/engagements/${pid}`, body).then(decodeEngagement);
+
+// ── The prototype record collections (#31) ──────────────────────────────────────
+export const addObjective = (pid: string, text: string) =>
+  jsonReq("POST", `/engagements/${pid}/objectives`, { text });
+export const addKeyDate = (pid: string, date: string, label: string) =>
+  jsonReq("POST", `/engagements/${pid}/key-dates`, { date, label });
+export const toggleKeyDate = (pid: string, reference: string) =>
+  jsonReq("POST", `/engagements/${pid}/key-dates/toggle`, { reference });
+export const addEngagementContact = (pid: string, name: string, role: string) =>
+  jsonReq("POST", `/engagements/${pid}/contacts`, { name, role });
+export const addTimelineEntry = (pid: string, body: { type: string; title: string; body?: string; date?: string; source?: string }) =>
+  jsonReq("POST", `/engagements/${pid}/timeline`, body);
+export const promoteArtifact = (pid: string, artifactId: string) =>
+  jsonReq("POST", `/engagements/${pid}/artifacts/${artifactId}/promote`);
 export const addEngagementMember = (pid: string, userId: string, role: string) =>
   jsonReq("POST", `/engagements/${pid}/members`, { userId, role });
 export const listUsers = () =>

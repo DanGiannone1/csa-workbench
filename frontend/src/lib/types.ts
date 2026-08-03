@@ -155,7 +155,10 @@ export interface ActivityEntry {
 export type EngagementStatus = "green" | "yellow" | "red";
 
 // Artifact metadata (bytes live in the orchestrator's artifact store; open/download
-// always goes through the authed API, never a public URL).
+// always goes through the authed API, never a public URL). Tiers per the design
+// reference: bronze = raw upload, silver = working, gold = explicitly promoted.
+export type ArtifactTier = "bronze" | "silver" | "gold";
+
 export interface Artifact {
   id: string;
   name: string;
@@ -163,6 +166,32 @@ export interface Artifact {
   contentType: string;
   uploadedBy: string;
   uploadedAt: string;
+  tier?: ArtifactTier;
+  promotedBy?: string;
+  promotedAt?: string;
+}
+
+export type TimelineEntryType = "meeting" | "decision" | "risk" | "note";
+
+export interface TimelineEntry {
+  id: string;
+  type: TimelineEntryType;
+  title: string;
+  date: string;   // YYYY-MM-DD
+  body: string;
+  author: string;
+  source: string;
+}
+
+export interface KeyDate {
+  date: string;   // YYYY-MM-DD
+  label: string;
+  done: boolean;
+}
+
+export interface EngagementContact {
+  name: string;
+  role: string;
 }
 
 export interface Engagement {
@@ -174,6 +203,14 @@ export interface Engagement {
   statusNote: string;
   startDate: string;
   targetDate: string;
+  businessValue?: string;
+  value?: number;
+  currentState?: string;
+  stateDate?: string;
+  objectives?: string[];
+  keyDates?: KeyDate[];
+  contacts?: EngagementContact[];
+  timeline?: TimelineEntry[];
   members: EngagementMember[];
   conventions: Convention[];
   tasks: Task[];
@@ -188,6 +225,20 @@ export interface AppUserRecord {
   username: string;
   displayName: string;
   persona?: { role?: string; tone?: string; outputPrefs?: string; language?: string };
+}
+
+// The session-start brief: deterministic ranked items computed by the API from
+// the user's visible record — the app speaking, not a model turn.
+export interface BriefItem {
+  label: string;
+  tone: "red" | "yellow";
+  path: string;
+}
+
+export interface Brief {
+  message: string;
+  items: BriefItem[];
+  computedFor: string;
 }
 
 export interface AppState {

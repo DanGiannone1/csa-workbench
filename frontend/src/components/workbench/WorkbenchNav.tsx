@@ -1,18 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import {
-  Sparkles,
-  LogOut,
-  FolderKanban,
-  Settings,
-  Menu,
-  X,
-  Home,
-  CheckSquare,
-  Calendar,
-  Bell,
-} from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "@/lib/types";
 import { useAppAuth } from "@/components/AppAuthProvider";
@@ -21,17 +10,22 @@ import { Overlay } from "@/components/ui/Overlay";
 
 // The CSA Workbench left-nav rail, shared by the host app and the Assistant workspace so
 // the workspace reads as a page *of* CSA Workbench (not a separate chatbot). Host items
-// navigate the app (onNavigate → viewRoute); the ✦ AI Workbench item routes to /assistant.
+// navigate the app (onNavigate → viewRoute); the AI Mode item routes to /assistant.
+// The rail also carries the brand block and app status, per the design reference —
+// there is no separate top appbar.
 export default function WorkbenchNav({
+  appState,
   viewRoute,
   onNavigate,
   assistantActive = false,
+  statusLabel = "Ready",
   onDrawerOpenChange,
 }: {
   appState: AppState | null;
   viewRoute: string;
   onNavigate: (route: string) => void;
   assistantActive?: boolean;
+  statusLabel?: string;
   onDrawerOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
@@ -105,7 +99,7 @@ export default function WorkbenchNav({
     return () => query.removeEventListener("change", onChange);
   }, [drawerOpen, setDrawer]);
 
-  const navItem = (route: string, label: string, Icon: typeof Home) => {
+  const navItem = (route: string, label: string, count?: number) => {
     const active =
       !assistantActive &&
       (viewRoute === route ||
@@ -121,11 +115,16 @@ export default function WorkbenchNav({
         data-testid={`nav-${route.replace(/\//g, "-")}`}
         aria-current={active ? "page" : undefined}
       >
-        <Icon size={16} strokeWidth={2.25} />
         <span>{label}</span>
+        {count !== undefined && <span className="tw-nav-count">{count}</span>}
       </button>
     );
   };
+
+  const engagementCount = appState?.engagements?.length;
+  const openTaskCount = appState
+    ? (appState.personalTasks ?? []).filter((task) => task.status !== "Done").length
+    : undefined;
 
   const navigation = (
     <Drawer
@@ -147,16 +146,24 @@ export default function WorkbenchNav({
           <X size={18} />
         </button>
       </div>
+      {/* Brand + app status live in the rail, per the design reference — no top appbar. */}
+      <div className="tw-brand">
+        <span className="tw-brand-mark" aria-hidden="true">W</span>
+        <div className="min-w-0">
+          <div className="tw-brand-title">CSA Workbench</div>
+          <div className="tw-brand-status" data-testid="app-status">{statusLabel}</div>
+        </div>
+      </div>
       {/* Primary destinations: Home is the landing, Engagements is the core workspace. */}
-      {navItem("/home", "Home", Home)}
-      {navItem("/engagements", "Engagements", FolderKanban)}
+      {navItem("/home", "Home")}
+      {navItem("/engagements", "Engagements", engagementCount)}
       <div data-testid="personal-space">
         <div className="tw-nav-section" data-testid="personal-nav-section">
           My work
         </div>
-        {navItem("/todo", "Tasks", CheckSquare)}
-        {navItem("/calendar", "Calendar", Calendar)}
-        {navItem("/reminders", "Reminders", Bell)}
+        {navItem("/todo", "Tasks", openTaskCount)}
+        {navItem("/calendar", "Calendar")}
+        {navItem("/reminders", "Reminders")}
       </div>
       {/* AI Mode is a distinct full-screen surface, not a workbench destination, so a divider
           sets it apart. No section header — a one-item header duplicated the item's own name. */}
@@ -171,11 +178,10 @@ export default function WorkbenchNav({
         className={`tw-nav-item ${assistantActive ? "tw-nav-item-active" : ""}`}
         aria-current={assistantActive ? "page" : undefined}
       >
-        <Sparkles size={16} strokeWidth={2.25} />
         <span>AI Mode</span>
       </button>
 
-      {navItem("/settings", "Settings", Settings)}
+      {navItem("/settings", "Settings")}
 
       {/* Signed-in user chip — the whole workspace is this user's. */}
       <div className="mt-auto pt-4 border-t border-border-subtle/60">

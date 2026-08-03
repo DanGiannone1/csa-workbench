@@ -59,7 +59,7 @@ from deepagents.middleware._tool_exclusion import _ToolExclusionMiddleware
 
 from workbench_core import (
     EngagementService, PersonalNotFound, PersonalWorkspaceError, PersonalWorkspaceService,
-    ProductToolResult, engagement_product_result,
+    ProductToolResult, engagement_detail_text, engagement_product_result,
 )
 from workbench_core import appdb
 from workbench_core.appdb_repository import AppdbEngagementRepository
@@ -72,6 +72,10 @@ from .mvp_tool_schemas import (
     GetEngagementCommand, ListEngagementsCommand, ListEventsCommand, ListRemindersCommand,
     ListTasksCommand, NavigateCommand, SetEngagementStatusCommand, ShareEngagementCommand,
     UpdateEngagementCommand, UpdateEventCommand, UpdateReminderCommand, UpdateTaskCommand,
+)
+from .mvp_tool_schemas import (
+    AddContactCommand, AddKeyDateCommand, AddObjectiveCommand, AddTimelineEntryCommand,
+    PromoteArtifactCommand, ToggleKeyDateCommand,
 )
 from .skill_runtime import (
     INTERNAL_SKILL_TOOLS,
@@ -106,9 +110,11 @@ You are the CSA Workbench assistant. It covers two kinds of work: shared Engagem
 delivery workspaces with other members) and the user's own private Tasks, Calendar, and
 Reminders (visible only to them, never scoped to an Engagement). For product operations, use
 only: `navigate`, `list_engagements`, `create_engagement`, `get_engagement`, `update_engagement`,
-`set_engagement_status`, `share_engagement`, `list_tasks`, `create_task`, `update_task`,
-`delete_task`, `add_subtask`, `list_events`, `create_event`, `update_event`, `delete_event`,
-`list_reminders`, `create_reminder`, `update_reminder`, and `delete_reminder`.
+`set_engagement_status`, `share_engagement`, `add_timeline_entry`, `add_key_date`,
+`toggle_key_date`, `add_objective`, `add_contact`, `promote_artifact`, `list_tasks`,
+`create_task`, `update_task`, `delete_task`, `add_subtask`, `list_events`, `create_event`,
+`update_event`, `delete_event`, `list_reminders`, `create_reminder`, `update_reminder`,
+and `delete_reminder`.
 You may use the internal `read_file` loader only to load an available product skill when its
 description matches the user's request. It is not a product action and must not replace a typed
 product tool.
@@ -247,37 +253,6 @@ def _build_langchain_tools(working_dir: str, user_id: str) -> list:
     def _engagements() -> list[dict]:
         return engagement_service.list(user_id).record["engagements"]
 
-    def _engagement_detail_text(record: dict) -> str:
-        """Model-visible detail for one Engagement: the facts a user would ask about.
-        The typed ProductToolResult stays the control-plane truth; this is the data."""
-        lines = [
-            f"Engagement [{record['id']}] {record.get('name', '')}",
-            f"customer={record.get('customer') or 'n/a'} | status={record.get('status', 'green')}"
-            + (f" ({record['statusNote']})" if record.get("statusNote") else "")
-            + f" | start={record.get('startDate') or 'n/a'} | target={record.get('targetDate') or 'n/a'}",
-            "members: " + (", ".join(f"{m.get('userId')}({m.get('role')})" for m in record.get("members") or []) or "none"),
-        ]
-        if record.get("description"):
-            lines.append(f"description: {record['description']}")
-        for label, key, fields in (
-            ("tasks", "tasks", ("title", "status", "priority", "dueDate")),
-            ("actions", "actions", ("title", "status", "owner", "dueDate")),
-            ("milestones", "milestones", ("title", "status", "dueDate")),
-            ("risks", "risks", ("title", "severity", "status")),
-        ):
-            items = record.get(key) or []
-            if items:
-                lines.append(f"{label}:")
-                for item in items:
-                    parts = [str(item.get(field)) for field in fields if item.get(field)]
-                    lines.append(f"- [{item.get('id')}] " + " | ".join(parts))
-        artifacts = record.get("library") or []
-        lines.append(f"artifacts: {len(artifacts)}")
-        conventions = record.get("conventions") or []
-        if conventions:
-            lines.append("conventions: " + "; ".join(c.get("text", "") for c in conventions))
-        return "\n".join(lines)
-
     def _tool_result(result: ProductToolResult, text: str) -> tuple[str, dict]:
         return text, {"product_result": result.to_dict()}
 
@@ -304,9 +279,12 @@ def _build_langchain_tools(working_dir: str, user_id: str) -> list:
         return _tool_result(ProductToolResult("succeeded", "engagement.listed", "list"), "\n".join(lines))
 
     @tool("create_engagement", description="Create a new shared engagement.", args_schema=CreateEngagementCommand, response_format="content_and_artifact")
-    def create_engagement(name: str, description: str = "", customer: str = "", target_date: str = "") -> tuple[str, dict]:
+    def create_engagement(name: str, description: str = "", customer: str = "", target_date: str = "",
+                          business_value: str = "", value: float = 0, objective: str = "") -> tuple[str, dict]:
         outcome = engagement_service.create(user_id, {"name": name, "description": description,
-                                                       "customer": customer, "targetDate": target_date})
+                                                       "customer": customer, "targetDate": target_date,
+                                                       "businessValue": business_value, "value": value,
+                                                       "objective": objective})
         result = engagement_product_result(outcome)
         return _tool_result(result, "Engagement creation processed." if outcome.record else result.message)
 
@@ -314,13 +292,17 @@ def _build_langchain_tools(working_dir: str, user_id: str) -> list:
     def get_engagement(engagement_id: str) -> tuple[str, dict]:
         outcome = engagement_service.get(user_id, engagement_id)
         result = engagement_product_result(outcome)
-        return _tool_result(result, _engagement_detail_text(outcome.record) if outcome.record else result.message)
+        return _tool_result(result, engagement_detail_text(outcome.record) if outcome.record else result.message)
 
     @tool("update_engagement", description="Update an engagement by stable ID.", args_schema=UpdateEngagementCommand, response_format="content_and_artifact")
     def update_engagement(engagement_id: str, name: str | None = None, description: str | None = None, customer: str | None = None,
-                          start_date: str | None = None, target_date: str | None = None) -> tuple[str, dict]:
-        values = {key: value for key, value in (("name", name), ("description", description),
-                  ("customer", customer), ("startDate", start_date), ("targetDate", target_date)) if value is not None}
+                          start_date: str | None = None, target_date: str | None = None,
+                          business_value: str | None = None, current_state: str | None = None,
+                          value: float | None = None) -> tuple[str, dict]:
+        values = {key: item for key, item in (("name", name), ("description", description),
+                  ("customer", customer), ("startDate", start_date), ("targetDate", target_date),
+                  ("businessValue", business_value), ("currentState", current_state),
+                  ("value", value)) if item is not None}
         outcome = engagement_service.update(user_id, engagement_id, values)
         result = engagement_product_result(outcome)
         return _tool_result(result, "Engagement update processed." if outcome.status == "committed" else result.message)
@@ -336,6 +318,44 @@ def _build_langchain_tools(working_dir: str, user_id: str) -> list:
         outcome = engagement_service.share(user_id, engagement_id, user, role)
         result = engagement_product_result(outcome)
         return _tool_result(result, "Engagement sharing processed." if outcome.status == "committed" else result.message)
+
+    # ── Prototype record collections (#31): the append-only log and the rail fields ──
+
+    @tool("add_timeline_entry", description="Append a typed entry (meeting, decision, risk, note) to an engagement's append-only timeline.", args_schema=AddTimelineEntryCommand, response_format="content_and_artifact")
+    def add_timeline_entry(engagement_id: str, type: str, title: str, body: str = "", date: str = "", source: str = "") -> tuple[str, dict]:
+        outcome = engagement_service.add_timeline_entry(user_id, engagement_id, type, title, body, date, source)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Timeline entry logged." if outcome.status == "committed" else result.message)
+
+    @tool("add_key_date", description="Add a key date (milestone, gate, go-live) to an engagement.", args_schema=AddKeyDateCommand, response_format="content_and_artifact")
+    def add_key_date(engagement_id: str, date: str, label: str) -> tuple[str, dict]:
+        outcome = engagement_service.add_key_date(user_id, engagement_id, date, label)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Key date added." if outcome.status == "committed" else result.message)
+
+    @tool("toggle_key_date", description="Mark an engagement key date done (or reopen it) by label or date.", args_schema=ToggleKeyDateCommand, response_format="content_and_artifact")
+    def toggle_key_date(engagement_id: str, reference: str) -> tuple[str, dict]:
+        outcome = engagement_service.toggle_key_date(user_id, engagement_id, reference)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Key date toggled." if outcome.status == "committed" else result.message)
+
+    @tool("add_objective", description="Add an objective (what good looks like) to an engagement.", args_schema=AddObjectiveCommand, response_format="content_and_artifact")
+    def add_objective(engagement_id: str, text: str) -> tuple[str, dict]:
+        outcome = engagement_service.add_objective(user_id, engagement_id, text)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Objective added." if outcome.status == "committed" else result.message)
+
+    @tool("add_contact", description="Add a customer-side contact (name and their role) to an engagement.", args_schema=AddContactCommand, response_format="content_and_artifact")
+    def add_contact(engagement_id: str, name: str, role: str = "") -> tuple[str, dict]:
+        outcome = engagement_service.add_contact(user_id, engagement_id, name, role)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Contact added." if outcome.status == "committed" else result.message)
+
+    @tool("promote_artifact", description="Promote an engagement artifact to gold (curated, vetted).", args_schema=PromoteArtifactCommand, response_format="content_and_artifact")
+    def promote_artifact(engagement_id: str, artifact_id: str) -> tuple[str, dict]:
+        outcome = engagement_service.promote_artifact(user_id, engagement_id, artifact_id)
+        result = engagement_product_result(outcome)
+        return _tool_result(result, "Artifact promoted to gold." if outcome.status == "committed" else result.message)
 
     # ── Personal workspace: the actor's own private Tasks, Calendar, and Reminders ──
 
@@ -510,7 +530,8 @@ def _build_langchain_tools(working_dir: str, user_id: str) -> list:
     return [
         navigate,
         list_engagements, create_engagement, get_engagement, update_engagement, set_engagement_status,
-        share_engagement,
+        share_engagement, add_timeline_entry, add_key_date, toggle_key_date, add_objective,
+        add_contact, promote_artifact,
         list_tasks, create_task, update_task, delete_task, add_subtask,
         list_events, create_event, update_event, delete_event,
         list_reminders, create_reminder, update_reminder, delete_reminder,

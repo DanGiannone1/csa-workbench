@@ -45,6 +45,11 @@ expectRoute("/engagements/eng-1/settings", {
   sub: "settings",
   recordId: "",
 });
+expectRoute("/engagements/eng-1/timeline", {
+  id: "eng-1",
+  sub: "timeline",
+  recordId: "",
+});
 expectRoute("/engagements/eng-1/tasks/task-1", {
   id: "eng-1",
   sub: "tasks",

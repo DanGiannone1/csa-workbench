@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, PanelLeftClose, Home } from "lucide-react";
+import { FileText, PanelLeftClose } from "lucide-react";
 import AssistantPanel from "./AssistantPanel";
 import ArtifactCanvas from "./ArtifactCanvas";
 import Button from "./ui/Button";
-import { Surface } from "./ui/Surface";
 import WorkbenchNav from "./workbench/WorkbenchNav";
 import { useSession } from "./SessionProvider";
 import { isHostRoute } from "@/lib/navigation";
@@ -61,25 +60,22 @@ export default function AssistantWorkspace() {
   }, [state.viewRoute, state.viewRouteRevision, router]);
 
   return (
-    <div className={`relative flex h-screen w-full bg-app p-3 gap-3 text-text-primary font-sans ${stacked ? "overflow-y-auto" : "overflow-hidden"}`} data-testid="assistant-workspace">
-      <div className={`relative z-10 flex w-full gap-3 ${stacked ? "h-fit min-h-full flex-col" : "h-full"}`}>
+    <div className={`relative flex h-screen w-full bg-app text-text-primary font-sans ${stacked ? "overflow-y-auto" : "overflow-hidden"}`} data-testid="assistant-workspace">
+      <div className={`relative z-10 flex w-full ${stacked ? "h-fit min-h-full flex-col" : "h-full"}`}>
         {/* Host app shell rail — so the workspace reads as a page OF CSA Workbench, not a
-            separate chatbot. Hidden on narrow viewports (the Back control covers returning). */}
+            separate chatbot. Hidden on narrow viewports (the Back control covers returning).
+            The rail carries the brand block and "AI Mode" status itself. */}
         {!narrow && (
-          <Surface className="flex h-full w-[210px] shrink-0 flex-col overflow-hidden">
-            <div className="tw-appbar-brand px-4 h-14 flex items-center shrink-0 border-b border-border-subtle">
-              <div className="tw-logo"><Home size={16} strokeWidth={2.5} /></div>
-              <div className="flex flex-col leading-tight ml-2">
-                <span className="tw-appbar-title">CSA Workbench</span>
-                <span className="tw-appbar-sub">AI Mode</span>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <WorkbenchNav appState={state.appState} viewRoute={state.viewRoute} onNavigate={navigateHostView} assistantActive />
-            </div>
-          </Surface>
+          <WorkbenchNav
+            appState={state.appState}
+            viewRoute={state.viewRoute}
+            onNavigate={navigateHostView}
+            assistantActive
+            statusLabel="AI Mode"
+          />
         )}
 
+        <div className={`flex flex-1 min-w-0 gap-3 p-3 ${stacked ? "flex-col" : "h-full"}`}>
         <div className={`${!showArtifacts ? "flex-1 min-w-0 h-full" : stacked ? "w-full min-h-[500px] h-[62svh] shrink-0" : narrow ? "w-1/2 min-w-[320px] shrink-0 h-full" : "w-[40%] min-w-[400px] max-w-[600px] shrink-0 h-full"}`}>
           <AssistantPanel
             headerActions={
@@ -94,7 +90,7 @@ export default function AssistantWorkspace() {
                   className="h-8 px-2.5"
                 >
                   <FileText size={14} strokeWidth={2.5} />
-                  <span className="text-[11px] font-bold uppercase tracking-widest">{showArtifacts ? "Hide" : "Artifacts"}</span>
+                  <span>{showArtifacts ? "Hide" : "Artifacts"}</span>
                   {!showArtifacts && artifacts.length > 0 && (
                     <span data-testid="artifacts-toggle-count" className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-primary px-1 text-[10px] font-bold text-text-on-brand">{artifacts.length}</span>
                   )}
@@ -118,6 +114,7 @@ export default function AssistantWorkspace() {
             <ArtifactCanvas />
           </div>
         )}
+        </div>
       </div>
     </div>
   );

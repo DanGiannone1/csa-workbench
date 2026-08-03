@@ -236,45 +236,98 @@ link (set `FOUNDRY_PROJECT_ENDPOINT` and `FOUNDRY_JUDGE_DEPLOYMENT`). Demo runs 
 
 ## Running it
 
+Four preconditions, checked before anything runs — each is a deliberate evidence guarantee:
+
+1. **A committed worktree.** The driver records the source revision in the evidence and refuses
+   a dirty tree (`live evidence requires a clean Git worktree`). Commit first, then run.
+2. **A reachable model.** `.env` needs a real `AZURE_ENDPOINT`/`AZURE_DEPLOYMENT` your machine
+   can call. A private-endpoint-only account fails mid-turn with
+   `403 Public access is disabled` — pick an account with public network access or run from a
+   network that can reach it.
+3. **An explicit fixture reset.** `MVP_RESET_BEFORE_RUN=1` acknowledges that every case starts
+   from a wiped, re-seeded demo database.
+4. **The raw trace location.** The app writes model-visible tool evidence under its run
+   directory; `MVP_RAW_TRACE_ROOT` must point at that exact `sdk-events` folder or the driver
+   stops with `ENOENT … logs`.
+
+Worked end-to-end example using an isolated local run named `demo1`. The same variables drive
+the app, the reset guard, and the eval — set them once in each terminal.
+
 PowerShell on Windows:
 
 ```powershell
-# Terminal 1: start the app after setting the full environment from the local-development guide.
+# Shared isolated-run values (both terminals).
+$env:CSA_LOCAL_RUN_ID='demo1'; $env:CSA_RUNTIME_PORT='18080'; $env:CSA_API_PORT='18000'; $env:CSA_FRONTEND_PORT='13000'
+$env:COSMOS_DATABASE='csa_workbench_demo1_local'; $env:COSMOS_CONTAINER='appstate_demo1_local'
+$env:ARTIFACTS_DIR='.mvp-artifacts/demo1'; $env:WORKSPACE='.local-runs/demo1/workspace'
+$env:CONFIRM_DEMO_RESET='YES'        # the reset guard refuses to wipe anything not named demo/local
+
+# Terminal 1: the app (reads the rest of its config from .env).
 uv run python -m scripts.workbench dev
 
-# Terminal 2: use the same isolated-app values for the full suite.
-$env:MVP_API_URL='http://127.0.0.1:8000'
-$env:MVP_RAW_TRACE_ROOT='<run logs>/sdk-events'
+# Terminal 2: the suite.
+$env:MVP_APP_URL='http://localhost:13000'; $env:MVP_API_URL='http://localhost:18000'
+$env:MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'
 $env:MVP_RESET_BEFORE_RUN='1'
-$env:MVP_EVAL_SCOPE='all' # all | atomic | workflow
+$env:MVP_EVAL_SCOPE='all'            # all | atomic | workflow
 uv run python -m scripts.workbench eval mvp
+```
 
-# Submit the finished evidence for advisory Foundry scoring.
+Terminal on macOS or Linux:
+
+```bash
+# Shared isolated-run values (both terminals).
+export CSA_LOCAL_RUN_ID=demo1 CSA_RUNTIME_PORT=18080 CSA_API_PORT=18000 CSA_FRONTEND_PORT=13000
+export COSMOS_DATABASE=csa_workbench_demo1_local COSMOS_CONTAINER=appstate_demo1_local
+export ARTIFACTS_DIR=.mvp-artifacts/demo1 WORKSPACE=.local-runs/demo1/workspace
+export CONFIRM_DEMO_RESET=YES        # the reset guard refuses to wipe anything not named demo/local
+
+# Terminal 1: the app (reads the rest of its config from .env).
+uv run python -m scripts.workbench dev
+
+# Terminal 2: the suite.
+export MVP_APP_URL=http://localhost:13000 MVP_API_URL=http://localhost:18000
+export MVP_RAW_TRACE_ROOT=.local-runs/demo1/logs/sdk-events
+export MVP_RESET_BEFORE_RUN=1
+export MVP_EVAL_SCOPE=all            # all | atomic | workflow
+uv run python -m scripts.workbench eval mvp
+```
+
+Success prints the evidence and scorecard paths and a summary like:
+
+```text
+"atomic":    { "passed": 10, "failed": [] },
+"workflows": { "passed": 1,  "failed": [] },
+"checks":    { "passed": 180, "total": 180 }
+```
+
+Advisory Foundry scoring of that evidence afterwards — PowerShell:
+
+```powershell
 $env:MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
 $env:FOUNDRY_PROJECT_ENDPOINT='https://<account>.services.ai.azure.com/api/projects/<project>'
 $env:FOUNDRY_JUDGE_DEPLOYMENT='<judge-deployment>'
 uv run python -m scripts.workbench eval foundry
 ```
 
-Terminal on macOS or Linux:
+macOS or Linux:
 
 ```bash
-# 1. App up (terminal 1) — see docs/guides/local-development.md for the full env
-uv run python -m scripts.workbench dev
-
-# 2. Full suite (terminal 2; same env values as the app)
-export MVP_API_URL='http://127.0.0.1:8000'   # the port your app is serving on
-export MVP_RAW_TRACE_ROOT='<run logs>/sdk-events'
-export MVP_RESET_BEFORE_RUN=1
-export MVP_EVAL_SCOPE=all          # all | atomic | workflow
-uv run python -m scripts.workbench eval mvp
-
-# 3. Advisory Foundry scoring of that evidence
 export MVP_RESULTS='evidence/mvp/local-synthetic/agent-evals/<run>/results.json'
 export FOUNDRY_PROJECT_ENDPOINT='https://<account>.services.ai.azure.com/api/projects/<project>'
 export FOUNDRY_JUDGE_DEPLOYMENT='<judge-deployment>'
 uv run python -m scripts.workbench eval foundry
 ```
+
+When a run stops before any case executes, the message names which precondition failed:
+
+| Message | Fix |
+|---|---|
+| `live evidence requires a clean Git worktree` | Commit (or stash) your changes first. |
+| `Set MVP_RESET_BEFORE_RUN=1` | Export it — it is the destructive-reset acknowledgement. |
+| `COSMOS_DATABASE and COSMOS_CONTAINER must be explicitly named local/demo targets` | Both names must contain the run id and `demo` or `local`. |
+| `ENOENT … \logs` | `MVP_RAW_TRACE_ROOT` must point at the running app's `sdk-events` directory. |
+| `403 … Public access is disabled` (mid-case, as a `turn_exception`) | The model account is private-endpoint-only; use a reachable deployment. |
 
 ## Authoring a new gold standard
 
@@ -284,7 +337,26 @@ plus `requiredToolNames`/`forbiddenToolNames`), and the **end state**
 (`engagementAfter`, `stateChanged`, a blast-radius invariant, or `safeNonExecution` for cases
 that must refuse). A scenario can also expect the agent to do nothing but ask: `zeroToolResults`
 with `assistantResponseRequired` (see `ACME-8-vague-create` — "Create a new engagement." should
-get a clarifying question, not a guessed create). Then add the id to the official suite list in
-`scripts/mvp_eval_manifest.mjs` — the scorecard accepts only ids on that list, and the
-deterministic evidence tests (`npm run test:mvp-evidence`) keep the list and the scenario files
-in lockstep.
+get a clarifying question, not a guessed create).
+
+A new case is not registered until every place that pins the official suite knows about it — the
+evidence tests enforce each of these, so a missed one fails loudly rather than silently shrinking
+coverage:
+
+1. `scripts/mvp_eval_manifest.mjs` — add the id to `atomicCaseIds` (the scorecard's hard gate
+   accepts only ids on this list).
+2. `tests/evals/judge-rubrics.json` — add the case's three advisory-judge questions
+   (accuracy, leakage, tone); the judge record must bind the complete rubric.
+3. If the case uses a **new tool**, teach the graders: the tool's result operation goes in
+   `validEventSequence`'s operation map and, for write tools, in
+   `ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS` (both in `scripts/mvp_evidence.mjs`). If the product's
+   model-visible output changed shape, update the independent grounding renderers there too —
+   they deliberately re-implement the product's formatting and must be changed in lockstep.
+4. The evidence tests also pin totals across the whole suite — how many cases and judge
+   questions exist, and the arithmetic of the synthetic timing data they test with, including
+   examples that are deliberately wrong to prove tampering gets caught. A count failing after
+   you add a case is that protection working; update the totals on purpose, not reflexively.
+
+Then run the suite live before shipping the case: expectations that look right on paper
+(argument phrasing the model won't reproduce, array assertions against a fixture that isn't
+empty) only prove themselves against a real run.

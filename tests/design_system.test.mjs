@@ -35,7 +35,7 @@ test("brand text on pale brand surfaces uses the strong semantic token", () => {
   const nav = read("../frontend/src/components/workbench/WorkbenchNav.tsx");
 
   assert.match(tokens, /--text-brand-on-subtle:\s*var\(--brand-strong\);/);
-  for (const selector of ["citation-chip", "tw-addbar", "tw-nav-item-active", "tw-nav-wa-active", "tw-new", "tw-type-obligation"]) {
+  for (const selector of ["citation-chip", "tw-addbar", "tw-nav-item-active", "tw-new", "tw-type-obligation"]) {
     assert.match(css, new RegExp(`\\.${selector}[^}]*color: var\\(--text-brand-on-subtle\\);`));
   }
   assert.match(css, /\.prose-message a\[href\^="#source-"\][^}]*color: var\(--text-brand-on-subtle\);/);
