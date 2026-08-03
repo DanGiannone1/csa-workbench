@@ -8,11 +8,26 @@
 Agents make judgments. Give them clear responsibility, limits, prohibited actions, escalation
 conditions, and safety rules without replacing judgment with brittle scripts.
 
-## Runtime independence
+## Runtime independence and skill boundary
 
-Claude and Codex remain independently launchable and own their native profiles, tools, permissions,
-models, skills, and delegation settings. Shared development rules live only in `docs/governance/`.
-Each runtime links to those rules without generating or synchronizing the other runtime's files.
+Claude, Codex, and GitHub Copilot remain independently launchable and own their native profiles,
+tools, permissions, models, skills, and delegation settings. Shared development rules live only in
+`docs/governance/`. Each runtime links to those rules without generating or synchronizing another
+runtime's files.
+
+There are two separate kinds of skills:
+
+- A **repository-agent workflow** helps a developer investigate, implement, review, test, or deploy
+  this repository. It belongs only in `.claude/skills`, `.codex/skills`, or `.github/skills`; it
+  never ships.
+- A **product-assistant skill** guides an end user through a supported product task using typed
+  product tools. It is allowlisted by the assistant runtime, packaged into its image, versioned,
+  hashed, and evaluated as product behavior. It is never a developer-agent skill.
+
+The product catalog lives at `backend/assistant/product-skills/`. The runtime allowlist lives in
+`backend/assistant/src/workbench_assistant/skill_runtime.py`, and
+`backend/assistant/Dockerfile` packages the catalog into the image. Update those three locations
+and their checks together without duplicating skills.
 
 ## Handoffs and review
 

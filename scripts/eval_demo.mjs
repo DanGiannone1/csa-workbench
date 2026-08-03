@@ -5,7 +5,7 @@
  *   node scripts/eval_demo.mjs [case-id]        (default: ACME-2-update-status)
  *
  * Env: DEMO_PASSWORD, MVP_API_URL, MVP_RAW_TRACE_ROOT (+ the reset env used by
- * dev.py), and optionally FOUNDRY_PROJECT_ENDPOINT / FOUNDRY_JUDGE_DEPLOYMENT /
+ * the workbench dev command), and optionally FOUNDRY_PROJECT_ENDPOINT / FOUNDRY_JUDGE_DEPLOYMENT /
  * FOUNDRY_EVAL_GROUP_ID for the layer-4 hand-off.
  *
  * Output is written under .local-runs/eval-demo/ — a demo run is NOT evidence:

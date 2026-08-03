@@ -53,7 +53,7 @@ and compliance telemetry. A demo-mode API omits the unused sidecar; the runtime 
 
 ## Deployment process
 
-`infra/deploy.sh` coordinates configuration checks, Azure planning, Entra setup, image builds,
+`uv run python -m scripts.workbench deploy` coordinates configuration checks, Azure planning, Entra setup, image builds,
 deployment, and post-deployment inspection. It requires a clean worktree and explicit model values.
 Application images use the full Git commit SHA rather than `latest`. The Microsoft authentication
 sidecar is pinned to an immutable OCI digest, and the post-deployment inventory rejects sidecar
@@ -61,7 +61,8 @@ image or configuration drift.
 
 Planning is the default and does not change Azure. Applying requires the exact confirmation printed
 by the current plan. The script recomputes the plan before making changes and rejects stale or
-copied confirmations.
+copied confirmations. `infra/deploy.py` owns that policy; the shell file is only a compatibility
+wrapper and contains no second deployment implementation.
 
 See the [deployment guide](../../guides/deployment.md) for the complete procedure.
 

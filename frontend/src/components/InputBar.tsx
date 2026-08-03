@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, FormEvent, KeyboardEvent } from "react";
 import { ACCEPTED_TYPES } from "@/lib/constants";
+import Button from "./ui/Button";
+import { Surface } from "./ui/Surface";
 
 interface InputBarProps {
   onSend: (message: string) => void;
@@ -78,31 +80,32 @@ export default function InputBar({
     >
       <div className="mx-auto w-full max-w-3xl px-4">
         {(selectedFile || uploadBusy) && (
-          <div className="mb-3 inline-flex items-center gap-3 rounded-xl border border-var(--color-border-subtle)/80 bg-var(--color-app)/80 backdrop-blur-md px-4 py-2 text-sm text-var(--color-text-primary) shadow-xl animate-fade-in">
+          <Surface className="mb-3 inline-flex items-center gap-3 px-4 py-2 text-sm animate-fade-in">
             <span className="max-w-[220px] truncate font-bold text-[13px] tracking-tight">{uploadingFileName || selectedFile?.name || "Processing…"}</span>
             {uploadBusy ? (
-              <span className="inline-flex items-center gap-2 text-var(--color-brand-primary)">
+              <span className="inline-flex items-center gap-2 text-brand-primary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
                   <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
               </span>
             ) : (
               <>
-                <span className="text-var(--color-text-muted) font-mono text-[11px]">{((selectedFile?.size || 0) / 1024).toFixed(0)} KB</span>
-                <button
+                <span className="text-text-muted font-mono text-[11px]">{((selectedFile?.size || 0) / 1024).toFixed(0)} KB</span>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setSelectedFile(null)}
-                  className="rounded-full p-1 text-var(--color-text-muted) hover:text-var(--color-brand-warning) transition-colors"
                   aria-label={`Remove file ${selectedFile?.name || "selected file"}`}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </button>
+                </Button>
               </>
             )}
-          </div>
+          </Surface>
         )}
 
         <input
@@ -118,24 +121,23 @@ export default function InputBar({
           aria-label="Upload file"
         />
 
-        <div className={`flex items-end gap-2 rounded-2xl border bg-var(--color-app)/70 backdrop-blur-2xl p-1.5 transition-all duration-500 relative overflow-hidden group ${
+        <div className={`ui-composer flex items-end gap-2 p-1.5 relative overflow-hidden group ${
           inputFocused 
-            ? "border-var(--color-brand-primary)/60 shadow-[0_0_40px_rgba(0,115,234,0.15)] bg-var(--color-app)/90"
-            : "border-var(--color-border-subtle)/80 shadow-[0_8px_24px_rgba(0,0,0,.08)]"
+            ? "ui-composer-focused"
+            : ""
         }`}>
-          <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => fileRef.current?.click()}
             disabled={disabled || uploadBusy}
             aria-label="Attach file"
-            className="p-2.5 text-var(--color-text-muted) hover:text-var(--color-brand-primary) rounded-xl transition-all hover:bg-var(--color-brand-primary)/10 disabled:opacity-40"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
             </svg>
-          </button>
+          </Button>
 
           <textarea
             ref={textareaRef}
@@ -148,36 +150,40 @@ export default function InputBar({
             placeholder="Message your assistant…"
             disabled={disabled || uploadBusy}
             rows={1}
-            className="min-h-10 max-h-52 flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] font-medium leading-relaxed text-var(--color-text-primary) outline-none placeholder-var(--color-text-muted) disabled:opacity-50 font-sans"
+            className="min-h-10 max-h-52 flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] font-medium leading-relaxed text-text-primary outline-none placeholder:text-text-muted disabled:opacity-50 font-sans"
             aria-label="Message input"
           />
 
           {isStreaming ? (
-            <button
+            <Button
               data-testid="stop-button"
               type="button"
+              variant="danger"
+              size="small"
               onClick={onStop}
-              className="flex h-10 shrink-0 items-center gap-2 rounded-xl border border-var(--color-brand-warning)/40 bg-var(--color-brand-warning)/10 px-4 text-[11px] font-bold uppercase tracking-widest text-var(--color-brand-warning) hover:bg-var(--color-brand-warning)/20 transition-all"
+              className="h-10 shrink-0 px-4"
               aria-label="Stop generation"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="4" y="4" width="16" height="16" rx="2" />
               </svg>
               Stop
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               data-testid="send-button"
               type="submit"
+              variant="primary"
+              size="icon"
               disabled={disabled || uploadBusy || !canSend}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-var(--color-brand-primary) to-var(--color-brand-accent) text-white shadow-[0_4px_15px_rgba(0,115,234,0.35)] hover:brightness-110 disabled:opacity-40 disabled:grayscale transition-all"
+              className="h-10 w-10 shrink-0"
               aria-label="Send message"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="ml-0.5">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
-            </button>
+            </Button>
           )}
         </div>
         <p className="composer-footer">AI can make mistakes. Double-check responses.</p>

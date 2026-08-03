@@ -13,15 +13,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parent.parent
-for path in (_ROOT, _ROOT / "session-container"):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
-
-import appdb  # noqa: E402
-from workbench_core import acs_email, reminder_dispatch  # noqa: E402
+from workbench_core import acs_email, appdb, reminder_dispatch
 
 
 def main() -> int:

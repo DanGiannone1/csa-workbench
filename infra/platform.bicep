@@ -8,6 +8,7 @@ param runtimeIdentityName string
 param virtualNetworkName string
 param cosmosPrivateEndpointName string
 param storagePrivateEndpointName string
+param openAiPrivateEndpointName string
 param privateDnsVnetLinkName string
 param databaseName string
 param cosmosAccountName string
@@ -30,6 +31,24 @@ param azureOpenAiModelSkuName string
 @minValue(1)
 @maxValue(1000000)
 param azureOpenAiModelCapacity int
+@minLength(2)
+@maxLength(64)
+param foundryProjectName string
+@minLength(1)
+@maxLength(64)
+param legacyModelDeploymentName string
+@minLength(1)
+@maxLength(128)
+param legacyModelName string
+@minLength(1)
+@maxLength(128)
+param legacyModelVersion string
+@minLength(1)
+@maxLength(64)
+param legacyModelSkuName string
+@minValue(1)
+@maxValue(1000000)
+param legacyModelCapacity int
 param acaInfrastructureNsgId string = ''
 param privateEndpointNsgId string = ''
 param logAnalyticsName string
@@ -44,6 +63,10 @@ var cosmosPrivateDnsZoneName = 'privatelink.documents.azure.com'
 // This is the Azure public-cloud Private Link suffix required by the approved Storage endpoint.
 #disable-next-line no-hardcoded-env-urls
 var storagePrivateDnsZoneName = 'privatelink.blob.core.windows.net'
+// The AIServices account private endpoint publishes all three data-plane FQDN families.
+var openAiPrivateDnsZoneName = 'privatelink.openai.azure.com'
+var cognitiveServicesPrivateDnsZoneName = 'privatelink.cognitiveservices.azure.com'
+var aiServicesPrivateDnsZoneName = 'privatelink.services.ai.azure.com'
 
 resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: virtualNetworkName
@@ -166,18 +189,29 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2026-05-01' = {
   name: azureOpenAiName
   location: location
-  kind: 'OpenAI'
+  kind: 'AIServices'
   sku: {
     name: 'S0'
   }
   properties: {
     customSubDomainName: azureOpenAiName
     disableLocalAuth: true
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: 'Disabled'
+    allowProjectManagement: true
   }
+}
+
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-05-01' = {
+  parent: azureOpenAi
+  name: foundryProjectName
+  location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {}
 }
 
 resource azureOpenAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
@@ -195,6 +229,28 @@ resource azureOpenAiDeployment 'Microsoft.CognitiveServices/accounts/deployments
     }
     versionUpgradeOption: 'OnceCurrentVersionExpired'
   }
+}
+
+// Retained for instant rollback of the model binding; deployments on one account must
+// be created serially, so this depends on the primary deployment.
+resource azureOpenAiLegacyDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  parent: azureOpenAi
+  name: legacyModelDeploymentName
+  sku: {
+    name: legacyModelSkuName
+    capacity: legacyModelCapacity
+  }
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: legacyModelName
+      version: legacyModelVersion
+    }
+    versionUpgradeOption: 'OnceCurrentVersionExpired'
+  }
+  dependsOn: [
+    azureOpenAiDeployment
+  ]
 }
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
@@ -289,6 +345,21 @@ resource storagePrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = 
   location: 'global'
 }
 
+resource openAiPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: openAiPrivateDnsZoneName
+  location: 'global'
+}
+
+resource cognitiveServicesPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: cognitiveServicesPrivateDnsZoneName
+  location: 'global'
+}
+
+resource aiServicesPrivateDnsZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
+  name: aiServicesPrivateDnsZoneName
+  location: 'global'
+}
+
 resource cosmosPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: cosmosPrivateDnsZone
   name: privateDnsVnetLinkName
@@ -303,6 +374,42 @@ resource cosmosPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetw
 
 resource storagePrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: storagePrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource openAiPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: openAiPrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource cognitiveServicesPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: cognitiveServicesPrivateDnsZone
+  name: privateDnsVnetLinkName
+  location: 'global'
+  properties: {
+    virtualNetwork: {
+      id: virtualNetwork.id
+    }
+    registrationEnabled: false
+  }
+}
+
+resource aiServicesPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
+  parent: aiServicesPrivateDnsZone
   name: privateDnsVnetLinkName
   location: 'global'
   properties: {
@@ -385,6 +492,60 @@ resource storagePrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateD
   }
 }
 
+// The private-link connection mutates the account's provisioning state, so it must not
+// run while project or model-deployment writes are in flight on the same account.
+resource openAiPrivateEndpoint 'Microsoft.Network/privateEndpoints@2024-05-01' = {
+  name: openAiPrivateEndpointName
+  location: location
+  properties: {
+    subnet: {
+      id: privateEndpointSubnet.id
+    }
+    privateLinkServiceConnections: [
+      {
+        name: 'openai-account'
+        properties: {
+          privateLinkServiceId: azureOpenAi.id
+          groupIds: [
+            'account'
+          ]
+        }
+      }
+    ]
+  }
+  dependsOn: [
+    foundryProject
+    azureOpenAiLegacyDeployment
+  ]
+}
+
+resource openAiPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2024-05-01' = {
+  parent: openAiPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'openai'
+        properties: {
+          privateDnsZoneId: openAiPrivateDnsZone.id
+        }
+      }
+      {
+        name: 'cognitiveservices'
+        properties: {
+          privateDnsZoneId: cognitiveServicesPrivateDnsZone.id
+        }
+      }
+      {
+        name: 'aiservices'
+        properties: {
+          privateDnsZoneId: aiServicesPrivateDnsZone.id
+        }
+      }
+    ]
+  }
+}
+
 module acrRoles 'acr-roles.bicep' = {
   name: 'acr-roles'
   params: {
@@ -452,6 +613,7 @@ output acrLoginServer string = acr.properties.loginServer
 output azureOpenAiName string = azureOpenAi.name
 output azureOpenAiEndpoint string = azureOpenAi.properties.endpoint
 output azureOpenAiDeploymentName string = azureOpenAiDeployment.name
+output foundryProjectName string = foundryProject.name
 output frontendIdentityId string = frontendIdentity.id
 output frontendIdentityClientId string = frontendIdentity.properties.clientId
 output frontendIdentityPrincipalId string = frontendIdentity.properties.principalId

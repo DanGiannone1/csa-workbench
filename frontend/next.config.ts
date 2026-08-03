@@ -4,6 +4,9 @@ import path from "node:path";
 const nextDistDir = process.env.NEXT_DIST_DIR;
 
 const nextConfig: NextConfig = {
+  // Local browser evidence must contain product UI only; the development indicator
+  // otherwise overlays narrow content and makes Axe unable to determine contrast.
+  devIndicators: false,
   ...(nextDistDir
     ? {
         distDir: nextDistDir,
@@ -11,9 +14,11 @@ const nextConfig: NextConfig = {
       }
     : {}),
   output: "standalone",
+  // Include the sibling production design-system package in standalone tracing.
+  outputFileTracingRoot: path.resolve(__dirname, ".."),
   turbopack: {
-    // The frontend is its own Node project; the repository root also has a lockfile.
-    root: path.resolve(__dirname),
+    // Tokens live in the repository design-system package, one level above frontend.
+    root: path.resolve(__dirname, ".."),
   },
 };
 

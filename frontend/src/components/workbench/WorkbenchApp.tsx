@@ -10,6 +10,8 @@ import HomeScreen from "./HomeScreen";
 import TasksScreen from "./TasksScreen";
 import CalendarScreen from "./CalendarScreen";
 import RemindersScreen from "./RemindersScreen";
+import Button from "@/components/ui/Button";
+import Toast from "@/components/ui/Toast";
 
 interface WorkbenchAppProps {
   appState: AppState | null;
@@ -31,7 +33,6 @@ export default function WorkbenchApp({
   const sessionId = state.sessionId;
   return (
     <div className="tw-app" data-testid="workbench-app">
-      <style>{`.tw-app :focus-visible { outline: 2px solid var(--brand-primary, #0073ea); outline-offset: 2px; border-radius: 6px; }`}</style>
       <div className="tw-appbar">
         <div className="tw-appbar-brand">
           <div className="tw-logo"><HomeIcon size={16} strokeWidth={2.5} /></div>
@@ -46,10 +47,10 @@ export default function WorkbenchApp({
         <WorkbenchNav appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onDrawerOpenChange={onDrawerOpenChange} />
         <main className="tw-content" data-testid="workbench-content">
           {loading && !appState ? <div className="tw-empty" data-testid="workspace-loading" role="status">Loading workspace…</div>
-            : sessionError && !appState ? <div className="tw-empty" role="alert">{sessionError} <button type="button" className="tw-btn" data-testid="workspace-retry" onClick={() => void onRetrySession?.()}>Retry</button></div>
+            : sessionError && !appState ? <div className="tw-empty" role="alert">{sessionError} <Button variant="primary" size="small" data-testid="workspace-retry" onClick={() => void onRetrySession?.()}>Retry</Button></div>
               : !appState ? <div className="tw-empty" role="alert">{workspaceStale ?? "Workspace unavailable."}</div>
                 : <RouteContent appState={appState} viewRoute={viewRoute} onNavigate={onNavigate} onRefresh={onRefresh} sessionId={sessionId} />}
-          {workspaceStale && appState && <div className="tw-workspace-stale" data-testid="workspace-stale" role="status">Showing the last refreshed workspace. {workspaceStale} <button type="button" className="tw-btn-ghost" data-testid="workspace-retry" onClick={() => void onRefresh().catch(() => undefined)}>Retry</button></div>}
+          {workspaceStale && appState && <Toast tone="warning" className="tw-workspace-stale" data-testid="workspace-stale">Showing the last refreshed workspace. {workspaceStale} <Button variant="ghost" size="small" data-testid="workspace-retry" onClick={() => void onRefresh().catch(() => undefined)}>Retry</Button></Toast>}
         </main>
       </div>
     </div>

@@ -4,15 +4,11 @@
 # Self-contained: creates a throwaway engagement, exercises it, then removes it at the
 # end via the raw container (no delete API exists by design).
 import os
-import sys
 import tempfile
 import threading
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "session-container"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-
-import appdb  # noqa: E402
-import artifact_store  # noqa: E402
+from workbench_api import artifact_store
+from workbench_core import appdb
 
 FAILURES = 0
 

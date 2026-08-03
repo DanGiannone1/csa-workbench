@@ -1,0 +1,16 @@
+id: WAZA-CAL-2-task-does-not-trigger
+name: Task request does not load calendar skill
+description: Adding a private task is not a calendar request.
+tags: [advisory, routing, negative]
+inputs:
+  prompt: Add a High priority task to review the proposal.
+expected:
+  behavior: { max_tool_calls: 4 }
+graders:
+  - type: skill_invocation
+    name: forbids_calendar
+    config: { forbidden_skills: [calendar] }
+  - type: tool_constraint
+    name: no_calendar_write
+    config:
+      reject_tools: [{ tool: ".*(create_event|update_event|delete_event)$" }]

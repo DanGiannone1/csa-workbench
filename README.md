@@ -22,20 +22,26 @@ and shares it with the right team members. They can then ask the assistant to pr
 brief, make a supported status change, and open the updated Engagement. Private Tasks, Calendar
 events, and Reminders remain available only to the signed-in user throughout that work.
 
+## How we test the assistant
+
+Testing follows a four-layer model — unit checks, integration checks, deterministic agent evals
+against the running product, and LLM-as-judge review — described in the
+[Testing Charter](testing/testing-charter.md). The agent-eval pipeline end to end, including the
+Azure AI Foundry integration, is in [testing/agent-evals.md](testing/agent-evals.md).
+
 ## Run it locally
 
-Install Python 3.12 or later, `uv`, Node.js and npm, Azure CLI, and a local Cosmos DB emulator. Then:
+Install Python 3.12 or later, `uv`, Node.js and npm, and a local Cosmos DB emulator. Then run the
+same two commands from PowerShell, Terminal, or any other shell on Windows, macOS, or Linux:
 
 ```bash
-cp .env.example .env
-npm ci
-uv sync
-(cd session-container && uv sync)
-(cd frontend && npm ci)
-uv run dev.py
+uv run --no-sync python -m scripts.workbench setup
+uv run python -m scripts.workbench dev
 ```
 
-Set the local identity, model, and Cosmos values in `.env` before starting. The
+Setup creates `.env` only when it is missing and never overwrites an existing file. Set the local
+identity, model, and Cosmos values there before starting. Azure CLI is needed only for deployment
+and the optional local Bicep check. The
 [local development guide](docs/guides/local-development.md) lists the required settings and shows
 how to run an isolated copy.
 
@@ -51,6 +57,40 @@ Browser -> Next.js frontend -> FastAPI API -> assistant runtime -> Azure OpenAI
 The API and assistant runtime use shared application services for Engagements and personal work.
 This keeps authorization, validation, and saved results consistent whether an action starts in the
 web application or through the assistant.
+
+## Repository map
+
+```text
+csa-workbench/
+|-- backend/
+|   |-- api/
+|   |   |-- src/workbench_api/
+|   |   |-- Dockerfile
+|   |   `-- pyproject.toml
+|   |-- assistant/
+|   |   |-- src/workbench_assistant/
+|   |   |-- product-skills/
+|   |   |-- seed-docs/
+|   |   |-- Dockerfile
+|   |   `-- pyproject.toml
+|   `-- core/
+|       |-- src/workbench_core/
+|       `-- pyproject.toml
+|-- frontend/          Next.js application
+|-- design-system/     production tokens and quarantined reference assets
+|-- tests/             automated checks and evaluation data
+|-- testing/           testing and evaluation guidance
+|-- docs/              product, architecture, and contributor documentation
+|-- infra/             Azure infrastructure and guarded deployment
+|-- scripts/           setup, local run, verification, eval, and support commands
+|-- .claude/           Claude-native developer configuration
+|-- .codex/            Codex-native developer configuration
+`-- .github/           GitHub Actions and Copilot-native configuration
+```
+
+Each Python component is an explicit workspace package. The API and assistant use
+`workbench_core`; they do not import one another. The frontend talks to the API over HTTP and
+server-sent events, and the API talks to the assistant runtime over HTTP.
 
 ## Where to go next
 

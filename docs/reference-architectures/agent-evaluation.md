@@ -78,17 +78,19 @@ tool list — a task that fails because a capability is missing is kept and repo
 - **Regression** — "does it still handle everything it used to?" Sits near 100%; any drop means
   something broke. Capability tasks that become reliably passable **graduate** into regression.
 - **Safety** — permission denials, leak prevention, injection immunity. Zero tolerance, runs every
-  time, never graduates out. (Gap: the current six-case suite retired the dedicated inert-marker
+  time, never graduates out. (Gap: the current seven-case suite retired the dedicated inert-marker
   injection case with the Acme consolidation; injection immunity is presently asserted only by the
   protocol validator's binding rules and must regain a dedicated case — tracked in issue #34's
   follow-ups.)
 
-In these terms, the six atomic cases plus the four-turn workflow in
+In these terms, the seven atomic cases plus the four-turn workflow in
 [`tests/evals/`](../../tests/evals/) are a small regression+safety suite, covering both the
-Engagement and the personal-work pages. The separate Waza check evaluates only the
-`engagement-meeting-prep` skill's routing and read-only tool constraints through Copilot in a
-isolated test environment — the `tasks`, `calendar`, and `weekly-review` skills have no Waza
-coverage today. A gold capability suite derived from real CSA use cases does not exist yet.
+Engagement and the personal-work pages. The separate Waza laboratory evaluates
+`engagement-meeting-prep` as a recorded gate and has advisory routing suites for `tasks`,
+`calendar`, and `weekly-review`. All run through Copilot with mocked tools in an isolated test
+environment; none is evidence about Deep Agents product-runtime behavior. The three newer suites
+remain advisory until repeated clean-run stability evidence is reviewed. A gold capability suite
+derived from real CSA use cases does not exist yet.
 
 ## The judge, precisely
 
@@ -112,9 +114,10 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 
 ## Current implementation
 
-- The loopback-only Deep Agents runner has six atomic cases (Engagement create/update/read,
-  a whole-portfolio multi-read, a two-store engagement+personal write, and one authorization
-  boundary) and one four-turn workflow, resets the fixture before each, and grades saved application state,
+- The loopback-only Deep Agents runner has seven atomic cases (Engagement create/update/read,
+  a whole-portfolio multi-read, a two-store engagement+personal write, a vague ask that must be
+  answered with a question rather than an action, and one authorization boundary) and one
+  four-turn workflow, resets the fixture before each, and grades saved application state,
   structured events, exact targets/arguments, forbidden tools, and complete model-visible
   product-tool outputs. Check-level partial credit is implemented: only requirements configured by a
   task count (plus the universal event, terminal, and structured-result checks), and grounding
@@ -138,9 +141,9 @@ is demonstrated, and humans keep spot-checking occasionally forever.
 - Four native product skills (`engagement-meeting-prep`, `tasks`, `calendar`, `weekly-review`) are
   versioned and available for progressive disclosure; the current versioned product suite asserts
   no skill routing (skill-routing evidence lives in the Waza lane alone).
-- Waza has an isolated skill-routing check for the `engagement-meeting-prep` skill only; its
-  pass/fail gate covers Copilot laboratory behavior rather than Deep Agents product behavior, and
-  it does not cover the other three skills.
+- Waza has an isolated skill-routing gate for `engagement-meeting-prep` and advisory routing suites
+  for the other three product skills. These cover Copilot laboratory behavior rather than Deep
+  Agents product behavior; promotion requires repeated clean-run stability evidence and review.
 - The checked-in judge rubric now has strict advisory-record validation and scorecard reporting for
   the canonical suite. Automated judging and judge calibration do not exist; records are supplied
   evidence and cannot override deterministic product-runtime or Waza gates.

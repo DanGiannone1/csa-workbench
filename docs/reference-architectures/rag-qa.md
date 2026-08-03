@@ -141,7 +141,7 @@ result — never assistant prose — is trusted as fact.
 
 ## Not the target: what the prior implementation got wrong
 
-An earlier iteration of this codebase (`session-container/library.py`, since removed — see
+An earlier iteration of this codebase (the former runtime `library.py`, since removed — see
 [Documents and retrieval](../architecture/capabilities/data.md)) implemented a single, global search
 index shared by every user, authenticated with an admin key rather than managed identity, and
 returning results with no per-actor or per-Engagement filter — any user's query could return another

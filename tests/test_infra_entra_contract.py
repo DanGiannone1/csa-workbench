@@ -14,6 +14,15 @@ from urllib.parse import unquote
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+VERIFIER_LAUNCHER = """
+import json, os, runpy, sys, tempfile
+from pathlib import Path
+with tempfile.TemporaryDirectory() as directory:
+    payload = Path(directory) / 'inventory.json'
+    payload.write_text(json.dumps(dict(os.environ)), encoding='utf-8')
+    sys.argv = ['infra/inventory_verifier.py', str(payload)]
+    runpy.run_path('infra/inventory_verifier.py', run_name='__main__')
+"""
 SPEC = importlib.util.spec_from_file_location("entra", ROOT / "infra" / "entra.py")
 assert SPEC and SPEC.loader
 entra = importlib.util.module_from_spec(SPEC)
@@ -120,58 +129,42 @@ def test_governance_nsg_is_instance_and_location_parameterized() -> None:
         helper.select_governance_nsgs(inventory, "sub", "csa-wb-other-rg", "westus3", "other")
 
 
-def _write_command_stubs(tmp_path: Path, recovery: bool = False, bad_recovery: bool = False, recovery_apps_order: str = 'expected', recovery_profile: str = 'incompatible') -> tuple[Path, Path]:
+def _write_command_stubs(tmp_path: Path) -> tuple[Path, Path]:
     bin_dir, log = tmp_path / "bin", tmp_path / "az.log"
     bin_dir.mkdir(parents=True)
-    (bin_dir / "git").write_text("""#!/usr/bin/env bash
-case "$1" in rev-parse) echo 0123456789abcdef0123456789abcdef01234567 ;; status) exit 0 ;; *) exit 1 ;; esac
-""")
-    mode = "recovery" if recovery else "absent"
-    recovery_apps = {
-        'expected': '[{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}}]',
-        'reordered': '[{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}}]',
-        'missing': '[]',
-        'extra': '[{"name":"csa-wb-mvp1-frontend","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-api","properties":{"managedEnvironmentId":"env-id"}},{"name":"csa-wb-mvp1-runtime","properties":{"managedEnvironmentId":"env-id"}},{"name":"unrelated","properties":{"managedEnvironmentId":"env-id"}}]',
-    }[recovery_apps_order]
-    if bad_recovery:
-        recovery_apps = '[{"name":42}]'
-    environment_properties = {
-        'incompatible': '"provisioningState":"Failed","staticIp":null,"vnetConfiguration":{},"workloadProfiles":[]',
-        'azure-enriched': '"provisioningState":"Succeeded","staticIp":"20.42.33.145","vnetConfiguration":{"infrastructureSubnetId":"/subscriptions/subscription/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Network/virtualNetworks/csa-wb-mvp1-vnet/subnets/aca-infrastructure"},"workloadProfiles":[{"enableFips":false,"name":"Consumption","workloadProfileType":"Consumption"}]',
-        'azure-shell': '"provisioningState":"Succeeded","staticIp":null,"vnetConfiguration":{"infrastructureSubnetId":"/subscriptions/subscription/resourceGroups/csa-wb-mvp1-rg/providers/Microsoft.Network/virtualNetworks/csa-wb-mvp1-vnet/subnets/aca-infrastructure"},"workloadProfiles":[{"enableFips":false,"name":"Consumption","workloadProfileType":"Consumption"}]',
-    }[recovery_profile]
-    (bin_dir / "az").write_text(f"""#!/usr/bin/env bash
-set -eu
-echo "$*" >> "$AZ_LOG"
-case "$*" in
-  "account show --only-show-errors") echo '{{}}' ;;
-  "account show --query tenantId -o tsv") echo tenant ;;
-  "account show --query id -o tsv") echo subscription ;;
-  "bicep version"|"bicep build "*) exit 0 ;;
-  "group exists -n csa-wb-mvp1-rg -o tsv") echo {'true' if recovery else 'false'} ;;
-  "network nsg list "*) echo '[]' ;;
-  "containerapp env list "*) {'echo \'[{"name":"csa-wb-mvp1-env","id":"env-id"}]\'' if recovery else "echo '[]'"} ;;
-  "containerapp env show "*) echo '{{"name":"csa-wb-mvp1-env","properties":{{{environment_properties}}}}}' ;;
-  "containerapp list "*) echo '{recovery_apps}' ;;
-  "deployment sub create "*) exit 9 ;;
-  *) exit 0 ;;
-esac
-""")
-    for command in bin_dir.iterdir():
-        command.chmod(0o755)
+    helper = ROOT / "tests" / "fixtures" / "fake_deploy_cli.py"
+    for command in ("git", "az"):
+        if os.name == "nt":
+            (bin_dir / f"{command}.cmd").write_text(
+                f'@set FAKE_COMMAND={command}\n@"{sys.executable}" "{helper}" %*\n',
+                encoding="utf-8",
+            )
+        else:
+            launcher = bin_dir / command
+            launcher.write_text(
+                f'#!/usr/bin/env sh\nFAKE_COMMAND={command} exec "{sys.executable}" "{helper}" "$@"\n',
+                encoding="utf-8",
+            )
+            launcher.chmod(0o755)
     return bin_dir, log
 
 
 def _run_deploy(tmp_path: Path, *args: str, recovery: bool = False, bad_recovery: bool = False, recovery_apps_order: str = 'expected', recovery_profile: str = 'incompatible', overrides: dict[str, str] | None = None) -> tuple[subprocess.CompletedProcess[str], str]:
-    bin_dir, log = _write_command_stubs(tmp_path, recovery, bad_recovery, recovery_apps_order, recovery_profile)
+    bin_dir, log = _write_command_stubs(tmp_path)
     env = {
         **os.environ,
-        "PATH": f"{bin_dir}:{os.environ['PATH']}", "AZ_LOG": str(log), "INSTANCE_SLUG": "mvp1",
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "AZ_LOG": str(log), "INSTANCE_SLUG": "mvp1",
+        "FAKE_RECOVERY": "1" if recovery else "0", "FAKE_BAD_RECOVERY": "1" if bad_recovery else "0",
+        "FAKE_RECOVERY_APPS": recovery_apps_order, "FAKE_RECOVERY_PROFILE": recovery_profile,
+        "CSA_TEST_COMMAND_SHIMS": "1",
         "MODEL_DEPLOYMENT_NAME": "deployment", "MODEL_NAME": "model", "MODEL_VERSION": "2026-01-01",
         "MODEL_SKU_NAME": "GlobalStandard", "MODEL_CAPACITY": "30",
+        "LEGACY_MODEL_DEPLOYMENT_NAME": "legacy-deployment", "LEGACY_MODEL_NAME": "legacy-model",
+        "LEGACY_MODEL_VERSION": "2025-01-01", "LEGACY_MODEL_SKU_NAME": "GlobalStandard", "LEGACY_MODEL_CAPACITY": "10",
+        "IDENTITY_MODE": "entra", "DEMO_PASSWORD": "",
         **(overrides or {}),
     }
-    result = subprocess.run(["bash", "infra/deploy.sh", *args], cwd=ROOT, env=env, text=True, capture_output=True)
+    result = subprocess.run([sys.executable, "-m", "scripts.workbench", "deploy", *args], cwd=ROOT, env=env, text=True, capture_output=True)
     return result, log.read_text() if log.exists() else ""
 
 
@@ -184,8 +177,8 @@ def test_plan_requires_explicit_inputs_and_never_mutates(tmp_path: Path) -> None
     for forbidden in ('deployment sub create', 'containerapp delete', 'containerapp env delete', 'acr build', 'rest --method POST', 'rest --method PATCH', 'deployment group create'):
         assert forbidden not in log
 
-    env = {**os.environ, "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}"}
-    missing = subprocess.run(["bash", "infra/deploy.sh"], cwd=ROOT, env=env, text=True, capture_output=True)
+    env = {**os.environ, "PATH": f"{tmp_path / 'bin'}{os.pathsep}{os.environ['PATH']}"}
+    missing = subprocess.run([sys.executable, "-m", "scripts.workbench", "deploy"], cwd=ROOT, env=env, text=True, capture_output=True)
     assert missing.returncode != 0 and 'INSTANCE_SLUG is required' in missing.stderr
     whitespace, whitespace_log = _run_deploy(tmp_path / 'whitespace', overrides={'MODEL_NAME': 'bad model'})
     assert whitespace.returncode != 0 and 'MODEL_NAME must not contain whitespace' in whitespace.stderr
@@ -206,10 +199,10 @@ def test_deployment_guidance_allows_an_explicitly_authorized_cli_agent_without_w
     assert "export MODEL_DEPLOYMENT_NAME='your-model-deployment-name'" in deployment
     assert "export IDENTITY_MODE='entra'" in deployment
     assert 'Demo mode also requires `DEMO_PASSWORD`' in deployment_text
-    assert 'MVP_ALLOW_REMOTE=1' in deployment
-    assert 'az account get-access-token --scope "api://${API_CLIENT_ID}/access_as_user"' in deployment
-    assert '"https://${API_FQDN}/auth/me"' in deployment
-    assert 'value.get("identity") == "entra"' in deployment
+    assert 'deploy verify --browser' in deployment
+    assert 'obtains a delegated token' in deployment_text
+    assert 'checks `/auth/me`' in deployment
+    assert 'creates a session through the API' in deployment_text
     assert 'An unexpected application-owned resource causes the deployment check to fail' in deployment_text
     assert 'Defender-for-Storage Event Grid topic' not in deployment
     assert 'agent may use the exact confirmation printed by that plan' in agent_setup_text
@@ -281,9 +274,9 @@ def test_entra_shape_redirect_and_runtime_assignment_contracts_are_idempotent_an
 def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_claims() -> None:
     apps = (ROOT / 'infra' / 'apps.bicep').read_text()
     entra_source = (ROOT / 'infra' / 'entra.py').read_text()
-    workload_auth = (ROOT / 'session-container' / 'workload_auth.py').read_text()
-    session_manager = (ROOT / 'session_manager.py').read_text()
-    deploy = (ROOT / 'infra' / 'deploy.sh').read_text()
+    workload_auth = (ROOT / 'backend' / 'assistant' / 'src' / 'workbench_assistant' / 'workload_auth.py').read_text()
+    session_manager = (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'session_manager.py').read_text()
+    deploy = (ROOT / 'infra' / 'deploy.py').read_text()
 
     requested_resource = "api://${runtimeClientId}"
     assert f"{{ name: 'POOL_AUTH_AUDIENCE', value: '{requested_resource}' }}" in apps
@@ -293,17 +286,31 @@ def test_runtime_audience_contract_requests_the_identifier_uri_and_checks_mise_c
     assert "name: 'mise-auth'" in apps
     assert "{ name: 'AzureAd__Audience', value: runtimeClientId }" in apps
     assert 'mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:' in deploy
-    assert 'miseSidecarImage="$MISE_SIDECAR_IMAGE"' in deploy
+    assert 'f"miseSidecarImage={MISE_SIDECAR_IMAGE}"' in deploy
     assert 'os.getenv("POOL_AUTH_AUDIENCE", "").strip().rstrip("/")' in session_manager
     assert 'return f"{audience}/.default"' in session_manager
 
 
+def test_entra_graph_resolves_the_host_azure_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: list[str] = []
+
+    monkeypatch.setattr(entra, "command_for_host", lambda command: ["C:/tools/az.cmd", *command[1:]])
+    monkeypatch.setattr(
+        entra.subprocess,
+        "run",
+        lambda command, **_kwargs: observed.extend(command) or subprocess.CompletedProcess(command, 0, "{}", ""),
+    )
+
+    assert entra.AzureCliGraph().get("applications") == {}
+    assert observed[:2] == ["C:/tools/az.cmd", "rest"]
+
+
 def test_python_authentication_has_no_direct_jwt_or_jwks_validation_path() -> None:
     sources = [
-        (ROOT / 'api_auth.py').read_text(),
-        (ROOT / 'session-container' / 'workload_auth.py').read_text(),
-        (ROOT / 'pyproject.toml').read_text(),
-        (ROOT / 'session-container' / 'pyproject.toml').read_text(),
+        (ROOT / 'backend' / 'api' / 'src' / 'workbench_api' / 'api_auth.py').read_text(),
+        (ROOT / 'backend' / 'assistant' / 'src' / 'workbench_assistant' / 'workload_auth.py').read_text(),
+        (ROOT / 'backend' / 'api' / 'pyproject.toml').read_text(),
+        (ROOT / 'backend' / 'assistant' / 'pyproject.toml').read_text(),
     ]
     combined = '\n'.join(sources).lower()
     assert 'pyjwkclient' not in combined
@@ -319,39 +326,38 @@ def test_deployment_what_if_replaces_only_the_operation_token_and_preserves_crea
     assert 'azureOpenAiModelName=create' in foundation_preview
     assert 'azureOpenAiModelName=what-if' not in foundation_preview
 
-    deploy_source = (ROOT / 'infra' / 'deploy.sh').read_text()
-    assert 'command[3]=\'what-if\'' in deploy_source
-    assert 'deployment_what_if "${FOUNDATION[@]}"' in deploy_source
-    assert 'deployment_what_if "${APPS[@]}"' in deploy_source
-    assert '${FOUNDATION[@]/create/what-if}' not in deploy_source
-    assert '${APPS[@]/create/what-if}' not in deploy_source
+    deploy_source = (ROOT / 'infra' / 'deploy.py').read_text()
+    assert 'preview[3] = "what-if"' in deploy_source
+    assert 'self.deployment_what_if(foundation)' in deploy_source
+    assert 'self.deployment_what_if(apps)' in deploy_source
 
 
 def test_deployment_workflow_runs_the_canonical_host_suite_with_containerized_bicep() -> None:
     workflow = (ROOT / '.github' / 'workflows' / 'deploy.yml').read_text()
     package = json.loads((ROOT / 'package.json').read_text())
-    verifier = (ROOT / 'scripts' / 'verify.sh').read_text()
+    verifier = (ROOT / 'scripts' / 'workbench.py').read_text()
 
     assert 'actions/setup-node@v4' in workflow
     assert "node-version: '22'" in workflow
-    assert 'npm ci' in workflow and '(cd frontend && npm ci)' in workflow
+    assert 'npm ci' in workflow and 'npm ci --prefix frontend' in workflow
     assert 'astral-sh/setup-uv@v6' in workflow
     assert 'uv sync --locked' in workflow
-    assert '(cd session-container && uv sync --locked)' in workflow
+    assert 'uv sync --locked' in workflow
+    assert 'session-container' not in workflow
     assert 'npm run verify:ci' in workflow
     assert 'azure/cli@v2' in workflow and 'az bicep build --file infra/foundation.bicep' in workflow
     assert 'pytest' not in workflow
     assert 'pip install pytest' not in workflow
-    assert package['scripts']['verify:ci'] == 'CSA_VERIFY_SKIP_BICEP=1 bash scripts/verify.sh'
-    assert 'CSA_VERIFY_SKIP_BICEP must be exactly 0 or 1' in verifier
-    assert 'if [[ "${verify_skip_bicep}" == \'0\' ]]; then\n  require_command az' in verifier
+    assert package['scripts']['verify:ci'] == 'uv run python -m scripts.workbench verify --skip-bicep --skip-waza'
+    assert 'matrix:' in workflow and 'ubuntu-latest, windows-latest, macos-latest' in workflow
+    assert 'with tempfile.TemporaryDirectory' in verifier
 
 
-def test_ci_verifier_rejects_an_invalid_bicep_skip_value_before_running_checks() -> None:
-    result = subprocess.run(['bash', 'scripts/verify.sh'], cwd=ROOT, env={**os.environ, 'CSA_VERIFY_SKIP_BICEP': 'true'}, text=True, capture_output=True)
+def test_ci_verifier_rejects_an_invalid_bicep_option_before_running_checks() -> None:
+    result = subprocess.run([sys.executable, '-m', 'scripts.workbench', 'verify', '--skip-bicep=true'], cwd=ROOT, text=True, capture_output=True)
 
     assert result.returncode == 2
-    assert 'CSA_VERIFY_SKIP_BICEP must be exactly 0 or 1' in result.stderr
+    assert 'ignored explicit argument' in result.stderr
 
 
 def test_governance_nsg_rejects_extra_wrong_state_and_association() -> None:
@@ -450,19 +456,26 @@ def test_static_portable_contract_has_no_legacy_names_or_model_defaults() -> Non
     assert "gpt-4.1" not in source and "gpt-5.6-terra" not in source
     assert "param azureopenaimodelname string" in files['platform.bicep'].lower()
     assert "param azureopenaimodelcapacity int" in files['platform.bicep'].lower()
+    assert "param legacymodelname string" in files['platform.bicep'].lower()
+    assert "param legacymodelcapacity int" in files['platform.bicep'].lower()
+    assert "kind: 'AIServices'" in files['platform.bicep']
+    assert "allowProjectManagement: true" in files['platform.bicep']
+    assert files['platform.bicep'].count("publicNetworkAccess: 'Disabled'") == 3
+    assert "privatelink.services.ai.azure.com" in files['platform.bicep']
+    assert "openAiPrivateEndpointName: openAiPrivateEndpointName" in files['foundation.bicep']
     assert "enableAutomaticFailover: true" in files['platform.bicep']
     assert "param databaseName string" in files['apps.bicep']
     assert "param frontendIdentityId string" in files['apps.bicep']
     assert "param miseSidecarImage string" in files['apps.bicep']
     assert "azureOpenAiDeploymentName: azureOpenAiDeploymentName" in files['foundation.bicep']
+    assert "legacyModelDeploymentName: legacyModelDeploymentName" in files['foundation.bicep']
+    assert "foundryProjectName: foundryProjectName" in files['foundation.bicep']
     assert "{ name: 'AZURE_DEPLOYMENT', value: azureOpenAiDeployment }" in files['apps.bicep']
     assert "--instance-slug" in files['entra.py'] and "apply=true" not in files['deploy.sh'].lower()
 
 
 def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
-    script = (ROOT / 'infra' / 'deploy.sh').read_text()
-    start = script.index("import json, os\napps = json.loads")
-    verifier = script[start:script.index("\nPY\n}", start)]
+    verifier = VERIFIER_LAUNCHER
     slug = 'mvp1'
     sha = '0123456789abcdef0123456789abcdef01234567'
     apps = []
@@ -474,8 +487,8 @@ def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
     env = {
         **os.environ,
         'APPS': json.dumps(apps), 'DEPLOYMENTS': json.dumps([{'name': 'deployment', 'properties': {'provisioningState': 'Succeeded', 'model': {'format': 'OpenAI', 'name': 'model', 'version': 'version'}} , 'sku': {'name': 'GlobalStandard', 'capacity': 30}}]),
-        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]', 'APP_INSIGHTS': '{}', 'LOG_ANALYTICS': '{}',
-        'FRONTEND_APP_NAME': f'csa-wb-{slug}-frontend', 'API_APP_NAME': f'csa-wb-{slug}-api', 'RUNTIME_APP_NAME': f'csa-wb-{slug}-runtime', 'FRONTEND_IDENTITY_NAME': f'csa-wb-{slug}-frontend-identity', 'API_IDENTITY_NAME': f'csa-wb-{slug}-api-identity', 'RUNTIME_IDENTITY_NAME': f'csa-wb-{slug}-runtime-identity', 'MODEL_DEPLOYMENT_NAME': 'deployment', 'MODEL_NAME': 'model', 'MODEL_VERSION': 'version', 'MODEL_SKU_NAME': 'GlobalStandard', 'MODEL_CAPACITY': '30', 'SHA': sha, 'RESOURCE_GROUP': f'csa-wb-{slug}-rg', 'SUBSCRIPTION_ID': 'sub', 'ENVIRONMENT_NAME': f'csa-wb-{slug}-env', 'DATABASE_NAME': f'csa-wb-{slug}-entra', 'VNET_NAME': f'csa-wb-{slug}-vnet', 'COSMOS_ACCOUNT_NAME': 'cosmos', 'STORAGE_ACCOUNT_NAME': 'storage', 'ACR_NAME': 'acr', 'AOAI_NAME': 'ai', 'APP_INSIGHTS_NAME': f'csa-wb-{slug}-insights', 'LOG_ANALYTICS_NAME': f'csa-wb-{slug}-logs', 'COSMOS_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-cosmos-pe', 'STORAGE_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-storage-pe', 'COSMOS_PRIVATE_DNS_ZONE': 'privatelink.documents.azure.com', 'STORAGE_PRIVATE_DNS_ZONE': 'privatelink.blob.core.windows.net', 'PRIVATE_DNS_VNET_LINK_NAME': f'csa-wb-{slug}-vnet-link', 'FRONTEND_PRINCIPAL': 'frontend', 'API_PRINCIPAL': 'api', 'RUNTIME_PRINCIPAL': 'runtime', 'LOCATION': 'eastus2',
+        'IDENTITIES': json.dumps([{'name': 'csa-wb-other-frontend-identity'}]), 'RESOURCES': '[]', 'SMART_DETECTION_ACTION_GROUP': 'null', 'SYSTEM_TOPICS': '[]', 'SYSTEM_TOPIC_SUBSCRIPTIONS': '[]', 'ACR': '{}', 'AZURE_OPEN_AI': json.dumps({'properties': {'endpoint': 'https://ai/'}}), 'FOUNDRY_PROJECT': '{}', 'COSMOS': '{}', 'STORAGE': '{}', 'VNET': '{}', 'PRIVATE_ENDPOINTS': '[]', 'PRIVATE_DNS_ZONES': '[]', 'MANAGED_ENVIRONMENT': '{}', 'NETWORK_SECURITY_GROUPS': '[]', 'COSMOS_DNS_LINKS': '[]', 'STORAGE_DNS_LINKS': '[]', 'OPENAI_DNS_LINKS': '[]', 'COGNITIVE_SERVICES_DNS_LINKS': '[]', 'AI_SERVICES_DNS_LINKS': '[]', 'COSMOS_DNS_GROUPS': '[]', 'STORAGE_DNS_GROUPS': '[]', 'OPENAI_DNS_GROUPS': '[]', 'COSMOS_DNS_RECORDS': '[]', 'STORAGE_DNS_RECORDS': '[]', 'OPENAI_DNS_RECORDS': '[]', 'COGNITIVE_SERVICES_DNS_RECORDS': '[]', 'AI_SERVICES_DNS_RECORDS': '[]', 'ASSIGNMENTS': '[]', 'COSMOS_SQL_ASSIGNMENTS': '[]', 'APP_INSIGHTS': '{}', 'LOG_ANALYTICS': '{}',
+        'FRONTEND_APP_NAME': f'csa-wb-{slug}-frontend', 'API_APP_NAME': f'csa-wb-{slug}-api', 'RUNTIME_APP_NAME': f'csa-wb-{slug}-runtime', 'FRONTEND_IDENTITY_NAME': f'csa-wb-{slug}-frontend-identity', 'API_IDENTITY_NAME': f'csa-wb-{slug}-api-identity', 'RUNTIME_IDENTITY_NAME': f'csa-wb-{slug}-runtime-identity', 'MODEL_DEPLOYMENT_NAME': 'deployment', 'MODEL_NAME': 'model', 'MODEL_VERSION': 'version', 'MODEL_SKU_NAME': 'GlobalStandard', 'MODEL_CAPACITY': '30', 'LEGACY_MODEL_DEPLOYMENT_NAME': 'legacy-deployment', 'LEGACY_MODEL_NAME': 'legacy-model', 'LEGACY_MODEL_VERSION': 'legacy-version', 'LEGACY_MODEL_SKU_NAME': 'GlobalStandard', 'LEGACY_MODEL_CAPACITY': '10', 'FOUNDRY_PROJECT_NAME': f'csa-wb-{slug}', 'SHA': sha, 'RESOURCE_GROUP': f'csa-wb-{slug}-rg', 'SUBSCRIPTION_ID': 'sub', 'ENVIRONMENT_NAME': f'csa-wb-{slug}-env', 'DATABASE_NAME': f'csa-wb-{slug}-entra', 'VNET_NAME': f'csa-wb-{slug}-vnet', 'COSMOS_ACCOUNT_NAME': 'cosmos', 'STORAGE_ACCOUNT_NAME': 'storage', 'ACR_NAME': 'acr', 'AOAI_NAME': 'ai', 'APP_INSIGHTS_NAME': f'csa-wb-{slug}-insights', 'LOG_ANALYTICS_NAME': f'csa-wb-{slug}-logs', 'COSMOS_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-cosmos-pe', 'STORAGE_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-storage-pe', 'OPENAI_PRIVATE_ENDPOINT_NAME': f'csa-wb-{slug}-openai-pe', 'COSMOS_PRIVATE_DNS_ZONE': 'privatelink.documents.azure.com', 'STORAGE_PRIVATE_DNS_ZONE': 'privatelink.blob.core.windows.net', 'OPENAI_PRIVATE_DNS_ZONE': 'privatelink.openai.azure.com', 'COGNITIVE_SERVICES_PRIVATE_DNS_ZONE': 'privatelink.cognitiveservices.azure.com', 'AI_SERVICES_PRIVATE_DNS_ZONE': 'privatelink.services.ai.azure.com', 'PRIVATE_DNS_VNET_LINK_NAME': f'csa-wb-{slug}-vnet-link', 'FRONTEND_PRINCIPAL': 'frontend', 'API_PRINCIPAL': 'api', 'RUNTIME_PRINCIPAL': 'runtime', 'LOCATION': 'eastus2',
     }
     result = subprocess.run([sys.executable, '-c', verifier], env=env, text=True, capture_output=True)
     assert result.returncode != 0
@@ -483,8 +496,7 @@ def test_parameterized_verifier_rejects_cross_instance_identity_drift() -> None:
 
 
 def _verifier_fixture() -> tuple[str, dict[str, str]]:
-    script = (ROOT / 'infra' / 'deploy.sh').read_text(); start = script.index("import json, os\napps = json.loads")
-    code = script[start:script.index("\nPY\n}", start)]; slug, sha, sub = 'mvp1', '0123456789abcdef0123456789abcdef01234567', 'sub'
+    code = VERIFIER_LAUNCHER; slug, sha, sub = 'mvp1', '0123456789abcdef0123456789abcdef01234567', 'sub'
     rg, base, vnet, cosmos, storage, acr, ai = f'csa-wb-{slug}-rg', f'csa-wb-{slug}', f'csa-wb-{slug}-vnet', 'cosmos', 'storage', 'acr', 'ai'
     root = f'/subscriptions/{sub}/resourceGroups/{rg}/providers'; ids = {k: f'{root}/Microsoft.ManagedIdentity/userAssignedIdentities/{base}-{k}-identity' for k in ('frontend','api','runtime')}
     principal = {'frontend':'frontend','api':'api','runtime':'runtime'}
@@ -520,21 +532,157 @@ def _verifier_fixture() -> tuple[str, dict[str, str]]:
             }
             containers.append({'name':'mise-auth','image':mise_image,'resources':{'cpu':0.25,'memory':'0.5Gi','ephemeralStorage':'1Gi'},'env':[{'name':name,'value':value} for name,value in sidecar_env.items()]})
         apps.append({'name':f'{base}-{kind}','identity':{'userAssignedIdentities':{ids[kind]:{}}},'properties':{'provisioningState':'Succeeded','workloadProfileName':'Consumption','managedEnvironmentId':f'{root}/Microsoft.App/managedEnvironments/{base}-env','configuration':{'ingress':{'external':external,'targetPort':port,'transport':'auto'},'registries':[{'server':'acr.azurecr.io','identity':ids[kind]}]},'template':{'scale':{'minReplicas':0,'maxReplicas':1},'containers':containers}}})
-    zones = ['privatelink.documents.azure.com','privatelink.blob.core.windows.net']; endpoints = []
-    for name, target, group, nic in [(f'{base}-cosmos-pe',f'{root}/Microsoft.DocumentDB/databaseAccounts/{cosmos}','Sql','nic1'),(f'{base}-storage-pe',f'{root}/Microsoft.Storage/storageAccounts/{storage}','blob','nic2')]:
+    zones = ['privatelink.documents.azure.com','privatelink.blob.core.windows.net']; ai_zones = ['privatelink.openai.azure.com','privatelink.cognitiveservices.azure.com','privatelink.services.ai.azure.com']; endpoints = []
+    for name, target, group, nic in [(f'{base}-cosmos-pe',f'{root}/Microsoft.DocumentDB/databaseAccounts/{cosmos}','Sql','nic1'),(f'{base}-storage-pe',f'{root}/Microsoft.Storage/storageAccounts/{storage}','blob','nic2'),(f'{base}-openai-pe',f'{root}/Microsoft.CognitiveServices/accounts/{ai}','account','nic3')]:
         endpoints.append({'name':name,'provisioningState':'Succeeded','subnet':{'id':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/private-endpoints'},'networkInterfaces':[{'id':f'{root}/Microsoft.Network/networkInterfaces/{nic}'}],'privateLinkServiceConnections':[{'privateLinkServiceId':target,'groupIds':[group],'privateLinkServiceConnectionState':{'status':'Approved'}}]})
     def links(zone: str): return [{'name':f'{base}-vnet-link','provisioningState':'Succeeded','virtualNetworkLinkState':'Completed','registrationEnabled':False,'virtualNetwork':{'id':f'{root}/Microsoft.Network/virtualNetworks/{vnet}'}}]
     def groups(zone: str, names: list[str]): return [{'name':'default','provisioningState':'Succeeded','privateDnsZoneConfigs':[{'privateDnsZoneId':f'{root}/Microsoft.Network/privateDnsZones/{zone}','recordSets':[{'recordSetName':n,'ipAddresses':[f'10.42.0.{40+i}']} for i,n in enumerate(names)]}]}]
     cosmos_names=[cosmos,f'{cosmos}-eastus2']; storage_names=[storage]
     def records(names: list[str]): return [{'name':n,'aRecords':[{'ipv4Address':f'10.42.0.{40+i}'}]} for i,n in enumerate(names)]
-    direct = [('microsoft.app/managedenvironments',f'{base}-env'),* [('microsoft.app/containerapps',f'{base}-{x}') for x in ('frontend','api','runtime')],* [('microsoft.managedidentity/userassignedidentities',f'{base}-{x}-identity') for x in ('frontend','api','runtime')],('microsoft.operationalinsights/workspaces',f'{base}-logs'),('microsoft.insights/components',f'{base}-insights'),('microsoft.containerregistry/registries',acr),('microsoft.cognitiveservices/accounts',ai),('microsoft.documentdb/databaseaccounts',cosmos),('microsoft.storage/storageaccounts',storage),('microsoft.network/virtualnetworks',vnet),('microsoft.network/privateendpoints',f'{base}-cosmos-pe'),('microsoft.network/privateendpoints',f'{base}-storage-pe'),* [('microsoft.network/privatednszones',z) for z in zones],('microsoft.network/networkinterfaces','nic1'),('microsoft.network/networkinterfaces','nic2')]
-    children=[('microsoft.documentdb/databaseaccounts/sqldatabases',f'{cosmos}/{base}-entra'),('microsoft.documentdb/databaseaccounts/sqldatabases/containers',f'{cosmos}/{base}-entra/appstate'),('microsoft.cognitiveservices/accounts/deployments',f'{ai}/deployment'),* [('microsoft.network/privatednszones/virtualnetworklinks',f'{z}/{base}-vnet-link') for z in zones],('microsoft.network/privateendpoints/privatednszonegroups',f'{base}-cosmos-pe/default'),('microsoft.network/privateendpoints/privatednszonegroups',f'{base}-storage-pe/default'),('microsoft.storage/storageaccounts/blobservices',f'{storage}/default'),('microsoft.storage/storageaccounts/blobservices/containers',f'{storage}/default/engagement-artifacts')]
+    ai_group=[{'name':'default','provisioningState':'Succeeded','privateDnsZoneConfigs':[{'privateDnsZoneId':f'{root}/Microsoft.Network/privateDnsZones/{z}','recordSets':[{'recordSetName':ai,'ipAddresses':[f'10.42.0.{43+i}']}]} for i,z in enumerate(ai_zones)]}]
+    def ai_records(offset: int): return [{'name':ai,'aRecords':[{'ipv4Address':f'10.42.0.{offset}'}]}]
+    direct = [('microsoft.app/managedenvironments',f'{base}-env'),* [('microsoft.app/containerapps',f'{base}-{x}') for x in ('frontend','api','runtime')],* [('microsoft.managedidentity/userassignedidentities',f'{base}-{x}-identity') for x in ('frontend','api','runtime')],('microsoft.operationalinsights/workspaces',f'{base}-logs'),('microsoft.insights/components',f'{base}-insights'),('microsoft.containerregistry/registries',acr),('microsoft.cognitiveservices/accounts',ai),('microsoft.documentdb/databaseaccounts',cosmos),('microsoft.storage/storageaccounts',storage),('microsoft.network/virtualnetworks',vnet),('microsoft.network/privateendpoints',f'{base}-cosmos-pe'),('microsoft.network/privateendpoints',f'{base}-storage-pe'),('microsoft.network/privateendpoints',f'{base}-openai-pe'),* [('microsoft.network/privatednszones',z) for z in zones+ai_zones],('microsoft.network/networkinterfaces','nic1'),('microsoft.network/networkinterfaces','nic2'),('microsoft.network/networkinterfaces','nic3')]
+    children=[('microsoft.documentdb/databaseaccounts/sqldatabases',f'{cosmos}/{base}-entra'),('microsoft.documentdb/databaseaccounts/sqldatabases/containers',f'{cosmos}/{base}-entra/appstate'),('microsoft.cognitiveservices/accounts/deployments',f'{ai}/deployment'),('microsoft.cognitiveservices/accounts/deployments',f'{ai}/legacy-deployment'),('microsoft.cognitiveservices/accounts/projects',f'{ai}/{base}'),* [('microsoft.network/privatednszones/virtualnetworklinks',f'{z}/{base}-vnet-link') for z in zones+ai_zones],('microsoft.network/privateendpoints/privatednszonegroups',f'{base}-cosmos-pe/default'),('microsoft.network/privateendpoints/privatednszonegroups',f'{base}-storage-pe/default'),('microsoft.network/privateendpoints/privatednszonegroups',f'{base}-openai-pe/default'),('microsoft.storage/storageaccounts/blobservices',f'{storage}/default'),('microsoft.storage/storageaccounts/blobservices/containers',f'{storage}/default/engagement-artifacts')]
     scope = f'/subscriptions/{sub}/resourceGroups/{rg}/'; roles=[]
     for p in ('frontend','api','runtime'): roles.append({'scope':f'{scope}providers/Microsoft.ContainerRegistry/registries/{acr}','roleDefinitionName':'AcrPull','principalId':principal[p]})
     roles += [{'scope':f'{scope}providers/Microsoft.Storage/storageAccounts/{storage}','roleDefinitionName':'Storage Blob Data Contributor','principalId':'api'},{'scope':f'{scope}providers/Microsoft.CognitiveServices/accounts/{ai}','roleDefinitionName':'Cognitive Services OpenAI User','principalId':'runtime'}]
     cscope=f'{scope}providers/Microsoft.DocumentDB/databaseAccounts/{cosmos}'; croles=[{'roleDefinitionId':f'{cscope}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002','scope':cscope,'principalId':p} for p in ('api','runtime')]
-    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'SYSTEM_TOPICS':'[]','SYSTEM_TOPIC_SUBSCRIPTIONS':'[]','APP_INSIGHTS':json.dumps({'name':f'{base}-insights','properties':{'provisioningState':'Succeeded','WorkspaceResourceId':f'{root}/Microsoft.OperationalInsights/workspaces/{base}-logs','IngestionMode':'LogAnalytics','ConnectionString':'InstrumentationKey=fixture'}}),'LOG_ANALYTICS':json.dumps({'name':f'{base}-logs','properties':{'provisioningState':'Succeeded','sku':{'name':'PerGB2018'},'retentionInDays':30}}),'APP_INSIGHTS_NAME':f'{base}-insights','LOG_ANALYTICS_NAME':f'{base}-logs','ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'OpenAI','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'endpoint':'https://ai/'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled','enableAutomaticFailover':True}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2','IDENTITY_MODE':'entra','TENANT_ID':tenant_id,'API_CLIENT_ID':api_client_id,'RUNTIME_CLIENT_ID':runtime_client_id,'MISE_SIDECAR_IMAGE':mise_image}
+    env={**os.environ,'APPS':json.dumps(apps),'DEPLOYMENTS':json.dumps([{'name':'deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'model','version':'version'}},'sku':{'name':'GlobalStandard','capacity':30}},{'name':'legacy-deployment','properties':{'provisioningState':'Succeeded','model':{'format':'OpenAI','name':'legacy-model','version':'legacy-version'}},'sku':{'name':'GlobalStandard','capacity':10}}]),'IDENTITIES':json.dumps([{'name':f'{base}-{k}-identity','id':ids[k]} for k in ('frontend','api','runtime')]),'RESOURCES':json.dumps([{'type':t,'name':n} for t,n in direct+children]),'SMART_DETECTION_ACTION_GROUP':'null','SYSTEM_TOPICS':'[]','SYSTEM_TOPIC_SUBSCRIPTIONS':'[]','APP_INSIGHTS':json.dumps({'name':f'{base}-insights','properties':{'provisioningState':'Succeeded','WorkspaceResourceId':f'{root}/Microsoft.OperationalInsights/workspaces/{base}-logs','IngestionMode':'LogAnalytics','ConnectionString':'InstrumentationKey=fixture'}}),'LOG_ANALYTICS':json.dumps({'name':f'{base}-logs','properties':{'provisioningState':'Succeeded','sku':{'name':'PerGB2018'},'retentionInDays':30}}),'APP_INSIGHTS_NAME':f'{base}-insights','LOG_ANALYTICS_NAME':f'{base}-logs','ACR':json.dumps({'name':acr,'sku':{'name':'Basic'},'adminUserEnabled':False}),'AZURE_OPEN_AI':json.dumps({'name':ai,'kind':'AIServices','sku':{'name':'S0'},'properties':{'disableLocalAuth':True,'allowProjectManagement':True,'publicNetworkAccess':'Disabled','endpoint':'https://ai/'}}),'FOUNDRY_PROJECT':json.dumps({'name':f'{ai}/{base}','properties':{'provisioningState':'Succeeded'}}),'COSMOS':json.dumps({'disableLocalAuth':True,'publicNetworkAccess':'Disabled','enableAutomaticFailover':True}),'STORAGE':json.dumps({'publicNetworkAccess':'Disabled','allowSharedKeyAccess':False,'allowBlobPublicAccess':False}),'VNET':json.dumps({'name':vnet,'addressSpace':{'addressPrefixes':['10.42.0.0/24']},'subnets':[{'name':'aca-infrastructure','addressPrefix':'10.42.0.0/27'},{'name':'private-endpoints','addressPrefix':'10.42.0.32/27','privateEndpointNetworkPolicies':'Disabled'}]}),'PRIVATE_ENDPOINTS':json.dumps(endpoints),'PRIVATE_DNS_ZONES':json.dumps([{'name':z} for z in zones+ai_zones]),'MANAGED_ENVIRONMENT':json.dumps({'name':f'{base}-env','properties':{'vnetConfiguration':{'infrastructureSubnetId':f'{root}/Microsoft.Network/virtualNetworks/{vnet}/subnets/aca-infrastructure'}}}),'NETWORK_SECURITY_GROUPS':'[]','COSMOS_DNS_LINKS':json.dumps(links(zones[0])),'STORAGE_DNS_LINKS':json.dumps(links(zones[1])),'OPENAI_DNS_LINKS':json.dumps(links(ai_zones[0])),'COGNITIVE_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[1])),'AI_SERVICES_DNS_LINKS':json.dumps(links(ai_zones[2])),'COSMOS_DNS_GROUPS':json.dumps(groups(zones[0],cosmos_names)),'STORAGE_DNS_GROUPS':json.dumps(groups(zones[1],storage_names)),'OPENAI_DNS_GROUPS':json.dumps(ai_group),'COSMOS_DNS_RECORDS':json.dumps(records(cosmos_names)),'STORAGE_DNS_RECORDS':json.dumps(records(storage_names)),'OPENAI_DNS_RECORDS':json.dumps(ai_records(43)),'COGNITIVE_SERVICES_DNS_RECORDS':json.dumps(ai_records(44)),'AI_SERVICES_DNS_RECORDS':json.dumps(ai_records(45)),'ASSIGNMENTS':json.dumps([roles]),'COSMOS_SQL_ASSIGNMENTS':json.dumps(croles),'FRONTEND_APP_NAME':f'{base}-frontend','API_APP_NAME':f'{base}-api','RUNTIME_APP_NAME':f'{base}-runtime','FRONTEND_IDENTITY_NAME':f'{base}-frontend-identity','API_IDENTITY_NAME':f'{base}-api-identity','RUNTIME_IDENTITY_NAME':f'{base}-runtime-identity','MODEL_DEPLOYMENT_NAME':'deployment','MODEL_NAME':'model','MODEL_VERSION':'version','MODEL_SKU_NAME':'GlobalStandard','MODEL_CAPACITY':'30','LEGACY_MODEL_DEPLOYMENT_NAME':'legacy-deployment','LEGACY_MODEL_NAME':'legacy-model','LEGACY_MODEL_VERSION':'legacy-version','LEGACY_MODEL_SKU_NAME':'GlobalStandard','LEGACY_MODEL_CAPACITY':'10','FOUNDRY_PROJECT_NAME':base,'SHA':sha,'RESOURCE_GROUP':rg,'SUBSCRIPTION_ID':sub,'ENVIRONMENT_NAME':f'{base}-env','DATABASE_NAME':f'{base}-entra','VNET_NAME':vnet,'COSMOS_ACCOUNT_NAME':cosmos,'STORAGE_ACCOUNT_NAME':storage,'ACR_NAME':acr,'AOAI_NAME':ai,'COSMOS_PRIVATE_ENDPOINT_NAME':f'{base}-cosmos-pe','STORAGE_PRIVATE_ENDPOINT_NAME':f'{base}-storage-pe','OPENAI_PRIVATE_ENDPOINT_NAME':f'{base}-openai-pe','COSMOS_PRIVATE_DNS_ZONE':zones[0],'STORAGE_PRIVATE_DNS_ZONE':zones[1],'OPENAI_PRIVATE_DNS_ZONE':ai_zones[0],'COGNITIVE_SERVICES_PRIVATE_DNS_ZONE':ai_zones[1],'AI_SERVICES_PRIVATE_DNS_ZONE':ai_zones[2],'PRIVATE_DNS_VNET_LINK_NAME':f'{base}-vnet-link','FRONTEND_PRINCIPAL':'frontend','API_PRINCIPAL':'api','RUNTIME_PRINCIPAL':'runtime','LOCATION':'eastus2','IDENTITY_MODE':'entra','TENANT_ID':tenant_id,'API_CLIENT_ID':api_client_id,'RUNTIME_CLIENT_ID':runtime_client_id,'MISE_SIDECAR_IMAGE':mise_image}
     return code, env
+
+
+def test_inventory_verifier_reads_a_large_payload_from_file(tmp_path: Path) -> None:
+    _, inventory = _verifier_fixture()
+    apps = json.loads(inventory['APPS'])
+    apps[0]['padding'] = 'x' * 40_000
+    inventory['APPS'] = json.dumps(apps)
+    payload = tmp_path / 'inventory.json'
+    payload.write_text(json.dumps(inventory), encoding='utf-8')
+    child_env = {
+        name: os.environ[name]
+        for name in ('PATH', 'SYSTEMROOT')
+        if name in os.environ
+    }
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / 'infra' / 'inventory_verifier.py'), str(payload)],
+        cwd=ROOT,
+        env=child_env,
+        text=True,
+        capture_output=True,
+    )
+
+    assert len(inventory['APPS']) > 32_767
+    assert result.returncode == 0, result.stderr
+
+
+def test_inventory_handoff_cleans_its_temp_file_after_verifier_failure() -> None:
+    from infra import deploy
+
+    deployment = object.__new__(deploy.Deployment)
+    inventory = {'APPS': 'x' * 40_000}
+    deployment._inventory = lambda _values: inventory
+    observed_payload: Path | None = None
+
+    def fail(command: list[str], **_kwargs: object) -> None:
+        nonlocal observed_payload
+        observed_payload = Path(command[-1])
+        assert command[:-1] == [sys.executable, 'infra/inventory_verifier.py']
+        assert observed_payload.exists()
+        assert json.loads(observed_payload.read_text(encoding='utf-8')) == inventory
+        raise subprocess.CalledProcessError(1, command)
+
+    deployment.execute = fail
+
+    with pytest.raises(subprocess.CalledProcessError):
+        deployment.verify_inventory({})
+
+    assert observed_payload is not None
+    assert not observed_payload.exists()
+
+
+def _smart_detection_action_group() -> dict[str, Any]:
+    return {
+        'name': 'Application Insights Smart Detection',
+        'type': 'Microsoft.Insights/ActionGroups',
+        'location': 'Global',
+        'properties': {
+            'enabled': True,
+            'groupShortName': 'SmartDetect',
+            'armRoleReceivers': [
+                {'name': 'Monitoring Contributor', 'roleId': '749f88d5-cbae-40b8-bcfc-e573ddc772fa', 'useCommonAlertSchema': True},
+                {'name': 'Monitoring Reader', 'roleId': '43d0d8ad-25c7-4714-9337-8ba259a9fe05', 'useCommonAlertSchema': True},
+            ],
+            'automationRunbookReceivers': [], 'azureAppPushReceivers': [], 'azureFunctionReceivers': [],
+            'emailReceivers': [], 'eventHubReceivers': [], 'itsmReceivers': [], 'logicAppReceivers': [],
+            'smsReceivers': [], 'voiceReceivers': [], 'webhookReceivers': [],
+        },
+    }
+
+
+def _with_smart_detection(env: dict[str, str]) -> dict[str, str]:
+    resources = json.loads(env['RESOURCES'])
+    resources.extend([
+        {'type': 'Microsoft.AlertsManagement/smartDetectorAlertRules', 'name': 'Failure Anomalies - csa-wb-mvp1-insights'},
+        {'type': 'Microsoft.Insights/ActionGroups', 'name': 'Application Insights Smart Detection'},
+    ])
+    return {
+        **env,
+        'RESOURCES': json.dumps(resources),
+        'SMART_DETECTION_ACTION_GROUP': json.dumps(_smart_detection_action_group()),
+    }
+
+
+def test_portable_verifier_accepts_the_exact_smart_detection_companion() -> None:
+    code, env = _verifier_fixture()
+
+    result = subprocess.run(
+        [sys.executable, '-c', code], env=_with_smart_detection(env), text=True, capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize(('field', 'bad_value'), [
+    ('enabled', False),
+    ('groupShortName', 'Changed'),
+    ('armRoleReceivers', []),
+    ('emailReceivers', [{'name': 'unexpected'}]),
+])
+def test_portable_verifier_rejects_a_drifted_smart_detection_action_group(
+    field: str, bad_value: object,
+) -> None:
+    code, env = _verifier_fixture()
+    governed = _with_smart_detection(env)
+    action_group = json.loads(governed['SMART_DETECTION_ACTION_GROUP'])
+    action_group['properties'][field] = bad_value
+
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        env={**governed, 'SMART_DETECTION_ACTION_GROUP': json.dumps(action_group)},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert 'smart detection action group profile drifted' in result.stderr
+
+
+def test_portable_verifier_rejects_an_extra_action_group_with_safe_diagnostics() -> None:
+    code, env = _verifier_fixture()
+    governed = _with_smart_detection(env)
+    resources = json.loads(governed['RESOURCES'])
+    resources.append({'type': 'Microsoft.Insights/ActionGroups', 'name': 'Unapproved Paging Group'})
+
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        env={**governed, 'RESOURCES': json.dumps(resources)},
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert "('microsoft.insights/actiongroups', 'unapproved paging group')" in result.stderr
 
 
 def test_portable_verifier_accepts_complete_fixture_and_rejects_wiring_roles_and_inventory() -> None:
@@ -779,14 +927,17 @@ def test_portable_verifier_accepts_only_the_optional_governance_nsg_resource_pai
         assert subprocess.run([sys.executable, '-c', code], env={**env, 'NETWORK_SECURITY_GROUPS': malformed}, text=True, capture_output=True).returncode != 0
 
 
-def test_browser_validation_runbook_uses_the_isolated_demo_parent_shell_values() -> None:
+def test_evaluator_runbooks_are_copyable_on_windows_macos_and_linux() -> None:
     development = (ROOT / 'docs' / 'guides' / 'local-development.md').read_text()
+    evaluator = (ROOT / 'testing' / 'agent-evals.md').read_text()
 
-    for value in ('## Run the browser journey', 'CSA_LOCAL_RUN_ID=demo1', 'WORKSPACE=.local-runs/demo1/workspace', 'ARTIFACTS_DIR=.mvp-artifacts/demo1', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'MVP_RESET_BEFORE_RUN=1', 'npm run playwright:mvp'):
+    for value in ('## Run the assistant evaluation', '## Run the browser journey', 'PowerShell on Windows', 'Terminal on macOS or Linux', '$env:CSA_LOCAL_RUN_ID', 'export CSA_LOCAL_RUN_ID', "MVP_APP_URL='http://localhost:13000'", "MVP_API_URL='http://localhost:18000'", "MVP_RAW_TRACE_ROOT='.local-runs/demo1/logs/sdk-events'", 'uv run python -m scripts.workbench eval mvp', 'uv run python -m scripts.workbench eval playwright'):
         assert value in development
+    for value in ('## Running it', 'PowerShell on Windows', 'Terminal on macOS or Linux', '$env:MVP_RESULTS', 'export MVP_RESULTS', 'uv run python -m scripts.workbench eval mvp', 'uv run python -m scripts.workbench eval foundry'):
+        assert value in evaluator
 
 
-def test_acr_build_context_rules_exclude_local_and_generated_content() -> None:
+def test_acr_build_context_rules_include_frontend_source_and_exclude_generated_content() -> None:
     root_rules = {
         line for line in (ROOT / '.dockerignore').read_text().splitlines()
         if line and not line.startswith('#')
@@ -795,7 +946,18 @@ def test_acr_build_context_rules_exclude_local_and_generated_content() -> None:
         line for line in (ROOT / 'frontend' / '.dockerignore').read_text().splitlines()
         if line and not line.startswith('#')
     }
+    dockerfile = (ROOT / 'frontend' / 'Dockerfile').read_text()
+    deployment = (ROOT / 'infra' / 'deploy.py').read_text()
 
-    assert {'frontend', 'evidence', '.local-runs', '.mvp-artifacts', 'incoming', '.claude', '.venv', 'node_modules'} <= root_rules
+    assert 'frontend' not in root_rules
+    assert {
+        'evidence', '.local-runs', '.mvp-artifacts', 'incoming', '.claude', '.venv',
+        'node_modules', 'frontend/node_modules', 'frontend/.next*', 'frontend/.env*',
+    } <= root_rules
     assert {'.next*', 'node_modules', '.env*'} <= frontend_rules
     assert not any(rule.endswith('/') for rule in root_rules | frontend_rules)
+    assert 'docker build -f frontend/Dockerfile .' in dockerfile
+    assert 'COPY frontend/package.json frontend/package-lock.json* ./' in dockerfile
+    assert 'COPY frontend/ ./' in dockerfile
+    assert 'COPY . .' not in dockerfile
+    assert '"-f", "frontend/Dockerfile", "."' in deployment

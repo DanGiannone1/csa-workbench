@@ -1,0 +1,57 @@
+name: weekly-review-skill-eval
+description: Advisory routing and tool-selection probes for the CSA Workbench weekly-review skill; arguments and outcomes are not graded.
+skill: weekly-review
+schemaVersion: "1.2"
+version: "1.0.0"
+
+config:
+  trials_per_task: 1
+  timeout_seconds: 300
+  parallel: false
+  workers: 1
+  fail_fast: false
+  executor: copilot-sdk
+  model: claude-sonnet-4.6
+  inject_skill_body: false
+  required_skills: [weekly-review]
+  skill_directories:
+    - ../../../../backend/assistant/product-skills/weekly-review
+
+mcp_mocks:
+  - name: csa
+    tools:
+      list_tasks:
+        description: List private tasks, including the server-computed overdue flag.
+        input_schema: { type: object, additionalProperties: false }
+        responses:
+          - match: {}
+            return: { status: succeeded, tasks: [{ id: t-1, title: Renew plan, status: To do, priority: Medium, overdue: true }, { id: t-2, title: Draft brief, status: To do, priority: Medium, overdue: false }, { id: t-3, title: Review risks, status: To do, priority: Low, overdue: false }] }
+      update_task:
+        description: Update a private task by exact ID.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed } }]
+      list_events:
+        description: List private calendar events.
+        input_schema: { type: object, additionalProperties: false }
+        responses: [{ match: {}, return: { status: succeeded, events: [] } }]
+      create_event:
+        description: Create a private calendar event.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, return: { status: committed, resource: { kind: event, id: e-focus } } }]
+      create_task:
+        description: A single task request is outside the weekly-review workflow.
+        input_schema: { type: object }
+        responses: [{ match_schema: { type: object }, error: Use the task skill for one task request. }]
+
+metrics:
+  - name: routing_accuracy
+    weight: 0.6
+    threshold: 1.0
+    description: Weekly-review prompts load the workflow skill and one-off task prompts do not.
+  - name: tool_selection
+    weight: 0.4
+    threshold: 1.0
+    description: Weekly-review prompts select the four review tools and avoid one-off task creation.
+
+tasks:
+  - tasks/*.yaml

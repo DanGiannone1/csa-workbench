@@ -1,4 +1,4 @@
-name: Validate Azure deployment definitions
+name: Validate repository and Azure definitions
 
 on:
   push:
@@ -9,28 +9,38 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
+  portable:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
       - name: Install Node dependencies
         run: |
           npm ci
-          (cd frontend && npm ci)
+          npm ci --prefix frontend
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
       - name: Install locked Python environments
-        run: |
-          uv sync --locked
-          (cd session-container && uv sync --locked)
-      - name: Run deterministic host verification
+        run: uv sync --locked
+      - name: Run the same verification on every host
         run: npm run verify:ci
+
+  bicep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - name: Build Bicep
         uses: azure/cli@v2
         with:
@@ -38,5 +48,3 @@ jobs:
             az bicep install
             az bicep build --file infra/foundation.bicep
             az bicep build --file infra/apps.bicep
-      - name: Check deploy script syntax
-        run: bash -n infra/deploy.sh

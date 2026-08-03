@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
-import sys
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "session-container"))
 
 from workbench_core import Outcome, ProductToolResult, engagement_product_result
-import navsvc
+from workbench_assistant import navsvc
 
 
 def test_product_tool_result_only_allows_destinations_on_navigation_success() -> None:
@@ -89,7 +86,7 @@ def test_personal_navigation_destinations_are_static_unscoped_and_route_correctl
 
 def test_personal_tool_schemas_validate_enum_vocabularies_before_any_call() -> None:
     import pydantic
-    from mvp_tool_schemas import ACTIVE_TOOL_SCHEMAS, CreateEventCommand, CreateReminderCommand, CreateTaskCommand
+    from workbench_assistant.mvp_tool_schemas import ACTIVE_TOOL_SCHEMAS, CreateEventCommand, CreateReminderCommand, CreateTaskCommand
 
     CreateTaskCommand(title="Draft", status="To do", priority="High")
     with pytest.raises(pydantic.ValidationError):
@@ -119,8 +116,7 @@ def test_personal_tools_bind_to_the_session_actor_and_reject_bad_enums_before_mu
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from copilot.tools import ToolInvocation
-    import agent
-    import agent_deepagents
+    from workbench_assistant import agent, agent_deepagents
 
     states = {
         "dan": {"personalTasks": [], "calendarEvents": [], "reminders": []},
@@ -161,7 +157,7 @@ def test_personal_tools_bind_to_the_session_actor_and_reject_bad_enums_before_mu
         return result
 
     # Neither adapter's schema accepts an actor argument from the model.
-    from mvp_tool_schemas import CreateTaskCommand
+    from workbench_assistant.mvp_tool_schemas import CreateTaskCommand
     assert not {"actor", "actor_id", "user_id", "owner"} & set(CreateTaskCommand.model_fields)
 
     copilot_created = asyncio.run(copilot_call("create_task", {"title": "Copilot task", "status": "To do", "priority": "Medium", "group": "General", "due_date": "", "notes": ""}))
@@ -194,7 +190,7 @@ def test_personal_tools_bind_to_the_session_actor_and_reject_bad_enums_before_mu
 def test_copilot_telemetry_is_native_and_validated() -> None:
     from copilot.session_events import ToolExecutionCompleteData
     from copilot.tools import ToolResult
-    import agent
+    from workbench_assistant import agent
 
     payload = ProductToolResult("resolved", "navigation.resolved", "navigate", destination={"id": "engagements", "path": "/engagements"}).to_dict()
     completion = ToolExecutionCompleteData(success=True, tool_call_id="call-1", tool_telemetry=ToolResult(tool_telemetry={"product_result": payload}).tool_telemetry)
@@ -205,7 +201,7 @@ def test_copilot_telemetry_is_native_and_validated() -> None:
 
 def test_deep_artifact_is_native_and_validated() -> None:
     from langchain_core.messages import ToolMessage
-    import agent_deepagents
+    from workbench_assistant import agent_deepagents
 
     payload = ProductToolResult("resolved", "navigation.resolved", "navigate", destination={"id": "engagements", "path": "/engagements"}).to_dict()
     message = ToolMessage(content="inert model text", tool_call_id="call-1", artifact={"product_result": payload})
@@ -216,8 +212,7 @@ def test_deep_artifact_is_native_and_validated() -> None:
 
 def test_built_engagement_adapters_emit_semantically_equal_native_results(monkeypatch: pytest.MonkeyPatch) -> None:
     from copilot.tools import ToolInvocation
-    import agent
-    import agent_deepagents
+    from workbench_assistant import agent, agent_deepagents
 
     records = {
         "eng-1": {
@@ -290,9 +285,8 @@ def test_built_engagement_adapters_emit_semantically_equal_native_results(monkey
 
 
 def test_exact_tool_schema_parity() -> None:
-    import agent
-    import agent_deepagents
-    from mvp_tool_schemas import ACTIVE_TOOL_SCHEMAS
+    from workbench_assistant import agent, agent_deepagents
+    from workbench_assistant.mvp_tool_schemas import ACTIVE_TOOL_SCHEMAS
 
     copilot_tools = agent._build_flow_tools("/tmp", "dan")
     deep_tools = agent_deepagents._build_langchain_tools("/tmp", "dan")
@@ -308,7 +302,7 @@ def test_exact_tool_schema_parity() -> None:
 
 
 def test_framed_proxy_validator_accepts_split_lf_crlf_and_rejects_bad_sequences() -> None:
-    from session_manager import _UpstreamEventValidator, _parse_sse_frame, _pop_sse_frame
+    from workbench_api.session_manager import _UpstreamEventValidator, _parse_sse_frame, _pop_sse_frame
 
     assert _parse_sse_frame('data: {"type":"RUN_STARTED","run_id":"r","thread_id":"t"}\r\n') ["type"] == "RUN_STARTED"
     frame, remainder = _pop_sse_frame('data: {"type":"RUN_STARTED"}\r\n\r\npartial')
@@ -328,7 +322,7 @@ def test_framed_proxy_validator_accepts_split_lf_crlf_and_rejects_bad_sequences(
 
 
 def test_proxy_lifecycle_state_machine_and_interruption_closures() -> None:
-    from session_manager import _UpstreamEventValidator
+    from workbench_api.session_manager import _UpstreamEventValidator
     start = {"type": "RUN_STARTED", "run_id": "r", "thread_id": "t"}
     result = {"type": "TOOL_CALL_RESULT", "tool_call_id": "c", "result": {"status": "resolved", "code": "n", "operation": "navigate", "destination": {"id": "engagements", "path": "/engagements"}}}
     valid = _UpstreamEventValidator(); valid.validate(start); valid.validate({"type": "TOOL_CALL_START", "tool_call_id": "c", "tool_call_name": "navigate"}); valid.validate(result); valid.validate({"type": "NAVIGATION_RESOLVED", "runId": "r", "destination": {"id": "engagements", "path": "/engagements"}, "requestedAtNavigationVersion": 0}); valid.validate({"type": "TOOL_CALL_END", "tool_call_id": "c"}); valid.validate({"type": "RUN_FINISHED", "run_id": "r", "thread_id": "t"})
@@ -343,7 +337,7 @@ def test_proxy_lifecycle_state_machine_and_interruption_closures() -> None:
 
 def test_proxy_preserves_held_valid_terminal_when_iterator_raises() -> None:
     import asyncio
-    from session_manager import SessionManager
+    from workbench_api.session_manager import SessionManager
 
     class Response:
         status_code = 200
@@ -378,7 +372,7 @@ def test_proxy_preserves_held_valid_terminal_when_iterator_raises() -> None:
     [{"type": "NAVIGATION_RESOLVED", "runId": "r", "destination": {}, "requestedAtNavigationVersion": 0}],
 ])
 def test_proxy_rejects_each_invalid_lifecycle_sequence(events: list[dict]) -> None:
-    from session_manager import _UpstreamEventValidator
+    from workbench_api.session_manager import _UpstreamEventValidator
     validator = _UpstreamEventValidator()
     validator.validate({"type": "RUN_STARTED", "run_id": "r", "thread_id": "t"})
     with pytest.raises(ValueError):

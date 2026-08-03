@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { closeSync, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { buildMvpScorecard, hasCompleteCheckScore, WAZA_GATE_TASK_IDS } from "./mvp_scorecard.mjs";
 import { MVP_EVAL_MANIFEST, atomicScoringMode, expectedAtomicScoredCheckNames, expectedWorkflowCheckContract, expectedWorkflowScoredCheckNames } from "./mvp_eval_manifest.mjs";
@@ -330,7 +331,7 @@ export function validateProductEvidence(product) {
   exactKeys(product.skill, ["name", "version", "path", "sha256"], "Product evidence.skill");
   requireSafeIdentifier(product.skill.name, "Product evidence.skill.name");
   requireSafeIdentifier(product.skill.version, "Product evidence.skill.version");
-  if (product.skill.path !== "session-container/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Product evidence.skill.path is invalid");
+  if (product.skill.path !== "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Product evidence.skill.path is invalid");
   requireHash(product.skill.sha256, "Product evidence.skill.sha256");
   if (typeof product.api !== "string" || !/^https?:\/\//.test(product.api) || /[\u0000-\u001f\u007f]/.test(product.api)) throw new Error("Product evidence.api is invalid");
   requireRfc3339(product.startedAt, "Product evidence.startedAt");
@@ -415,12 +416,12 @@ export function validateWazaEvidence(waza) {
   if (!waza.tasks.every((task) => task && typeof task === "object" && typeof task.test_id === "string" && ["passed", "failed", "error", "skipped"].includes(task.status))) throw new Error("Waza evidence tasks are invalid");
   exactKeys(waza.csaMvpProvenance, ["runner", "wazaVersion", "sourceRevision", "sourceRevisionAfter", "sourceDirtyBefore", "sourceDirtyAfter", "tag", "skill", "eval", "recordedAt"], "Waza evidence provenance");
   const provenance = waza.csaMvpProvenance;
-  if (provenance.runner !== "scripts/waza_eval.sh" || provenance.wazaVersion !== "0.38.3" || provenance.eval !== "tests/evals/waza/engagement-meeting-prep/eval.yaml") throw new Error("Waza evidence provenance is invalid");
+  if (provenance.runner !== "scripts/workbench.py" || provenance.wazaVersion !== "0.38.3" || provenance.eval !== "tests/evals/waza/engagement-meeting-prep/eval.yaml") throw new Error("Waza evidence provenance is invalid");
   for (const key of ["sourceRevision", "sourceRevisionAfter"]) if (typeof provenance[key] !== "string" || !/^[a-f0-9]{7,64}$/.test(provenance[key])) throw new Error("Waza evidence source revision is invalid");
   if (typeof provenance.sourceDirtyBefore !== "boolean" || typeof provenance.sourceDirtyAfter !== "boolean") throw new Error("Waza evidence dirty-source binding is invalid");
   isOneOf(provenance.tag, ["gate", "advisory", "all"], "Waza evidence provenance.tag");
   exactKeys(provenance.skill, ["name", "path", "sha256"], "Waza evidence provenance.skill");
-  if (provenance.skill.name !== "engagement-meeting-prep" || provenance.skill.path !== "session-container/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Waza evidence skill provenance is invalid");
+  if (provenance.skill.name !== "engagement-meeting-prep" || provenance.skill.path !== "backend/assistant/product-skills/engagement-meeting-prep/SKILL.md") throw new Error("Waza evidence skill provenance is invalid");
   requireHash(provenance.skill.sha256, "Waza evidence skill hash");
   requireRfc3339(provenance.recordedAt, "Waza evidence recordedAt");
   return structuredClone(waza);
@@ -625,7 +626,7 @@ export function validateScorecardHistoryRecord(record) {
     && wazaGateProvenance.gateTaskIds.every((id, index) => id === WAZA_GATE_TASK_IDS[index]);
   const derivedWazaGate = record.gates.wazaStatus === "RECORDED" && waza.countsConsistent
     && wazaGateProvenance.schemaVersion === "1.2" && wazaGateProvenance.engine === "copilot-sdk"
-    && wazaGateProvenance.runner === "scripts/waza_eval.sh" && wazaGateProvenance.wazaVersion === "0.38.3" && exactWazaGateIds;
+    && wazaGateProvenance.runner === "scripts/workbench.py" && wazaGateProvenance.wazaVersion === "0.38.3" && exactWazaGateIds;
   if (record.gates.wazaGate !== derivedWazaGate) throw new Error("History record Waza gate is inconsistent");
   if ((record.gates.advisoryJudgeStatus === "NOT_SUPPLIED") !== (record.evidence.advisoryJudgeSha256 === null)) throw new Error("History record advisory evidence binding is inconsistent");
   const ready = isReadyForBaseline(record);
@@ -989,4 +990,4 @@ function main(argv) {
   usage();
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === resolve(new URL(import.meta.url).pathname)) main(process.argv.slice(2));
+if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url))) main(process.argv.slice(2));
