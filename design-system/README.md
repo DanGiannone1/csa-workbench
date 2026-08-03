@@ -33,8 +33,9 @@ Product-specific layout classes may compose these primitives, but visual values 
 the primitive classes in `frontend/src/app/globals.css`. New gradients, translucent blur surfaces,
 hard-coded palette colors, and arbitrary color utilities are not production styles.
 
-## Reference quarantine
+## The read-only design reference
 
-`reference/claude-design/` is an attributable, read-only import from commit `eb0708b`. It is visual
-research, not production source. `.dc.html`, generated `support.js`, prototype CSS, and the complete
-reference directory are excluded from application and container bundles.
+`reference/claude-design/` is a read-only import of the original design prototype (imported at
+commit `eb0708b`). It is visual research, not production source: nothing in it ships. The
+`.dc.html` prototype files, the generated `support.js`, the prototype CSS, and the whole
+reference directory are excluded from application and container builds.

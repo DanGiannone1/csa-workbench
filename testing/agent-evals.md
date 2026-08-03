@@ -339,8 +339,9 @@ that must refuse). A scenario can also expect the agent to do nothing but ask: `
 with `assistantResponseRequired` (see `ACME-8-vague-create` — "Create a new engagement." should
 get a clarifying question, not a guessed create).
 
-A new case is not registered until every canonical binding knows it — the deterministic evidence
-tests enforce each of these, so a missed one fails loudly rather than silently shrinking coverage:
+A new case is not registered until every place that pins the official suite knows about it — the
+evidence tests enforce each of these, so a missed one fails loudly rather than silently shrinking
+coverage:
 
 1. `scripts/mvp_eval_manifest.mjs` — add the id to `atomicCaseIds` (the scorecard's hard gate
    accepts only ids on this list).
@@ -351,9 +352,10 @@ tests enforce each of these, so a missed one fails loudly rather than silently s
    `ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS` (both in `scripts/mvp_evidence.mjs`). If the product's
    model-visible output changed shape, update the independent grounding renderers there too —
    they deliberately re-implement the product's formatting and must be changed in lockstep.
-4. The evidence tests pin suite-wide aggregates (case counts, judgment counts, synthetic latency
-   sums, tamper counter-examples); a count assertion failing after you add a case is the
-   binding working — update the pinned arithmetic deliberately.
+4. The evidence tests also pin totals across the whole suite — how many cases and judge
+   questions exist, and the arithmetic of the synthetic timing data they test with, including
+   examples that are deliberately wrong to prove tampering gets caught. A count failing after
+   you add a case is that protection working; update the totals on purpose, not reflexively.
 
 Then run the suite live before shipping the case: expectations that look right on paper
 (argument phrasing the model won't reproduce, array assertions against a fixture that isn't
