@@ -556,6 +556,33 @@ html, body {
 .tw-pf-why { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; max-width: 60ch; }
 .tw-pf-right { text-align: right; font-size: 0.76rem; color: var(--text-muted); white-space: nowrap; }
 
+/* The engagement Overview reading surface: main column + rail, per the reference. */
+.tw-ebody { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 2.6rem; margin-top: 1.4rem; align-items: start; }
+@media (max-width: 1400px) { .tw-ebody { grid-template-columns: minmax(0, 1fr) 220px; gap: 1.8rem; } }
+@media (max-width: 900px) { .tw-ebody { grid-template-columns: minmax(0, 1fr); } .tw-rail { border-top: 1px solid var(--border-subtle); padding-top: 1rem; } }
+.tw-prose { font-size: 0.88rem; line-height: 1.55; color: var(--text-primary); max-width: 62ch; margin-top: 5px; }
+.tw-prose-muted { font-size: 0.84rem; color: var(--text-secondary); }
+.tw-prose-lead { font-size: 0.92rem; line-height: 1.6; }
+.tw-attn { display: flex; gap: 10px; align-items: baseline; padding: 3.5px 0; font-size: 0.84rem; color: var(--text-primary); }
+.tw-attn .tw-e-date { margin-left: auto; }
+.tw-rail-section { margin-bottom: 1.4rem; }
+.tw-rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.tw-rail-add { background: none; border: 0; padding: 0; cursor: pointer; font-size: 0.74rem; font-weight: 600; color: var(--brand-primary); }
+.tw-rail-add:hover { color: var(--brand-strong); }
+.tw-obj { display: flex; gap: 9px; font-size: 0.82rem; color: var(--text-secondary); padding: 3px 0; }
+.tw-obj::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--brand-primary); margin-top: 7px; flex-shrink: 0; }
+.tw-kd { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; padding: 3.5px 0; font-size: 0.82rem; background: none; border: 0; cursor: pointer; }
+.tw-kd:disabled { cursor: default; }
+.tw-kd-date { width: 46px; flex-shrink: 0; font-weight: 600; font-size: 0.74rem; color: var(--text-muted); }
+.tw-kd-t { color: var(--text-secondary); }
+.tw-kd-done .tw-kd-t { text-decoration: line-through; color: var(--text-muted); }
+.tw-kd-next .tw-kd-date { color: var(--text-warning); }
+.tw-kd-next .tw-kd-t { color: var(--text-primary); font-weight: 600; }
+.tw-contact { display: flex; gap: 9px; align-items: center; padding: 4px 0; }
+.tw-c-n { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); }
+.tw-c-r { display: block; font-size: 0.72rem; color: var(--text-muted); }
+.tw-tab-n { color: var(--text-muted); font-size: 0.7rem; margin-left: 5px; font-weight: 600; }
+
 /* Log entries, per the design reference's `entry` (used for activity feeds). */
 .tw-entry { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 13px; padding: 0.8rem 0; border-bottom: 1px solid var(--border-subtle); }
 .tw-entry:last-child { border-bottom: 0; }
@@ -564,6 +591,16 @@ html, body {
 .tw-e-title { font-weight: 600; font-size: 0.85rem; color: var(--text-primary); }
 .tw-e-date { margin-left: auto; font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; }
 .tw-e-body { margin-top: 2px; font-size: 0.8rem; color: var(--text-secondary); max-width: 60ch; }
+.tw-e-byline { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+.tw-e-type { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.tw-e-type-meeting, .tw-mark-meeting { color: var(--brand-primary); }
+.tw-e-type-decision, .tw-mark-decision { color: var(--text-success); }
+.tw-e-type-risk, .tw-mark-risk { color: var(--text-danger); }
+.tw-e-type-note, .tw-mark-note { color: var(--text-muted); }
+.tw-mark-meeting { background: var(--brand-primary); }
+.tw-mark-decision { background: var(--text-success); }
+.tw-mark-risk { background: var(--text-danger); }
+.tw-mark-note { background: var(--border-neutral); }
 
 /* Home digest: mono schedule times, agenda list rows, and the two-column split. */
 .tw-time { font-family: var(--font-code); font-size: 0.74rem; font-weight: 600; color: var(--text-muted); width: 46px; flex: none; }

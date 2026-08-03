@@ -224,6 +224,14 @@ function containsEvery(actual, expected) {
 function engagementFrom(state, engagementId) {
   return (state.engagements ?? []).find((entry) => entry.id === engagementId) ?? null;
 }
+// The Overview leads with the reading surface; the record editor sits behind an
+// explicit toggle. Editing journeys open it first (absent entirely for viewers).
+async function openRecordEditor(page) {
+  if (await page.getByTestId("engagement-detail-editor").count()) return;
+  await page.getByTestId("engagement-edit-record").click();
+  await page.getByTestId("engagement-detail-editor").waitFor({ state: "visible" });
+}
+
 async function finalCardHitPoints(page) {
   return page.evaluate(() => {
     const finalCard = Array.from(document.querySelectorAll("[data-testid^='engagement-row-']")).at(-1);
@@ -342,13 +350,15 @@ try {
   await ava.page.getByTestId("engagements-screen").waitFor({ state: "visible" });
   await eventually(() => ava.page.getByTestId(`engagement-row-${engagementId}`).count());
   await ava.page.getByTestId(`engagement-row-${engagementId}`).click();
-  check("MVP-P6-editor-sees-durable-record", await ava.page.getByTestId("engagement-detail-editor").count() === 1);
+  check("MVP-P6-editor-sees-durable-record", await ava.page.getByTestId("engagement-edit-record").count() === 1);
+  await openRecordEditor(ava.page);
   await ava.page.getByTestId("engagement-description-edit").fill("Edited by Ava through the real UI.");
   await ava.page.getByRole("button", { name: "Save delivery record" }).click();
   const avaEdited = await eventually(async () => (await state(ava.page)).engagements.find((entry) => entry.id === engagementId)?.description === "Edited by Ava through the real UI.");
   check("MVP-P7-editor-ui-change-authoritative", avaEdited);
   await dan.page.getByTestId("nav--engagements").click();
   await dan.page.getByTestId(`engagement-row-${engagementId}`).click();
+  await openRecordEditor(dan.page);
   await eventually(() => dan.page.getByTestId("engagement-description-edit").inputValue().then((value) => value === "Edited by Ava through the real UI."));
   check("MVP-P8-owner-authoritative-refresh", true);
 
@@ -388,6 +398,7 @@ try {
 
   // A manual validation path is visible and leaves the committed record unchanged.
   const beforeRejectedYellow = canonicalize(engagementFrom(await state(ava.page), engagementId));
+  await openRecordEditor(ava.page);
   await ava.page.getByTestId("status-select").selectOption("yellow");
   await ava.page.getByTestId("status-note-input").fill("");
   await ava.page.getByRole("button", { name: "Save delivery record" }).click();

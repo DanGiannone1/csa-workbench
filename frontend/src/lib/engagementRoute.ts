@@ -16,7 +16,7 @@ export function parseEngagementRoute(viewRoute: string): {
       ? { id, sub, recordId }
       : null;
   }
-  if ((sub === "artifacts" || sub === "settings") && parts.length === 4) {
+  if ((sub === "artifacts" || sub === "settings" || sub === "timeline") && parts.length === 4) {
     return { id, sub, recordId: "" };
   }
   return null;
