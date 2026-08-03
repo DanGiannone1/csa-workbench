@@ -13,9 +13,8 @@ COPY backend/assistant/pyproject.toml backend/assistant/pyproject.toml
 COPY backend/core/pyproject.toml backend/core/pyproject.toml
 COPY backend/assistant/src/ backend/assistant/src/
 COPY backend/assistant/product-skills/ backend/assistant/product-skills/
-COPY backend/assistant/seed-docs/ backend/assistant/seed-docs/
 COPY backend/core/src/ backend/core/src/
-RUN uv sync --frozen --package workbench-assistant --extra tracing
+RUN uv sync --frozen --package workbench-assistant --extra tracing --no-dev
 
 RUN addgroup --system --gid 10001 app && \
     adduser --system --uid 10001 --ingroup app --home /app app && \

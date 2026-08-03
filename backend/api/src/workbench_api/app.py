@@ -441,10 +441,9 @@ async def list_files(session_id: str, uid: str = Depends(current_user)) -> dict:
         raise
 
 
-@app.get("/sessions/{session_id}/app/state")
-async def get_app_state(session_id: str, uid: str = Depends(current_user)) -> dict:
+@app.get("/app/state")
+async def get_app_state(uid: str = Depends(current_user)) -> dict:
     """Return the signed-in user's application state (rendered by the app pane)."""
-    await _require_owned_session(session_id, uid)
     try:
         return await asyncio.to_thread(appdb.supported_app_state_for, uid)
     except LookupError:
@@ -516,7 +515,7 @@ class SaveContentRequest(BaseModel):
     content: str = Field(..., max_length=MAX_EDIT_CONTENT_BYTES)
 
 
-# ── Personal workspace — durable private data, session paths kept for compatibility ──
+# ── Personal workspace — durable private data owned by the signed-in user ──
 class _StrictPersonalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -590,24 +589,20 @@ async def _personal_operation(operation, *args) -> dict:
     return outcome.record if outcome is not None else {}
 
 
-@app.post("/sessions/{session_id}/tasks", status_code=201)
-async def create_personal_task(session_id: str, req: PersonalTaskCreate,
-                               uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
+@app.post("/me/tasks", status_code=201)
+async def create_personal_task(req: PersonalTaskCreate, uid: str = Depends(current_user)) -> dict:
     return await _personal_operation(_personal_workspace_service.create_task, uid, req.model_dump())
 
 
-@app.patch("/sessions/{session_id}/tasks/{task_id}")
-async def update_personal_task(session_id: str, task_id: str, req: PersonalTaskUpdate,
+@app.patch("/me/tasks/{task_id}")
+async def update_personal_task(task_id: str, req: PersonalTaskUpdate,
                                uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(
         _personal_workspace_service.update_task, uid, task_id, req.model_dump(exclude_none=True))
 
 
-@app.delete("/sessions/{session_id}/tasks/{task_id}", status_code=204)
-async def delete_personal_task(session_id: str, task_id: str, uid: str = Depends(current_user)):
-    await _require_owned_session(session_id, uid)
+@app.delete("/me/tasks/{task_id}", status_code=204)
+async def delete_personal_task(task_id: str, uid: str = Depends(current_user)):
     await _personal_operation(_personal_workspace_service.delete_task, uid, task_id)
     return Response(status_code=204)
 
@@ -620,67 +615,57 @@ class SubtaskToggle(_StrictPersonalRequest):
     done: bool
 
 
-@app.post("/sessions/{session_id}/tasks/{task_id}/subtasks", status_code=201)
-async def add_subtask(session_id: str, task_id: str, req: SubtaskCreate,
+@app.post("/me/tasks/{task_id}/subtasks", status_code=201)
+async def add_subtask(task_id: str, req: SubtaskCreate,
                       uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(_personal_workspace_service.add_subtask, uid, task_id, req.text)
 
 
-@app.patch("/sessions/{session_id}/tasks/{task_id}/subtasks/{index}")
-async def toggle_subtask(session_id: str, task_id: str, index: int, req: SubtaskToggle,
+@app.patch("/me/tasks/{task_id}/subtasks/{index}")
+async def toggle_subtask(task_id: str, index: int, req: SubtaskToggle,
                          uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(_personal_workspace_service.set_subtask, uid, task_id, index, req.done)
 
 
-@app.delete("/sessions/{session_id}/tasks/{task_id}/subtasks/{index}", status_code=204)
-async def delete_subtask(session_id: str, task_id: str, index: int, uid: str = Depends(current_user)):
-    await _require_owned_session(session_id, uid)
+@app.delete("/me/tasks/{task_id}/subtasks/{index}", status_code=204)
+async def delete_subtask(task_id: str, index: int, uid: str = Depends(current_user)):
     await _personal_operation(_personal_workspace_service.delete_subtask, uid, task_id, index)
     return Response(status_code=204)
 
 
-@app.post("/sessions/{session_id}/events", status_code=201)
-async def create_personal_event(session_id: str, req: PersonalEventCreate,
+@app.post("/me/events", status_code=201)
+async def create_personal_event(req: PersonalEventCreate,
                                 uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(_personal_workspace_service.create_event, uid, req.model_dump())
 
 
-@app.patch("/sessions/{session_id}/events/{event_id}")
-async def update_personal_event(session_id: str, event_id: str, req: PersonalEventUpdate,
+@app.patch("/me/events/{event_id}")
+async def update_personal_event(event_id: str, req: PersonalEventUpdate,
                                 uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(
         _personal_workspace_service.update_event, uid, event_id, req.model_dump(exclude_none=True))
 
 
-@app.delete("/sessions/{session_id}/events/{event_id}", status_code=204)
-async def delete_personal_event(session_id: str, event_id: str, uid: str = Depends(current_user)):
-    await _require_owned_session(session_id, uid)
+@app.delete("/me/events/{event_id}", status_code=204)
+async def delete_personal_event(event_id: str, uid: str = Depends(current_user)):
     await _personal_operation(_personal_workspace_service.delete_event, uid, event_id)
     return Response(status_code=204)
 
 
-@app.post("/sessions/{session_id}/schedules", status_code=201)
-async def create_reminder(session_id: str, req: ReminderCreate,
-                          uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
+@app.post("/me/reminders", status_code=201)
+async def create_reminder(req: ReminderCreate, uid: str = Depends(current_user)) -> dict:
     return await _personal_operation(_personal_workspace_service.create_schedule, uid, req.model_dump())
 
 
-@app.patch("/sessions/{session_id}/schedules/{schedule_id}")
-async def update_reminder(session_id: str, schedule_id: str, req: ReminderUpdate,
+@app.patch("/me/reminders/{schedule_id}")
+async def update_reminder(schedule_id: str, req: ReminderUpdate,
                           uid: str = Depends(current_user)) -> dict:
-    await _require_owned_session(session_id, uid)
     return await _personal_operation(
         _personal_workspace_service.update_schedule, uid, schedule_id, req.model_dump(exclude_none=True))
 
 
-@app.delete("/sessions/{session_id}/schedules/{schedule_id}", status_code=204)
-async def delete_reminder(session_id: str, schedule_id: str, uid: str = Depends(current_user)):
-    await _require_owned_session(session_id, uid)
+@app.delete("/me/reminders/{schedule_id}", status_code=204)
+async def delete_reminder(schedule_id: str, uid: str = Depends(current_user)):
     await _personal_operation(_personal_workspace_service.delete_schedule, uid, schedule_id)
     return Response(status_code=204)
 

@@ -28,7 +28,7 @@ type Action =
   | { type: "FILE_PENDING"; filename: string; size: number }
   | { type: "FILE_CLEAR_PENDING"; filename: string }
   | { type: "FILES_LOADED"; files: AppFile[] }
-  | { type: "APP_STATE_LOADED"; appState: AppState; follow: boolean }
+  | { type: "APP_STATE_LOADED"; appState: AppState }
   | { type: "SET_VIEW_ROUTE"; route: string }
   | { type: "BUNDLE_USED"; bundle: ContextBundle | null }
   | { type: "SESSION_ERROR"; error: string | null }
@@ -104,7 +104,7 @@ function reducer(state: State, action: Action): State {
     case "RESET_FOR_NEW_CHAT":
       return {
         ...state, messages: [], isStreaming: false, sessionId: null, currentRunId: null,
-        files: [], appState: null, viewRoute: "/home", sessionError: null, workspaceStale: null,
+        files: [], viewRoute: "/home", sessionError: null, workspaceStale: null,
       };
     case "USER_SEND":
       return {
@@ -241,13 +241,11 @@ function reducer(state: State, action: Action): State {
       return { ...state, files: [...stillPending, ...action.files] };
     }
     case "APP_STATE_LOADED": {
-      const serverRoute = normalizeHostRoute(action.appState.currentRoute || "/home");
       return {
         ...state,
         appState: action.appState,
         workspaceStale: null,
-        // Follow a server route only during initialization; manual route changes remain local.
-        viewRoute: action.follow ? serverRoute : normalizeHostRoute(state.viewRoute),
+        viewRoute: normalizeHostRoute(state.viewRoute),
       };
     }
     case "SET_VIEW_ROUTE": return {
@@ -335,7 +333,7 @@ export function useAgentSession() {
     } catch { /* non-fatal */ }
   }, []);
 
-  const refreshAppState = useCallback((sessionId: string, follow = false): Promise<void> => {
+  const refreshAppState = useCallback((): Promise<void> => {
     const seq = ++appStateSeqRef.current;
     const refreshPromise = Promise.resolve().then(async () => {
       const awaitLatest = async () => {
@@ -343,12 +341,12 @@ export function useAgentSession() {
         if (latest && latest !== refreshPromise) await latest;
       };
       try {
-        const appState = await getAppState(sessionId);
+        const appState = await getAppState();
         // A superseded caller must adopt the latest request's result. This chains
         // naturally if that request is itself superseded before it settles.
         if (seq !== appStateSeqRef.current) return await awaitLatest();
         appStateRef.current = appState;
-        dispatch({ type: "APP_STATE_LOADED", appState, follow });
+        dispatch({ type: "APP_STATE_LOADED", appState });
         if (seq !== appStateSeqRef.current) await awaitLatest();
       } catch (err) {
         if (seq !== appStateSeqRef.current) return await awaitLatest();
@@ -367,11 +365,9 @@ export function useAgentSession() {
     const meta = await getSession(storedId);
     if (!meta) return false;
     dispatch({ type: "RESTORE_SESSION", sessionId: meta.session_id, messages: getStoredMessages() });
-    // On reload, restore the pane to wherever the session last was (no human-click
-    // ambiguity exists at initial load), so a browser refresh doesn't reset to Dashboard.
-    await Promise.all([refreshAppState(meta.session_id, true), refreshFiles(meta.session_id)]);
+    await refreshFiles(meta.session_id);
     return true;
-  }, [refreshAppState, refreshFiles]);
+  }, [refreshFiles]);
 
   // The brief is fetched in the background at session start (never blocking
   // startup) so it is already waiting the first time the panel opens. A failed
@@ -399,15 +395,18 @@ export function useAgentSession() {
       storeSessionId(meta.session_id);
       dispatch({ type: "SET_SESSION_ID", sessionId: meta.session_id });
       loadBrief(meta.session_id);
-      await Promise.all([refreshAppState(meta.session_id, true), refreshFiles(meta.session_id)]);
+      await refreshFiles(meta.session_id);
     } catch (err) {
       dispatch({ type: "SESSION_ERROR", error: friendlyError(err, "Could not reach your session. Retry.") });
     } finally {
       dispatch({ type: "SET_INITIALIZING", value: false });
     }
-  }, [clearAndDeleteSession, restoreStoredSession, refreshAppState, refreshFiles, loadBrief]);
+  }, [clearAndDeleteSession, restoreStoredSession, refreshFiles, loadBrief]);
 
-  useEffect(() => { startSession(); }, [startSession]);
+  useEffect(() => {
+    void refreshAppState().catch(() => undefined);
+    void startSession();
+  }, [refreshAppState, startSession]);
 
   useEffect(() => {
     if (!state.isStreaming && state.messages.length > 0) storeMessages(state.messages);
@@ -418,8 +417,8 @@ export function useAgentSession() {
     pendingNavigationRef.current = null;
     dispatch({ type: "SET_VIEW_ROUTE", route: normalizeHostRoute(route) });
     // A manual destination may expose changes another member made since this tab's
-    // last read. Keep navigation immediate while reconciling the owned session.
-    if (sessionIdRef.current) void refreshAppState(sessionIdRef.current).catch(() => undefined);
+    // last read. Keep navigation immediate while reconciling durable application state.
+    void refreshAppState().catch(() => undefined);
   }, [refreshAppState]);
 
   const handleAGUIEvent = useCallback((event: AGUIEvent) => {
@@ -441,9 +440,9 @@ export function useAgentSession() {
       case "TOOL_CALL_ARGS": dispatch({ type: "TOOL_ARGS", toolCallId: event.tool_call_id, delta: event.delta }); break;
       case "TOOL_CALL_RESULT": dispatch({ type: "TOOL_RESULT", toolCallId: event.tool_call_id, result: event.result }); break;
       case "NAVIGATION_RESOLVED":
-        if (!shouldQueueAgentNavigation({ activeRunId: navigationRunIdRef.current, navigationVersion: navigationVersionRef.current, cancelled: cancelledRef.current, event }) || !sessionIdRef.current) break;
+        if (!shouldQueueAgentNavigation({ activeRunId: navigationRunIdRef.current, navigationVersion: navigationVersionRef.current, cancelled: cancelledRef.current, event })) break;
         pendingNavigationRef.current = event;
-        void refreshAppState(sessionIdRef.current).then(() => {
+        void refreshAppState().then(() => {
           const pending = pendingNavigationRef.current;
           if (!pending) return;
           pendingNavigationRef.current = null;
@@ -454,17 +453,19 @@ export function useAgentSession() {
         break;
       case "TOOL_CALL_END":
         dispatch({ type: "TOOL_END", toolCallId: event.tool_call_id });
-        if (sessionIdRef.current) void refreshAppState(sessionIdRef.current).catch(() => undefined);
+        void refreshAppState().catch(() => undefined);
         break;
       case "RUN_FINISHED":
         if (runStartRef.current) dispatch({ type: "SET_TURN_META", steps: stepCountRef.current, durationMs: Math.round(performance.now() - runStartRef.current) });
         dispatch({ type: "DONE" });
-        if (sessionIdRef.current) { void refreshAppState(sessionIdRef.current).catch(() => undefined); void refreshFiles(sessionIdRef.current); }
+        void refreshAppState().catch(() => undefined);
+        if (sessionIdRef.current) void refreshFiles(sessionIdRef.current);
         break;
       case "RUN_ERROR":
         pendingNavigationRef.current = null;
         dispatch({ type: "ERROR", message: event.message || "Error during generation." });
-        if (sessionIdRef.current) { void refreshAppState(sessionIdRef.current).catch(() => undefined); void refreshFiles(sessionIdRef.current); }
+        void refreshAppState().catch(() => undefined);
+        if (sessionIdRef.current) void refreshFiles(sessionIdRef.current);
         break;
     }
   }, [refreshAppState, refreshFiles]);
@@ -535,8 +536,8 @@ export function useAgentSession() {
 
   // Re-pull state after a manual Engagement mutation.
   const refresh = useCallback(async () => {
-    if (state.sessionId) await refreshAppState(state.sessionId);
-  }, [state.sessionId, refreshAppState]);
+    await refreshAppState();
+  }, [refreshAppState]);
 
   const handleStop = useCallback(() => {
     if (streamingRef.current) {  // synchronous — not the render-captured state

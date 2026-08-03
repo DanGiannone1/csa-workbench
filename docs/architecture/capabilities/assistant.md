@@ -71,4 +71,5 @@ reverse a saved operation.
 
 Deep Agents is the product runtime and uses Azure OpenAI. The Copilot adapter implements the same
 product tool catalog for local comparison. Runtime selection is fixed when the process starts;
-failed turns are not retried automatically through another adapter.
+failed turns are not retried automatically through another adapter. The Copilot SDK is an optional
+development dependency and is not installed in the deployed runtime image.

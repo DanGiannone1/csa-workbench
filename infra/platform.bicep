@@ -34,21 +34,19 @@ param azureOpenAiModelCapacity int
 @minLength(2)
 @maxLength(64)
 param foundryProjectName string
-@minLength(1)
+param enableFoundryProject bool = false
+param enableLegacyModel bool = false
 @maxLength(64)
-param legacyModelDeploymentName string
-@minLength(1)
+param legacyModelDeploymentName string = ''
 @maxLength(128)
-param legacyModelName string
-@minLength(1)
+param legacyModelName string = ''
 @maxLength(128)
-param legacyModelVersion string
-@minLength(1)
+param legacyModelVersion string = ''
 @maxLength(64)
-param legacyModelSkuName string
+param legacyModelSkuName string = ''
 @minValue(1)
 @maxValue(1000000)
-param legacyModelCapacity int
+param legacyModelCapacity int = 1
 param acaInfrastructureNsgId string = ''
 param privateEndpointNsgId string = ''
 param logAnalyticsName string
@@ -204,7 +202,7 @@ resource azureOpenAi 'Microsoft.CognitiveServices/accounts@2026-05-01' = {
   }
 }
 
-resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-05-01' = {
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2026-05-01' = if (enableFoundryProject) {
   parent: azureOpenAi
   name: foundryProjectName
   location: location
@@ -233,7 +231,7 @@ resource azureOpenAiDeployment 'Microsoft.CognitiveServices/accounts/deployments
 
 // Retained for instant rollback of the model binding; deployments on one account must
 // be created serially, so this depends on the primary deployment.
-resource azureOpenAiLegacyDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+resource azureOpenAiLegacyDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (enableLegacyModel) {
   parent: azureOpenAi
   name: legacyModelDeploymentName
   sku: {
@@ -613,7 +611,7 @@ output acrLoginServer string = acr.properties.loginServer
 output azureOpenAiName string = azureOpenAi.name
 output azureOpenAiEndpoint string = azureOpenAi.properties.endpoint
 output azureOpenAiDeploymentName string = azureOpenAiDeployment.name
-output foundryProjectName string = foundryProject.name
+output foundryProjectName string = enableFoundryProject ? foundryProjectName : ''
 output frontendIdentityId string = frontendIdentity.id
 output frontendIdentityClientId string = frontendIdentity.properties.clientId
 output frontendIdentityPrincipalId string = frontendIdentity.properties.principalId

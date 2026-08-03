@@ -29,8 +29,8 @@ function deliveryStatus(reminder: Reminder): string {
   return reminder.lastStatus;
 }
 
-export default function RemindersScreen({ appState, sessionId, onRefresh }: {
-  appState: AppState; sessionId: string | null; onRefresh: () => Promise<void>;
+export default function RemindersScreen({ appState, onRefresh }: {
+  appState: AppState; onRefresh: () => Promise<void>;
 }) {
   const reminders = appState.reminders ?? [];
   const { error, run } = usePersonalAction(onRefresh);
@@ -39,7 +39,7 @@ export default function RemindersScreen({ appState, sessionId, onRefresh }: {
     <div className="tw-screen" data-testid="reminders-screen">
       <h1 className="tw-h1">Reminders</h1>
       <p className="tw-subtle">Recurring reminders, emailed to you on the schedule you set.</p>
-      <AddReminderBar sessionId={sessionId} onRefresh={onRefresh} />
+      <AddReminderBar onRefresh={onRefresh} />
       {error && <p className="tw-error" role="alert">{error}</p>}
       {reminders.length === 0 ? (
         <section className="tw-section"><div className="tw-empty-sm">No reminders yet. Add one above, or ask the assistant.</div></section>
@@ -66,7 +66,7 @@ export default function RemindersScreen({ appState, sessionId, onRefresh }: {
                       className="tw-btn-ghost"
                       aria-label={reminder.enabled ? `Pause ${reminder.title}` : `Resume ${reminder.title}`}
                       data-testid={`reminder-toggle-${reminder.id}`}
-                      onClick={() => void run(() => updateReminder(sessionId!, reminder.id, { enabled: !reminder.enabled }))}
+                      onClick={() => void run(() => updateReminder(reminder.id, { enabled: !reminder.enabled }))}
                     >
                       {reminder.enabled ? "Pause" : "Resume"}
                     </button>
@@ -75,7 +75,7 @@ export default function RemindersScreen({ appState, sessionId, onRefresh }: {
                     <ArmedDelete
                       testid={`reminder-delete-${reminder.id}`}
                       label={reminder.title}
-                      onConfirm={() => void run(() => deleteReminder(sessionId!, reminder.id))}
+                      onConfirm={() => void run(() => deleteReminder(reminder.id))}
                     />
                   </td>
                 </tr>
@@ -88,7 +88,7 @@ export default function RemindersScreen({ appState, sessionId, onRefresh }: {
   );
 }
 
-function AddReminderBar({ sessionId, onRefresh }: { sessionId: string | null; onRefresh: () => Promise<void> }) {
+function AddReminderBar({ onRefresh }: { onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
@@ -106,9 +106,9 @@ function AddReminderBar({ sessionId, onRefresh }: { sessionId: string | null; on
   const needsDay = frequency === "weekly" && days.length === 0;
   const ok = !!(title.trim() && dueDate && time && !needsDay);
   const submit = () => {
-    if (!sessionId || !ok) return;
+    if (!ok) return;
     void run(async () => {
-      await createReminder(sessionId, {
+      await createReminder({
         title: title.trim(), message: message.trim(), frequency, dueDate, time, timezone: tz,
         daysOfWeek: frequency === "weekly" ? days : [],
       });

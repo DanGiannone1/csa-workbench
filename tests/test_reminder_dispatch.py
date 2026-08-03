@@ -79,7 +79,7 @@ def _store(reminder, user=None):
     user = user or {"id": "u-abc", "username": "dan@contoso.com", "identity": "entra"}
     return MemoryStore(
         [user],
-        {user["id"]: {"currentRoute": "/home", "personalTasks": [], "calendarEvents": [],
+        {user["id"]: {"personalTasks": [], "calendarEvents": [],
                       "reminders": [reminder]}},
     )
 

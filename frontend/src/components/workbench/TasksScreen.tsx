@@ -15,10 +15,9 @@ function groupsOf(tasks: Task[]): string[] {
   return Array.from(new Set(tasks.map((task) => task.group || "General")));
 }
 
-export default function TasksScreen({ appState, viewRoute, sessionId, onNavigate, onRefresh }: {
+export default function TasksScreen({ appState, viewRoute, onNavigate, onRefresh }: {
   appState: AppState;
   viewRoute: string;
-  sessionId: string | null;
   onNavigate: (route: string) => void;
   onRefresh: () => Promise<void>;
 }) {
@@ -37,7 +36,6 @@ export default function TasksScreen({ appState, viewRoute, sessionId, onNavigate
         ) : (
           <TaskDetail
             task={task}
-            sessionId={sessionId}
             groups={groupsOf(tasks)}
             onNavigate={onNavigate}
             onRefresh={onRefresh}
@@ -47,11 +45,11 @@ export default function TasksScreen({ appState, viewRoute, sessionId, onNavigate
     );
   }
 
-  return <TasksList tasks={tasks} sessionId={sessionId} onNavigate={onNavigate} onRefresh={onRefresh} />;
+  return <TasksList tasks={tasks} onNavigate={onNavigate} onRefresh={onRefresh} />;
 }
 
-function TasksList({ tasks, sessionId, onNavigate, onRefresh }: {
-  tasks: Task[]; sessionId: string | null; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
+function TasksList({ tasks, onNavigate, onRefresh }: {
+  tasks: Task[]; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const groups = groupsOf(tasks);
@@ -67,7 +65,7 @@ function TasksList({ tasks, sessionId, onNavigate, onRefresh }: {
         <Stat label="Due today" value={tasks.filter((task) => task.status !== "Done" && (task.dueDate || "").slice(0, 10) === today).length} />
         <Stat label="Overdue" value={tasks.filter((task) => isOverdue(task, today)).length} />
       </div>
-      <AddTaskBar sessionId={sessionId} groups={groups} onRefresh={onRefresh} />
+      <AddTaskBar groups={groups} onRefresh={onRefresh} />
       {error && <p className="tw-error" role="alert">{error}</p>}
       {tasks.length === 0 ? (
         <section className="tw-section"><div className="tw-empty-sm">No tasks yet. Add one above, or ask the assistant.</div></section>
@@ -104,7 +102,7 @@ function TasksList({ tasks, sessionId, onNavigate, onRefresh }: {
                           <ArmedDelete
                             testid={`task-delete-${task.id}`}
                             label={task.title}
-                            onConfirm={() => void run(() => deleteTask(sessionId!, task.id))}
+                            onConfirm={() => void run(() => deleteTask(task.id))}
                           />
                         </td>
                       </tr>
@@ -120,7 +118,7 @@ function TasksList({ tasks, sessionId, onNavigate, onRefresh }: {
   );
 }
 
-function AddTaskBar({ sessionId, groups, onRefresh }: { sessionId: string | null; groups: string[]; onRefresh: () => Promise<void> }) {
+function AddTaskBar({ groups, onRefresh }: { groups: string[]; onRefresh: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [titleError, setTitleError] = useState("");
@@ -144,10 +142,9 @@ function AddTaskBar({ sessionId, groups, onRefresh }: { sessionId: string | null
       requestAnimationFrame(() => titleRef.current?.focus());
       return;
     }
-    if (!sessionId) return;
     setTitleError("");
     void run(async () => {
-      await createTask(sessionId, { title: title.trim(), priority, group: group.trim() || "General", dueDate });
+      await createTask({ title: title.trim(), priority, group: group.trim() || "General", dueDate });
       setTitle(""); setDueDate(""); setOpen(false);
     });
   };
@@ -197,8 +194,8 @@ function AddTaskBar({ sessionId, groups, onRefresh }: { sessionId: string | null
   );
 }
 
-function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
-  task: Task; sessionId: string | null; groups: string[]; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
+function TaskDetail({ task, groups, onNavigate, onRefresh }: {
+  task: Task; groups: string[]; onNavigate: (route: string) => void; onRefresh: () => Promise<void>;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const subtasks = task.subtasks ?? [];
@@ -211,9 +208,8 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
   const [subtaskText, setSubtaskText] = useState("");
 
   const patch = (body: Partial<{ title: string; status: string; priority: string; group: string; dueDate: string }>) => {
-    if (!sessionId) return;
     setSaved(false);
-    void run(async () => { await updateTask(sessionId, task.id, body); setSaved(true); });
+    void run(async () => { await updateTask(task.id, body); setSaved(true); });
   };
   useEffect(() => { if (!saved) return; const id = setTimeout(() => setSaved(false), 2200); return () => clearTimeout(id); }, [saved]);
   useEffect(() => { if (armed) confirmRef.current?.focus(); }, [armed]);
@@ -303,7 +299,7 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
                 className="tw-btn"
                 data-testid="delete-task-confirm"
                 disabled={busy}
-                onClick={() => { if (sessionId) void run(async () => { await deleteTask(sessionId, task.id); onNavigate("/todo"); }); }}
+                onClick={() => { void run(async () => { await deleteTask(task.id); onNavigate("/todo"); }); }}
               >
                 <Trash2 size={13} /> Confirm delete
               </button>
@@ -330,7 +326,7 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
                   data-testid={`subtask-${index}`}
                   disabled={busy}
                   style={{ background: "none", border: "none", padding: 0, display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: "inherit", flex: 1, minWidth: 0, textAlign: "left" }}
-                  onClick={() => { if (sessionId && !busy) void run(() => toggleSubtask(sessionId, task.id, index, !subtask.done)); }}
+                  onClick={() => { if (!busy) void run(() => toggleSubtask(task.id, index, !subtask.done)); }}
                 >
                   {subtask.done ? <CheckCircle2 size={15} className="text-brand-success" /> : <Circle size={15} />}
                   <span className={subtask.done ? "line-through opacity-60" : ""}>{subtask.text}</span>
@@ -342,7 +338,7 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
                   aria-label={`Delete subtask: ${subtask.text}`}
                   data-testid={`subtask-delete-${index}`}
                   disabled={busy}
-                  onClick={() => { if (sessionId && !busy) void run(() => deleteSubtask(sessionId, task.id, index)); }}
+                  onClick={() => { if (!busy) void run(() => deleteSubtask(task.id, index)); }}
                 >
                   <Trash2 size={12} />
                 </button>
@@ -359,8 +355,8 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
             style={{ minWidth: 200 }}
             onChange={(event) => setSubtaskText(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key !== "Enter" || !sessionId || !subtaskText.trim()) return;
-              void run(async () => { await addSubtask(sessionId, task.id, subtaskText.trim()); setSubtaskText(""); });
+              if (event.key !== "Enter" || !subtaskText.trim()) return;
+              void run(async () => { await addSubtask(task.id, subtaskText.trim()); setSubtaskText(""); });
             }}
           />
           <button
@@ -368,7 +364,7 @@ function TaskDetail({ task, sessionId, groups, onNavigate, onRefresh }: {
             className="tw-btn"
             disabled={busy || !subtaskText.trim()}
             data-testid="subtask-add-btn"
-            onClick={() => { if (sessionId && subtaskText.trim()) void run(async () => { await addSubtask(sessionId, task.id, subtaskText.trim()); setSubtaskText(""); }); }}
+            onClick={() => { if (subtaskText.trim()) void run(async () => { await addSubtask(task.id, subtaskText.trim()); setSubtaskText(""); }); }}
           >
             <Plus size={13} /> Add
           </button>

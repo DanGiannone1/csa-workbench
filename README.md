@@ -93,7 +93,6 @@ csa-workbench/
 |   |-- assistant/
 |   |   |-- src/workbench_assistant/
 |   |   |-- product-skills/
-|   |   |-- seed-docs/
 |   |   |-- Dockerfile
 |   |   `-- pyproject.toml
 |   `-- core/

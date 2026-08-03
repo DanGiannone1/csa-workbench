@@ -255,7 +255,6 @@ async def create_session(request: Request) -> dict:
     workspace = Path(_session_workspace(session_id))
     workspace.mkdir(parents=True, exist_ok=True)
     _session_users[session_id] = user_id
-    _ensure_documents_seeded(str(workspace))
     trace_event("session", "session.created", session_id=session_id, user=user_id, workspace=str(workspace))
     return {"session_id": session_id, "status": "active", "user_id": user_id}
 
@@ -554,33 +553,3 @@ def _write_uploaded_manifest(workspace: str, names: set[str]) -> None:
     payload = {"uploaded_files": sorted(names)}
     with open(path, "w", encoding="utf-8") as f:
         json.dump(payload, f)
-
-
-_SEED_DOCS_DIR = Path(__file__).resolve().parents[2] / "seed-docs"
-
-
-def _ensure_documents_seeded(workspace: str) -> None:
-    """Seed the workspace's provided source documents into a fresh workspace.
-
-    These are Markdown documents the user works *from* (a project brief, meeting
-    notes, a 1:1 log, a short reference/SOP). They are registered in the upload
-    manifest for agent reading and summarizing, but remain ephemeral session files,
-    not durable Engagement artifacts.
-    """
-    if not _SEED_DOCS_DIR.is_dir():
-        # Fail loud (packaging error): the session workspace depends on these.
-        logger.warning("Seed documents directory missing: %s", _SEED_DOCS_DIR)
-        return
-    ws = Path(workspace)
-    ws.mkdir(parents=True, exist_ok=True)
-    manifest = _read_uploaded_manifest(workspace)
-    changed = False
-    for src in sorted(_SEED_DOCS_DIR.glob("*.md")):
-        dest = ws / src.name
-        if not dest.exists():
-            dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        if src.name not in manifest:
-            manifest.add(src.name)
-            changed = True
-    if changed:
-        _write_uploaded_manifest(workspace, manifest)

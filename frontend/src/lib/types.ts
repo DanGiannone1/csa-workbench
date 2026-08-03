@@ -242,7 +242,6 @@ export interface Brief {
 }
 
 export interface AppState {
-  currentRoute: string;
   personalTasks: Task[];
   calendarEvents: CalendarEvent[];
   reminders: Reminder[];

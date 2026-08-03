@@ -24,6 +24,10 @@ This is the same command on Windows, macOS, and Linux. It checks the local tools
 from `.env.example` only when `.env` is absent, and installs the locked root, Python, and frontend
 dependencies. It never overwrites an existing `.env`.
 
+The default and deployed assistant runtime is Deep Agents. Repository development installs the
+optional Copilot comparison adapter so its compatibility checks can run; the production image uses
+the no-development dependency set and does not install the Copilot SDK.
+
 Set `IDENTITY_MODE=demo`, a local `DEMO_PASSWORD`, the Azure OpenAI values, and Cosmos emulator values
 in `.env`. Do not commit real secrets. Read `.env.example` for the current variable names.
 

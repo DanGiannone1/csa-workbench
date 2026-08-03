@@ -25,6 +25,7 @@ from workbench_core.upload_policy import is_allowed_upload
 logger = logging.getLogger(__name__)
 
 POOL_MANAGEMENT_ENDPOINT = os.getenv("POOL_MANAGEMENT_ENDPOINT", "")
+RUNTIME_CREATE_READ_TIMEOUT_SECONDS = 30
 
 # Session IDs are created as uuid4().hex[:16] — exactly 16 lowercase hex chars
 _SESSION_ID_RE = re.compile(r"^[0-9a-f]{16}$")
@@ -280,7 +281,9 @@ class SessionManager:
         url = self._runtime_url("/session", session_id)
         resp = await self._http.post(
             url,
-            timeout=httpx.Timeout(connect=10, read=30, write=10, pool=10),
+            timeout=httpx.Timeout(
+                connect=10, read=RUNTIME_CREATE_READ_TIMEOUT_SECONDS, write=10, pool=10,
+            ),
             headers={"X-User-Id": user_id},
         )
         resp.raise_for_status()

@@ -61,11 +61,6 @@ $env:MODEL_NAME='your-model-name'
 $env:MODEL_VERSION='your-model-version'
 $env:MODEL_SKU_NAME='your-model-sku-name'
 $env:MODEL_CAPACITY='your-model-capacity'
-$env:LEGACY_MODEL_DEPLOYMENT_NAME='your-legacy-deployment-name'
-$env:LEGACY_MODEL_NAME='your-legacy-model-name'
-$env:LEGACY_MODEL_VERSION='your-legacy-model-version'
-$env:LEGACY_MODEL_SKU_NAME='your-legacy-model-sku-name'
-$env:LEGACY_MODEL_CAPACITY='your-legacy-model-capacity'
 $env:IDENTITY_MODE='entra'
 ```
 
@@ -78,16 +73,18 @@ export MODEL_NAME='your-model-name'
 export MODEL_VERSION='your-model-version'
 export MODEL_SKU_NAME='your-model-sku-name'
 export MODEL_CAPACITY='your-model-capacity'
-export LEGACY_MODEL_DEPLOYMENT_NAME='your-legacy-deployment-name'
-export LEGACY_MODEL_NAME='your-legacy-model-name'
-export LEGACY_MODEL_VERSION='your-legacy-model-version'
-export LEGACY_MODEL_SKU_NAME='your-legacy-model-sku-name'
-export LEGACY_MODEL_CAPACITY='your-legacy-model-capacity'
 export IDENTITY_MODE='entra'
 ```
 
 Use `IDENTITY_MODE=demo` only for an isolated demo deployment. Demo mode also requires
 `DEMO_PASSWORD` to be present in the environment without printing or committing it.
+
+A warm rollback model is optional. Enable it only when the environment has an explicit recovery
+objective by setting `ENABLE_LEGACY_MODEL=true` and the five `LEGACY_MODEL_*` values. Supplying any
+legacy-model value also enables the complete profile for compatibility with existing operator
+configuration. Set `ENABLE_FOUNDRY_PROJECT=true` to provision and verify a Foundry project for an
+environment that runs the advisory Foundry evaluation lane. Neither option changes the product's
+runtime model binding.
 
 The resource group is `csa-wb-<instance-slug>-rg`.
 
@@ -131,15 +128,18 @@ recovery is needed, the command removes only the exact Container Apps and enviro
 current plan before creating the approved resources.
 
 The command creates Entra registrations, builds Git-SHA-tagged images, deploys the Azure components,
-and inspects the resulting resource group, network, identities, and application settings.
+inspects the resulting resource group, network, identities, and application settings, and then runs
+the authenticated application verification described below. Apply reports success only after that
+verification passes.
 
 The final inspection requires exactly the three expected Container Apps with the configured access,
 ports, replica limits, and Git-SHA image tag. It requires the runtime auth sidecar and, in Entra
 mode, the API auth sidecar, both pinned to
 `mcr.microsoft.com/entra-sdk/auth-sidecar@sha256:fc4b3871adfacf41a46b3ad9e8cf619e59d58b39bf5b00dfe9ff13c1de140dd6`.
 It also checks their loopback endpoint, tenant, audience, scope or role, resources, the private
-network, Cosmos and Blob settings, managed-identity roles, and expected resource list. An unexpected
-application-owned resource causes the deployment check to fail. Sidecar drift also fails the check.
+network, Cosmos and Blob settings, managed-identity roles, and selected optional model/Foundry
+profiles. Sidecar drift also fails the check. Resource-group-wide allowlisting belongs in Azure
+Policy or Resource Graph governance rather than duplicating the Bicep desired state here.
 
 A first deployment can take tens of minutes. Container Apps environment creation or recovery and
 private-endpoint provisioning are long-running Azure control-plane operations; lack of terminal
@@ -148,7 +148,8 @@ apply while the first is still active.
 
 ## Verify the deployed application
 
-Run the same command on Windows, macOS, or Linux:
+Apply runs this verification automatically. Run the same command independently on Windows, macOS,
+or Linux whenever verification needs to be repeated without redeploying:
 
 ```text
 uv run python -m scripts.workbench deploy verify
