@@ -168,7 +168,9 @@ function isAuthoritativeEngagement(engagement, actorId) {
     || !Array.isArray(engagement.members) || !Array.isArray(engagement.tasks)
     || !Array.isArray(engagement.actions) || !Array.isArray(engagement.milestones)
     || !Array.isArray(engagement.risks) || !Array.isArray(engagement.library)
-    || !Array.isArray(engagement.conventions)) return false;
+    || !Array.isArray(engagement.conventions) || !Array.isArray(engagement.objectives)
+    || !Array.isArray(engagement.keyDates) || !Array.isArray(engagement.contacts)
+    || !Array.isArray(engagement.timeline)) return false;
   if (!memberRoleForActor(engagement, actorId)) return false;
   return engagement.members.every((member) => member && typeof member.userId === "string" && typeof member.role === "string")
     && engagement.conventions.every((convention) => convention && typeof convention.text === "string")
@@ -222,6 +224,25 @@ function renderEngagementDetail(before, engagementId) {
     "members: " + (engagement.members.map((member) => `${member.userId}(${member.role})`).join(", ") || "none"),
   ];
   if (engagement.description) lines.push(`description: ${engagement.description}`);
+  if (engagement.businessValue) lines.push(`businessValue: ${engagement.businessValue}`);
+  if (engagement.value) lines.push(`value: $${Math.round(engagement.value).toLocaleString("en-US")}`);
+  if (engagement.currentState) lines.push(`currentState (as of ${engagement.stateDate || "n/a"}): ${engagement.currentState}`);
+  if (engagement.objectives.length) lines.push("objectives: " + engagement.objectives.join("; "));
+  if (engagement.keyDates.length) {
+    lines.push("keyDates: " + engagement.keyDates
+      .map((kd) => `${kd.date} ${kd.label}${kd.done ? " (done)" : ""}`).join("; "));
+  }
+  if (engagement.contacts.length) {
+    lines.push("customer contacts: " + engagement.contacts
+      .map((contact) => `${contact.name} (${contact.role})`).join("; "));
+  }
+  if (engagement.timeline.length) {
+    lines.push("timeline (newest first):");
+    for (const entry of engagement.timeline.slice(0, 10)) {
+      const src = entry.source ? ` [from ${entry.source}]` : "";
+      lines.push(`- [${entry.id}] ${entry.date} ${entry.type}: ${entry.title} — ${entry.author}${src}`);
+    }
+  }
   for (const [label, key, fields] of [
     ["tasks", "tasks", ["title", "status", "priority", "dueDate"]],
     ["actions", "actions", ["title", "status", "owner", "dueDate"]],
@@ -284,6 +305,8 @@ function groundedModelVisibleOutputChecks(expectation, before, toolCalls, rawRec
 // engagement. Read tools are deliberately absent: reads never bound the blast radius.
 const ENGAGEMENT_WRITE_OR_NAVIGATE_TOOLS = new Set([
   "update_engagement", "set_engagement_status", "share_engagement", "navigate",
+  "add_timeline_entry", "add_key_date", "toggle_key_date", "add_objective",
+  "add_contact", "promote_artifact",
 ]);
 
 export function applicablePrimaryCheckNames(expectation) {
