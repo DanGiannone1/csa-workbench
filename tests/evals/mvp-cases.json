@@ -243,7 +243,7 @@
       }
     },
     {
-      "id": "ACME-8-log-decision",
+      "id": "ACME-11-log-decision",
       "scenario": "Log a typed decision on the engagement timeline",
       "actor": "dan",
       "prompt": "Log a decision on the Acme chatbot engagement: 'Pilot cohort locked at 500 employees'.",

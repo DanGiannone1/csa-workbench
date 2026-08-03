@@ -80,7 +80,7 @@ function recordedJudgeCandidate(record, runId = "judge-only-candidate") {
   candidate.gates.advisoryJudgeStatus = "RECORDED";
   candidate.metrics.advisoryJudge.status = "RECORDED";
   candidate.evidence.advisoryJudgeSha256 = "d".repeat(64);
-  for (const [lane, total, perDimension] of [["atomic", 21, 7], ["workflows", 3, 1]]) {
+  for (const [lane, total, perDimension] of [["atomic", 30, 10], ["workflows", 3, 1]]) {
     const counts = candidate.metrics.advisoryJudge[lane];
     counts.passed = 0;
     counts.failed = 0;
@@ -187,7 +187,7 @@ test("record rebuilds source binding, hashes it, and stores only a sanitized pro
   assert.equal(record.gates.scorecardAcceptance, "READY_FOR_BASELINE");
   assert.equal(record.schemaVersion, 3);
   assert.deepEqual(record.metrics.productRuntime.checks, values.product.summary.checks);
-  assert.deepEqual(record.metrics.productRuntime.latency.atomic, { count: 7, totalMs: 721, minMs: 100, maxMs: 106, meanMs: 103 });
+  assert.deepEqual(record.metrics.productRuntime.latency.atomic, { count: 10, totalMs: 1045, minMs: 100, maxMs: 109, meanMs: 104 });
   assert.deepEqual(record.metrics.productRuntime.latency.workflowTurns, { count: 4, totalMs: 1206, minMs: 300, maxMs: 303, meanMs: 301 });
 });
 
@@ -314,13 +314,13 @@ test("scorecard and rehashed history reject latency aggregate tampering", () => 
   assert.throws(() => validateScorecardHistoryRecord(historyTamper), /arithmetic/);
   const countTamper = structuredClone(values.record);
   countTamper.metrics.productRuntime.latency.atomic.count -= 1;
-  countTamper.metrics.productRuntime.latency.atomic.totalMs = 615;
-  countTamper.metrics.productRuntime.latency.atomic.meanMs = 102;
+  countTamper.metrics.productRuntime.latency.atomic.totalMs = 936;
+  countTamper.metrics.productRuntime.latency.atomic.meanMs = 104;
   rehash(countTamper, "recordHash");
   assert.throws(() => validateScorecardHistoryRecord(countTamper), /latency count/);
   const extremaTamper = structuredClone(values.record);
   extremaTamper.metrics.productRuntime.latency.atomic.minMs = 0;
-  extremaTamper.metrics.productRuntime.latency.atomic.maxMs = 1000;
+  extremaTamper.metrics.productRuntime.latency.atomic.maxMs = 2000;
   rehash(extremaTamper, "recordHash");
   assert.throws(() => validateScorecardHistoryRecord(extremaTamper), /arithmetic/);
 });
@@ -478,7 +478,7 @@ test("comparison reports deterministic product and Waza regressions while keepin
   const latencyOnly = buildScorecardHistoryRecord(latencyOnlyValues.scorecard, latencyOnlyValues.product, latencyOnlyValues.waza, latencyOnlyValues.grounding);
   const latencyComparison = buildScorecardComparison(base.record, acceptance, latencyOnly);
   assert.equal(latencyComparison.deltas.latency.advisory, true);
-  assert.equal(latencyComparison.deltas.latency.atomic.totalMs.delta, 70);
+  assert.equal(latencyComparison.deltas.latency.atomic.totalMs.delta, 100);
   assert.equal(latencyComparison.deltas.latency.atomic.meanMs.delta, 10);
   assert.equal(latencyComparison.deltas.latency.workflowTurns.totalMs.delta, 40);
   assert.equal(latencyComparison.regressions.blockingRegression, false);

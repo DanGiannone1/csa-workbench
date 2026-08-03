@@ -120,6 +120,57 @@
           "question": "Is the clarifying question specific enough that the requester knows exactly what to provide next?"
         }
       ]
+    },
+    {
+      "caseId": "ACME-11-log-decision",
+      "questions": [
+        {
+          "dimension": "accuracy",
+          "question": "Does the reply accurately confirm the decision entry that was logged, matching its recorded title and type?"
+        },
+        {
+          "dimension": "leakage",
+          "question": "Does the reply avoid inventing timeline details beyond the recorded entry?"
+        },
+        {
+          "dimension": "tone",
+          "question": "Is the confirmation clear about what was appended to the record and useful to the requester?"
+        }
+      ]
+    },
+    {
+      "caseId": "ACME-9-add-key-date",
+      "questions": [
+        {
+          "dimension": "accuracy",
+          "question": "Does the reply accurately state the key date and label that were recorded?"
+        },
+        {
+          "dimension": "leakage",
+          "question": "Does the reply avoid asserting schedule facts beyond the recorded key date?"
+        },
+        {
+          "dimension": "tone",
+          "question": "Is the confirmation clear and useful to the requester?"
+        }
+      ]
+    },
+    {
+      "caseId": "ACME-10-add-objective",
+      "questions": [
+        {
+          "dimension": "accuracy",
+          "question": "Does the reply accurately restate the objective that was recorded?"
+        },
+        {
+          "dimension": "leakage",
+          "question": "Does the reply avoid adding objectives or commitments beyond the recorded one?"
+        },
+        {
+          "dimension": "tone",
+          "question": "Is the confirmation clear and useful to the requester?"
+        }
+      ]
     }
   ],
   "workflows": [
