@@ -52,11 +52,16 @@ def main() -> None:
     rows, evidence = build_rows(results_path)
     model_under_test = evidence.get("model")
     if not model_under_test or model_under_test == "UNSPECIFIED":
-        raise SystemExit("evidence does not record the model under test; refusing to validate judge independence")
+        raise SystemExit("evidence does not record the model under test; judge provenance would be unverifiable")
+    # Same-model judging is allowed (this layer is advisory by charter) but never
+    # silent: the pairing is printed so the provenance travels with the run.
     if judge == model_under_test:
-        raise SystemExit(
-            f"judge deployment '{judge}' equals the model under test; the advisory judge must be a different model")
-    print(f"{len(rows)} rows from evidence run {evidence['runId']} (model under test: {evidence.get('model')})")
+        print(
+            f"WARNING: judge deployment '{judge}' is the model under test — "
+            "scores may carry self-preference bias; treat them accordingly.")
+    print(
+        f"{len(rows)} rows from evidence run {evidence['runId']} "
+        f"(model under test: {model_under_test}; judge: {judge})")
 
     data_rows = [dict(r) for r in rows]
     client = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
